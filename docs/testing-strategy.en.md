@@ -75,7 +75,7 @@ Synthetic benchmarks record file count, occurrence count, source-kind distributi
 
 Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, global metadata-resolved work, isolation queries, and rule previews. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
 
-The local synthetic 10k and explicit 50k modes have been run for the current implementation. The final pre-host 50k run built the graph and projected isolated files in 704.1 ms (1.063 s for the complete guarded benchmark test) on the recorded local runtime. A 100k claim remains unverified and must not be inferred from the 50k result.
+The local synthetic 10k and explicit 50k modes have been run for the current implementation. The latest explicit 50k run built the graph and projected isolated files in 733.3 ms (1.121 s for the complete guarded benchmark test) on the recorded local runtime. A 100k claim remains unverified and must not be inferred from the 50k result.
 
 ## Package and host acceptance
 
