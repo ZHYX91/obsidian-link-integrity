@@ -1,0 +1,185 @@
+import type {
+  CachedMetadata,
+  MetadataCache,
+  Vault,
+} from "obsidian";
+import { describe, expect, it } from "vitest";
+
+import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
+
+interface FakeFile {
+  readonly path: string;
+  readonly extension: string;
+  readonly stat: { readonly mtime: number };
+}
+
+describe("ObsidianLinkIndexPort", () => {
+  it("reads one current FileRecord by path without enumerating the Vault", async () => {
+    const source = fakeFile("Source.md");
+    const { port } = createPort([source], {
+      content: {},
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    await expect(port.getFileRecord(source.path)).resolves.toMatchObject({
+      path: "Source.md",
+      extension: "md",
+      modifiedAt: 123,
+    });
+    await expect(port.getFileRecord("Missing.md")).resolves.toBeNull();
+  });
+
+  it("uses Metadata Cache occurrences and keeps file/subpath status separate", async () => {
+    const source = fakeFile("Source.md");
+    const target = fakeFile("Target.md");
+    const files = [source, target];
+    const cache: CachedMetadata = {
+      links: [
+        reference("Target#Missing heading", "[[Target#Missing heading]]", 1),
+        reference("Source", "[[Source]]", 2),
+      ],
+      embeds: [reference("Missing.png", "![[Missing.png]]", 3)],
+      frontmatterLinks: [{
+        link: "Target",
+        original: "[[Target]]",
+        key: "related",
+      }],
+    };
+    const { port } = createPort(files, {
+      content: {},
+      caches: new Map([[source.path, cache], [target.path, {}]]),
+      destinations: new Map([["Target", target], ["Source", source]]),
+    });
+
+    const snapshot = await port.buildSourceSnapshot(source.path);
+
+    expect(snapshot?.occurrences).toHaveLength(4);
+    expect(snapshot?.occurrences[0]).toMatchObject({
+      targetPath: "Target.md",
+      fileStatus: "resolved",
+      subpathStatus: "missing-heading",
+    });
+    expect(snapshot?.occurrences[1]).toMatchObject({
+      targetPath: "Source.md",
+      fileStatus: "resolved",
+      subpathStatus: "none",
+    });
+    expect(snapshot?.occurrences[2]).toMatchObject({
+      linkpath: "Missing.png",
+      fileStatus: "missing",
+    });
+    expect(snapshot?.occurrences[3]?.position).toMatchObject({ property: "related" });
+  });
+
+  it("reads Canvas file, background, and Markdown text references", async () => {
+    const canvas = fakeFile("Board.canvas");
+    const image = fakeFile("image.png");
+    const target = fakeFile("Target.md");
+    const source = JSON.stringify({
+      nodes: [
+        { id: "file-1", type: "file", file: "image.png" },
+        { id: "group-1", type: "group", background: "Target.md" },
+        { id: "text-1", type: "text", text: "[[Missing]] [site](https://example.com)" },
+      ],
+    });
+    const { port } = createPort([canvas, image, target], {
+      content: { [canvas.path]: source },
+      caches: new Map([[target.path, {}]]),
+      destinations: new Map([["image.png", image], ["Target.md", target]]),
+    });
+
+    const snapshot = await port.buildSourceSnapshot(canvas.path);
+
+    expect(snapshot?.occurrences.map(({ kind }) => kind)).toEqual([
+      "canvas-file",
+      "canvas-background",
+      "canvas-text",
+      "canvas-text",
+    ]);
+    expect(snapshot?.occurrences[2]).toMatchObject({ fileStatus: "missing" });
+    expect(snapshot?.occurrences[3]).toMatchObject({
+      destinationKind: "external",
+      targetPath: null,
+    });
+    expect(snapshot?.occurrences[0]?.position?.canvasNodeId).toBe("file-1");
+  });
+
+  it("fails closed when Canvas JSON cannot be parsed", async () => {
+    const canvas = fakeFile("Broken.canvas");
+    const { port } = createPort([canvas], {
+      content: { [canvas.path]: "{ not valid JSON" },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    await expect(port.buildSourceSnapshot(canvas.path)).rejects.toThrow(
+      "Cannot parse Canvas source: Broken.canvas",
+    );
+  });
+
+  it("indexes only explicit Bases link values", async () => {
+    const base = fakeFile("Tasks.base");
+    const target = fakeFile("Target.md");
+    const source = [
+      "filters:",
+      "  - 'file.folder == [[Target]]'",
+      "  - 'file.hasTag(\"open\")'",
+      "properties:",
+      "  related: 'link(\"Missing.md\")'",
+    ].join("\n");
+    const { port } = createPort([base, target], {
+      content: { [base.path]: source },
+      caches: new Map([[target.path, {}]]),
+      destinations: new Map([["Target", target]]),
+    });
+
+    const snapshot = await port.buildSourceSnapshot(base.path);
+
+    expect(snapshot?.occurrences.map(({ linkpath, fileStatus }) => ({ linkpath, fileStatus })))
+      .toEqual([
+        { linkpath: "Target", fileStatus: "resolved" },
+        { linkpath: "Missing.md", fileStatus: "missing" },
+      ]);
+  });
+});
+
+function createPort(
+  inputFiles: readonly FakeFile[],
+  options: {
+    readonly content: Readonly<Record<string, string>>;
+    readonly caches: ReadonlyMap<string, CachedMetadata>;
+    readonly destinations: ReadonlyMap<string, FakeFile>;
+  },
+): { readonly port: ObsidianLinkIndexPort } {
+  const files = new Map(inputFiles.map((file) => [file.path, file]));
+  const vault = {
+    getFiles: () => [...files.values()],
+    getFileByPath: (path: string) => files.get(path) ?? null,
+    cachedRead: (file: FakeFile) => Promise.resolve(options.content[file.path] ?? ""),
+  } as unknown as Vault;
+  const metadataCache = {
+    getFileCache: (file: FakeFile) => options.caches.get(file.path) ?? null,
+    getFirstLinkpathDest: (linkpath: string) => options.destinations.get(linkpath) ?? null,
+  } as unknown as MetadataCache;
+  return { port: new ObsidianLinkIndexPort(vault, metadataCache) };
+}
+
+function fakeFile(path: string): FakeFile {
+  return {
+    path,
+    extension: path.split(".").at(-1) ?? "",
+    stat: { mtime: 123 },
+  };
+}
+
+function reference(link: string, original: string, line: number) {
+  return {
+    link,
+    original,
+    position: {
+      start: { line, col: 0, offset: line * 10 },
+      end: { line, col: original.length, offset: line * 10 + original.length },
+    },
+  };
+}

@@ -1,0 +1,10 @@
+{
+  "id": "link-integrity",
+  "name": "Link Integrity",
+  "version": "0.1.0",
+  "minAppVersion": "1.12.7",
+  "description": "Continuously find broken internal links and isolated files across your Vault.",
+  "author": "ZhengYX",
+  "authorUrl": "https://github.com/ZHYX91",
+  "isDesktopOnly": false
+}

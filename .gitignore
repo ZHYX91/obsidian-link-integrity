@@ -1,0 +1,11 @@
+node_modules/
+dist/
+release/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.obsidian/
+data.json
+!acceptance/fixtures/.obsidian/
+!acceptance/fixtures/.obsidian/**

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "general": {
+    "locale": "en",
+    "scanOnStartup": true,
+    "showScanStatus": true,
+    "defaultSidebarTab": "broken-links"
+  },
+  "isolatedFiles": {
+    "allowNoIncomingFilter": true,
+    "showExpectedIsolatedFiles": false,
+    "periodicNotesPreset": {
+      "enabled": true,
+      "entries": {
+        "daily": {
+          "enabled": true,
+          "folder": "Periodic",
+          "includeSubfolders": true,
+          "dateFormats": [
+            "YYYY-MM-DD"
+          ]
+        },
+        "weekly": {
+          "enabled": false
+        },
+        "monthly": {
+          "enabled": false
+        },
+        "quarterly": {
+          "enabled": false
+        },
+        "yearly": {
+          "enabled": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,324 @@
+import type { FileRecord, SourceSnapshot } from "../../core/model";
+import {
+  makeFileLookupKeys,
+  normalizeVaultPath,
+} from "../../core/model";
+import { AtomicLinkIndexStore } from "./atomic-store";
+import type { LinkIndexPort, SourceEvent } from "./ports";
+
+interface CoalescedEvents {
+  readonly directPaths: ReadonlySet<string>;
+  readonly changedTargetPaths: ReadonlySet<string>;
+  readonly modifiedPaths: ReadonlySet<string>;
+  readonly namespaceChanged: boolean;
+  readonly allMetadataResolved: boolean;
+}
+
+interface FileRecordUpdate {
+  readonly path: string;
+  readonly file: FileRecord | null;
+}
+
+interface SnapshotBuild {
+  readonly sourcePath: string;
+  readonly revision: number;
+  readonly snapshot: SourceSnapshot | null;
+}
+
+export interface IncrementalIndexOptions {
+  readonly concurrency?: number;
+}
+
+export class IncrementalIndexController {
+  private active = false;
+  private lifecycleEpoch = 0;
+  private readonly revisions = new Map<string, number>();
+  private queuedEvents: SourceEvent[] = [];
+  private drainPromise: Promise<void> | null = null;
+  private readonly concurrency: number;
+
+  public constructor(
+    private readonly port: LinkIndexPort,
+    private readonly store: AtomicLinkIndexStore,
+    options: IncrementalIndexOptions = {},
+  ) {
+    this.concurrency = Math.max(1, Math.floor(options.concurrency ?? 4));
+  }
+
+  public get epoch(): number {
+    return this.lifecycleEpoch;
+  }
+
+  public get pendingEventCount(): number {
+    return this.queuedEvents.length;
+  }
+
+  public start(): void {
+    if (this.active) return;
+    this.active = true;
+    this.lifecycleEpoch += 1;
+  }
+
+  public stop(): void {
+    if (!this.active) return;
+    this.active = false;
+    this.lifecycleEpoch += 1;
+    this.queuedEvents = [];
+  }
+
+  public enqueue(eventInput: SourceEvent): void {
+    if (!this.active) throw new Error("Incremental index controller is not active.");
+    const event = normalizeEvent(eventInput);
+    this.queuedEvents.push(event);
+    for (const path of this.getImmediatelyAffectedPaths(event)) this.bumpRevision(path);
+    this.scheduleDrain();
+  }
+
+  public async whenIdle(): Promise<void> {
+    while (this.drainPromise !== null || this.queuedEvents.length > 0) {
+      const pending = this.drainPromise;
+      if (pending !== null) await pending;
+      else this.scheduleDrain();
+    }
+  }
+
+  private scheduleDrain(): void {
+    if (this.drainPromise !== null || !this.active) return;
+    this.drainPromise = Promise.resolve()
+      .then(async () => this.drain())
+      .finally(() => {
+        this.drainPromise = null;
+        if (this.active && this.queuedEvents.length > 0) this.scheduleDrain();
+      });
+  }
+
+  private async drain(): Promise<void> {
+    while (this.active && this.queuedEvents.length > 0) {
+      const events = this.queuedEvents;
+      this.queuedEvents = [];
+      await this.applyBatch(coalesceEvents(events));
+    }
+  }
+
+  private async applyBatch(events: CoalescedEvents): Promise<void> {
+    const epoch = this.lifecycleEpoch;
+    const index = this.store.current;
+    const affectedPaths = new Set(events.directPaths);
+    let nextFiles: readonly FileRecord[] | null = null;
+    let fileRecordUpdates: readonly FileRecordUpdate[] = [];
+
+    for (const targetPath of events.changedTargetPaths) {
+      addAll(affectedPaths, index.getSourcePathsByTargetPath(targetPath));
+      addAll(affectedPaths, index.getSourcePathsByLookupKeys(makeFileLookupKeys(targetPath)));
+    }
+
+    if (events.namespaceChanged) {
+      const previousFiles = index.files;
+      nextFiles = await this.port.listFiles();
+      if (!this.isCurrentEpoch(epoch)) return;
+      const changedLookupKeys = getChangedLookupKeys(previousFiles, nextFiles);
+      addAll(affectedPaths, index.getSourcePathsByLookupKeys(changedLookupKeys));
+      for (const file of nextFiles) {
+        if (changedLookupKeys.some((key) => file.lookupKeys.includes(key))) {
+          affectedPaths.add(file.path);
+        }
+      }
+    } else if (events.modifiedPaths.size > 0) {
+      fileRecordUpdates = await Promise.all(Array.from(events.modifiedPaths, async (path) => ({
+        path,
+        file: await this.port.getFileRecord(path),
+      })));
+      if (!this.isCurrentEpoch(epoch)) return;
+      for (const update of fileRecordUpdates) {
+        const before = index.getFile(update.path);
+        const changedLookupKeys = getChangedLookupKeys(
+          before === null ? [] : [before],
+          update.file === null ? [] : [update.file],
+        );
+        addAll(affectedPaths, index.getSourcePathsByLookupKeys(changedLookupKeys));
+        if (update.file !== null && changedLookupKeys.some((key) =>
+          update.file?.lookupKeys.includes(key) === true)) {
+          affectedPaths.add(update.file.path);
+        }
+      }
+    }
+
+    if (events.allMetadataResolved) {
+      for (const file of nextFiles ?? index.files) affectedPaths.add(file.path);
+    }
+
+    for (const sourcePath of affectedPaths) this.ensureBatchRevision(sourcePath);
+    const availableSourcePaths = new Set((nextFiles ?? index.files).map(({ path }) => path));
+    if (nextFiles === null) {
+      for (const update of fileRecordUpdates) {
+        if (update.file === null) availableSourcePaths.delete(update.path);
+        else availableSourcePaths.add(update.file.path);
+      }
+    }
+    const builds = await this.buildSnapshots(Array.from(affectedPaths), availableSourcePaths);
+    if (!this.isCurrentEpoch(epoch)) return;
+    // Defer registry mutation until every source build succeeds. This keeps a
+    // failed namespace or parse update from partially replacing the last-known-good index.
+    if (nextFiles !== null) index.replaceFiles(nextFiles);
+    else {
+      for (const update of fileRecordUpdates) {
+        index.replaceFileRecord(update.path, update.file);
+      }
+    }
+    for (const build of builds) this.publishIfCurrent(build);
+  }
+
+  private publishIfCurrent(build: SnapshotBuild): void {
+    if (this.getRevision(build.sourcePath) !== build.revision) return;
+    const index = this.store.current;
+    if (!index.hasFile(build.sourcePath)) {
+      index.replaceSourceSnapshot(build.sourcePath, null);
+      return;
+    }
+    index.replaceSourceSnapshot(build.sourcePath, build.snapshot);
+  }
+
+  private async buildSnapshots(
+    sourcePaths: readonly string[],
+    availableSourcePaths: ReadonlySet<string>,
+  ): Promise<readonly SnapshotBuild[]> {
+    const builds: SnapshotBuild[] = [];
+    let nextIndex = 0;
+    const worker = async (): Promise<void> => {
+      while (nextIndex < sourcePaths.length) {
+        const pathIndex = nextIndex;
+        nextIndex += 1;
+        const sourcePath = sourcePaths[pathIndex];
+        if (sourcePath === undefined) continue;
+        const revision = this.getRevision(sourcePath);
+        const built = availableSourcePaths.has(sourcePath)
+          ? await this.port.buildSourceSnapshot(sourcePath)
+          : null;
+        builds[pathIndex] = { sourcePath, revision, snapshot: built };
+      }
+    };
+    await Promise.all(Array.from(
+      { length: Math.min(this.concurrency, Math.max(1, sourcePaths.length)) },
+      worker,
+    ));
+    return builds;
+  }
+
+  private getImmediatelyAffectedPaths(event: SourceEvent): ReadonlySet<string> {
+    const paths = new Set<string>();
+    const index = this.store.current;
+    const addPathAndReferences = (path: string): void => {
+      paths.add(path);
+      addAll(paths, index.getSourcePathsByTargetPath(path));
+      addAll(paths, index.getSourcePathsByLookupKeys(makeFileLookupKeys(path)));
+    };
+    if (event.type === "rename") {
+      addPathAndReferences(event.oldPath);
+      addPathAndReferences(event.path);
+    } else if (event.type === "metadata-resolved") {
+      if (event.path === null) {
+        for (const snapshot of index.snapshots) paths.add(snapshot.sourcePath);
+      } else addPathAndReferences(event.path);
+    } else {
+      addPathAndReferences(event.path);
+    }
+    return paths;
+  }
+
+  private ensureBatchRevision(path: string): void {
+    if (!this.revisions.has(path)) this.bumpRevision(path);
+  }
+
+  private bumpRevision(path: string): void {
+    this.revisions.set(path, this.getRevision(path) + 1);
+  }
+
+  private getRevision(path: string): number {
+    return this.revisions.get(path) ?? 0;
+  }
+
+  private isCurrentEpoch(epoch: number): boolean {
+    return this.active && this.lifecycleEpoch === epoch;
+  }
+}
+
+function normalizeEvent(event: SourceEvent): SourceEvent {
+  if (event.type === "rename") {
+    return {
+      type: "rename",
+      oldPath: normalizeVaultPath(event.oldPath),
+      path: normalizeVaultPath(event.path),
+    };
+  }
+  if (event.type === "metadata-resolved") {
+    return event.path === null
+      ? event
+      : { type: "metadata-resolved", path: normalizeVaultPath(event.path) };
+  }
+  return { type: event.type, path: normalizeVaultPath(event.path) };
+}
+
+function coalesceEvents(events: readonly SourceEvent[]): CoalescedEvents {
+  const directPaths = new Set<string>();
+  const changedTargetPaths = new Set<string>();
+  const modifiedPaths = new Set<string>();
+  let namespaceChanged = false;
+  let allMetadataResolved = false;
+  for (const event of events) {
+    if (event.type === "rename") {
+      directPaths.add(event.oldPath);
+      directPaths.add(event.path);
+      changedTargetPaths.add(event.oldPath);
+      changedTargetPaths.add(event.path);
+      namespaceChanged = true;
+    } else if (event.type === "metadata-resolved") {
+      if (event.path === null) allMetadataResolved = true;
+      else {
+        directPaths.add(event.path);
+        changedTargetPaths.add(event.path);
+      }
+    } else {
+      directPaths.add(event.path);
+      changedTargetPaths.add(event.path);
+      if (event.type === "modify") modifiedPaths.add(event.path);
+      else namespaceChanged = true;
+    }
+  }
+  return {
+    directPaths,
+    changedTargetPaths,
+    modifiedPaths,
+    namespaceChanged,
+    allMetadataResolved,
+  };
+}
+
+function getChangedLookupKeys(
+  previousFiles: readonly FileRecord[],
+  nextFiles: readonly FileRecord[],
+): readonly string[] {
+  const previous = new Map(previousFiles.map((file) => [file.path, file]));
+  const next = new Map(nextFiles.map((file) => [file.path, file]));
+  const changed = new Set<string>();
+  for (const path of new Set([...previous.keys(), ...next.keys()])) {
+    const before = previous.get(path);
+    const after = next.get(path);
+    if (before !== undefined && after !== undefined && sameLookupKeys(before, after)) continue;
+    for (const key of before?.lookupKeys ?? []) changed.add(key);
+    for (const key of after?.lookupKeys ?? []) changed.add(key);
+    if (before === undefined || after === undefined) {
+      for (const key of makeFileLookupKeys(path)) changed.add(key);
+    }
+  }
+  return Array.from(changed);
+}
+
+function sameLookupKeys(left: FileRecord, right: FileRecord): boolean {
+  if (left.lookupKeys.length !== right.lookupKeys.length) return false;
+  const rightKeys = new Set(right.lookupKeys);
+  return left.lookupKeys.every((key) => rightKeys.has(key));
+}
+
+function addAll(target: Set<string>, values: Iterable<string>): void {
+  for (const value of values) target.add(value);
+}

@@ -1,0 +1,8 @@
+filters:
+  and:
+    - file.inFolder("Connected")
+formulas:
+  target: 'link("Connected/Target.md")'
+views:
+  - type: table
+    name: Connected files

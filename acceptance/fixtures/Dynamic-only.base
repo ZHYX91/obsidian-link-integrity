@@ -1,0 +1,6 @@
+filters:
+  and:
+    - file.inFolder("Connected")
+views:
+  - type: table
+    name: Dynamic connected folder
