@@ -83,7 +83,9 @@ A packaged candidate must come from a deterministic production build and verify 
 
 The real desktop host matrix should cover at least Obsidian 1.12.7 and the current 1.13.x, verifying Metadata Cache boundaries, official resolver results, live events, precise navigation, themes, a narrow sidebar, keyboard operation, and RTL. Mobile acceptance separately covers touch targets, background/resume, rotation, narrow screens, and responsiveness on a larger Vault.
 
-At the current first-version implementation stage, there is no completed evidence that supports claiming real Obsidian host, Android emulator, or physical-device acceptance. Each item must remain “not verified” until its environment, steps, and results are recorded.
+The 2026-08-02 isolated-host attempt bound candidate commit `88fdb45` and its three install-asset hashes through `obsidian-acceptance-kit`, launched the installed Obsidian 1.12.7 binary with a fresh `--user-data-dir`, and opened the exact randomly named temporary Vault. Obsidian then presented its “trust this Vault author and enable plugins” security prompt before loading Link Integrity. Automation did not accept or bypass that prompt; the host lifecycle was recorded with a failed outcome and archived under run `b2d214ad-3c07-4f9b-b946-5940e8697c1b`.
+
+This is real evidence for the 1.12.7 executable, isolated profile, exact temporary Vault, and installed candidate bytes, but it is not plugin host acceptance. Plugin loading, sidebar counts, navigation, settings behavior, live events, 1.13.x, Android emulator, and physical-device behavior remain not verified.
 
 ## Completion criteria
 
