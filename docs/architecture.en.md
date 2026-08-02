@@ -55,6 +55,8 @@ Expected-isolation rules run in the query layer. They classify only candidates t
 
 A full rebuild first obtains the current file registry from the adapter, then builds source snapshots with bounded concurrency in a separate staging `LinkIndex`. The controller supports injectable task yielding and throttled progress callbacks so a large number of quickly completed operations does not monopolize one task indefinitely.
 
+For the startup baseline, Vault events are registered immediately, but Metadata Cache change/resolve listeners are attached only after one initial host-wide resolution boundary (or a bounded fallback wait) and the full rebuild. This prevents the host's initial per-file resolution storm from being replayed as a redundant second full-Vault pass; later per-file events remain incremental.
+
 `AtomicLinkIndexStore` publishes the new index once, and only after staging completes successfully. A build failure does not mutate the current index; an existing index remains the last-known-good result while application status marks the result failed or potentially stale.
 
 `LinkIndexCoordinator` buffers source events during a rebuild, replays them against staging, and catches up with current Vault state before publication. Concurrent refresh requests share one rebuild promise. When the plugin lifecycle changes, an obsolete rebuild is prevented from publishing so work from before unload cannot overwrite current state.

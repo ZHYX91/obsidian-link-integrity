@@ -55,6 +55,8 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 全量重建先从 adapter 取得当前文件 registry，再在独立 staging `LinkIndex` 中以有限并发构建来源快照。控制器支持可注入的时间片让步和节流进度回调，避免大量快速完成的工作长期占用同一任务。
 
+建立启动 baseline 时，Vault 事件会立即注册；Metadata Cache 的 change/resolve 监听则等到首次宿主级解析完成边界（或有界兜底等待）和全量重建结束后再挂载。这样不会把宿主启动阶段的逐文件解析风暴重放成第二次全 Vault 扫描；之后的逐文件事件仍按增量处理。
+
 只有 staging 完整成功后，`AtomicLinkIndexStore` 才一次性发布新索引。构建失败不会改变当前索引；已有索引继续作为 last-known-good，并由应用状态标记失败或可能过期。
 
 `LinkIndexCoordinator` 在重建期间缓冲来源事件，在 staging 上重放并追赶当前 Vault 状态后再发布。并发刷新调用共享同一个 rebuild promise。插件生命周期改变时，旧重建会被取消发布，避免卸载后的异步结果覆盖状态。

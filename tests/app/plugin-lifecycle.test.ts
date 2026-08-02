@@ -27,6 +27,7 @@ describe("plugin index lifecycle", () => {
         },
         getFirstLinkpathDest: () => null,
         on: metadataEvents.on,
+        offref: metadataEvents.offref,
       },
       workspace: {
         getLeavesOfType: () => [],
@@ -92,6 +93,57 @@ describe("plugin index lifecycle", () => {
     expect(snapshotBuildCount).toBeGreaterThan(1);
     plugin.onunload();
   });
+
+  it("builds the startup baseline before listening to per-file metadata storms", async () => {
+    const file = createMockFile("A.md", 1);
+    const vaultEvents = new TestEvents();
+    const metadataEvents = new TestEvents();
+    let layoutReady: (() => void) | null = null;
+    let snapshotBuildCount = 0;
+    const app = {
+      vault: {
+        cachedRead: async () => "",
+        getFileByPath: (path: string) => path === file.path ? file : null,
+        getFiles: () => [file],
+        on: vaultEvents.on,
+      },
+      metadataCache: {
+        getFileCache: () => {
+          snapshotBuildCount += 1;
+          return { links: [], embeds: [], frontmatterLinks: [] };
+        },
+        getFirstLinkpathDest: () => null,
+        on: metadataEvents.on,
+        offref: metadataEvents.offref,
+      },
+      workspace: {
+        getLeavesOfType: () => [],
+        onLayoutReady: (callback: () => void) => {
+          layoutReady = callback;
+        },
+      },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+
+    await plugin.onload();
+    (layoutReady as (() => void) | null)?.();
+    expect(metadataEvents.listenerCount("resolved")).toBe(1);
+    expect(metadataEvents.listenerCount("resolve")).toBe(0);
+
+    for (let count = 0; count < 100; count += 1) metadataEvents.emit("resolve", file);
+    metadataEvents.emit("resolved");
+
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    await vi.waitFor(() => {
+      expect(runtime.query.getSnapshot().status.state).toBe("ready");
+    });
+    expect(snapshotBuildCount).toBe(1);
+    expect(metadataEvents.listenerCount("resolved")).toBe(0);
+    expect(metadataEvents.listenerCount("resolve")).toBe(1);
+    plugin.onunload();
+  });
 });
 
 interface PluginRuntimeInspection {
@@ -115,10 +167,19 @@ class TestEvents {
   private readonly listeners = new Map<string, Array<(...args: unknown[]) => void>>();
 
   public readonly on = (name: string, callback: (...args: never[]) => void): object => {
+    const resolvedCallback = callback as (...args: unknown[]) => void;
     const callbacks = this.listeners.get(name) ?? [];
-    callbacks.push(callback as (...args: unknown[]) => void);
+    callbacks.push(resolvedCallback);
     this.listeners.set(name, callbacks);
-    return {};
+    return { name, callback: resolvedCallback } satisfies TestEventRef;
+  };
+
+  public readonly offref = (eventRef: object): void => {
+    const { name, callback } = eventRef as TestEventRef;
+    this.listeners.set(
+      name,
+      (this.listeners.get(name) ?? []).filter((listener) => listener !== callback),
+    );
   };
 
   public emit(name: string, ...args: unknown[]): void {
@@ -128,6 +189,11 @@ class TestEvents {
   public listenerCount(name: string): number {
     return this.listeners.get(name)?.length ?? 0;
   }
+}
+
+interface TestEventRef {
+  readonly name: string;
+  readonly callback: (...args: unknown[]) => void;
 }
 
 function createMockFile(path: string, modifiedAt: number): TFile {

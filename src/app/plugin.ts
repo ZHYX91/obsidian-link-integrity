@@ -6,6 +6,7 @@ import {
   TFile,
   getLanguage,
   type Command,
+  type EventRef,
   type WorkspaceLeaf,
 } from "obsidian";
 
@@ -234,17 +235,21 @@ export default class LinkIntegrityPlugin extends Plugin {
   private async startRuntime(): Promise<void> {
     if (this.runtimeStarted || this.unloaded) return;
     this.runtimeStarted = true;
-    this.registerSourceEvents();
-    if (this.settings.general.scanOnStartup) {
-      try {
+    this.registerVaultEvents();
+    try {
+      if (this.settings.general.scanOnStartup) {
+        await this.waitForInitialMetadataResolution();
+        if (this.unloaded) return;
         await this.rebuild();
-      } catch (error) {
-        this.reportError(error);
       }
+    } catch (error) {
+      this.reportError(error);
+    } finally {
+      if (!this.unloaded) this.registerMetadataEvents();
     }
   }
 
-  private registerSourceEvents(): void {
+  private registerVaultEvents(): void {
     this.registerEvent(this.app.vault.on("create", (file) => {
       if (file instanceof TFile) this.enqueue({ type: "create", path: file.path });
     }));
@@ -257,15 +262,37 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
       if (file instanceof TFile) this.enqueue({ type: "rename", oldPath, path: file.path });
     }));
+  }
+
+  private registerMetadataEvents(): void {
     this.registerEvent(this.app.metadataCache.on("changed", (file) => {
-      this.enqueue({ type: "modify", path: file.path });
+      this.enqueueMetadata({ type: "modify", path: file.path });
     }));
     this.registerEvent(this.app.metadataCache.on("deleted", (file) => {
-      this.enqueue({ type: "delete", path: file.path });
+      this.enqueueMetadata({ type: "delete", path: file.path });
     }));
     this.registerEvent(this.app.metadataCache.on("resolve", (file) => {
-      this.enqueue({ type: "metadata-resolved", path: file.path });
+      this.enqueueMetadata({ type: "metadata-resolved", path: file.path });
     }));
+  }
+
+  private waitForInitialMetadataResolution(maxWaitMs = 1_000): Promise<void> {
+    return new Promise((resolve) => {
+      let eventRef: EventRef | null = null;
+      let timeout: number | null = null;
+      const finish = (): void => {
+        if (eventRef !== null) this.app.metadataCache.offref(eventRef);
+        if (timeout !== null) window.clearTimeout(timeout);
+        resolve();
+      };
+      eventRef = this.app.metadataCache.on("resolved", finish);
+      timeout = window.setTimeout(finish, maxWaitMs);
+    });
+  }
+
+  private enqueueMetadata(event: SourceEvent): void {
+    if (!this.baselineAvailable && this.rebuildRequestCount > 0) return;
+    this.enqueue(event);
   }
 
   private enqueue(event: SourceEvent): void {
