@@ -44,7 +44,7 @@ export class SidebarQueryService implements SidebarQueryPort {
       ...createPeriodicExpectedIsolationRules(settings.isolatedFiles.periodicNotesPreset),
     ];
     const ignoreService = new IgnoreService(settings.ignoreRules);
-    const excludedCandidatePaths = settings.isolatedFiles.showIgnored
+    const excludedCandidatePaths = settings.isolatedFiles.showIgnored || settings.ignoreRules.length === 0
       ? new Set<string>()
       : new Set(index.files
         .filter((file) => {

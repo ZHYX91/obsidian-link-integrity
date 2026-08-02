@@ -80,6 +80,9 @@ export default class LinkIntegrityPlugin extends Plugin {
   private rebuildRequestCount = 0;
   private unloaded = false;
   private notificationPending = false;
+  private pendingSourceEvents: SourceEvent[] = [];
+  private eventFlushTimer: number | null = null;
+  private eventMaxFlushTimer: number | null = null;
 
   public override async onload(): Promise<void> {
     const loaded = loadSettings(await this.loadData());
@@ -133,6 +136,12 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.runtimeStarted = false;
     this.baselineAvailable = false;
     this.rebuildRequestCount = 0;
+    if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
+    if (this.eventMaxFlushTimer !== null) window.clearTimeout(this.eventMaxFlushTimer);
+    this.eventFlushTimer = null;
+    this.eventMaxFlushTimer = null;
+    this.pendingSourceEvents = [];
+    this.notificationPending = false;
     this.coordinator?.stop();
     this.coordinatorStarted = false;
     void this.saveCoordinator?.close().catch((error: unknown) => this.reportError(error));
@@ -271,9 +280,6 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.registerEvent(this.app.metadataCache.on("deleted", (file) => {
       this.enqueueMetadata({ type: "delete", path: file.path });
     }));
-    this.registerEvent(this.app.metadataCache.on("resolve", (file) => {
-      this.enqueueMetadata({ type: "metadata-resolved", path: file.path });
-    }));
   }
 
   private waitForInitialMetadataResolution(maxWaitMs = 1_000): Promise<void> {
@@ -291,20 +297,52 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private enqueueMetadata(event: SourceEvent): void {
-    if (!this.baselineAvailable && this.rebuildRequestCount > 0) return;
     this.enqueue(event);
   }
 
   private enqueue(event: SourceEvent): void {
     if (!this.runtimeStarted || this.unloaded) return;
-    if (!this.baselineAvailable && this.rebuildRequestCount === 0) return;
-    this.coordinator.enqueue(event);
+    // Startup filesystem and metadata events are already represented by the
+    // atomic baseline. Replaying them afterward duplicates the full scan and
+    // can amplify a large Vault's metadata-resolution tail into thousands of
+    // redundant incremental batches.
+    if (!this.baselineAvailable) return;
+    this.pendingSourceEvents.push(event);
+    if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
+    this.eventFlushTimer = window.setTimeout(() => {
+      this.flushPendingSourceEvents();
+    }, 100);
+    this.eventMaxFlushTimer ??= window.setTimeout(() => {
+      this.flushPendingSourceEvents();
+    }, 500);
+  }
+
+  private flushPendingSourceEvents(): void {
+    if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
+    if (this.eventMaxFlushTimer !== null) window.clearTimeout(this.eventMaxFlushTimer);
+    this.eventFlushTimer = null;
+    this.eventMaxFlushTimer = null;
+    if (!this.runtimeStarted || this.unloaded || !this.baselineAvailable) {
+      this.pendingSourceEvents = [];
+      return;
+    }
+    const events = this.pendingSourceEvents;
+    this.pendingSourceEvents = [];
+    if (events.length === 0) return;
+    for (const event of events) this.coordinator.enqueue(event);
     if (this.notificationPending) return;
     this.notificationPending = true;
     void this.coordinator.whenIdle()
       .then(() => {
+        if (this.eventFlushTimer !== null || this.pendingSourceEvents.length > 0) {
+          this.notificationPending = false;
+          return;
+        }
         this.notificationPending = false;
-        this.applyGraphContributionRules();
+        // The index retains its contribution scope and applies it to replaced
+        // snapshots. A full graph pass is only needed when active graph-ignore
+        // rules may change the excluded occurrence set.
+        if (this.hasGraphContributionRules()) this.applyGraphContributionRules();
         this.query.notify();
       })
       .catch((error: unknown) => {
@@ -317,6 +355,11 @@ export default class LinkIntegrityPlugin extends Plugin {
         });
         this.reportError(error);
       });
+  }
+
+  private hasGraphContributionRules(): boolean {
+    return this.settings.ignoreRules.some((rule) =>
+      rule.enabled && rule.scope === "exclude-graph-contribution");
   }
 
   private refreshEntrypoints(): void {

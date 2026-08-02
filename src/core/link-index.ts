@@ -160,6 +160,7 @@ export class LinkIndex {
   }
 
   public setContributionScope(scope: GraphContributionScope): void {
+    if (areContributionScopesEqual(this.contributionScope, scope)) return;
     this.contributionScope = cloneContributionScope(scope);
     this.rebuildGraphState();
   }
@@ -182,6 +183,9 @@ export class LinkIndex {
     }
 
     const previous = this.snapshotsBySource.get(sourcePath);
+    if (normalized === null && previous === undefined) return;
+    if (normalized !== null && previous !== undefined &&
+      areSourceSnapshotsEqual(previous, normalized)) return;
     if (previous !== undefined) {
       for (const occurrence of previous.occurrences) this.removeOccurrence(occurrence);
       this.snapshotsBySource.delete(sourcePath);
@@ -400,6 +404,70 @@ function cloneContributionScope(scope: GraphContributionScope): GraphContributio
       ? {}
       : { excludedOccurrenceIds: new Set(scope.excludedOccurrenceIds) }),
   };
+}
+
+function areContributionScopesEqual(
+  left: GraphContributionScope,
+  right: GraphContributionScope,
+): boolean {
+  return areSetsEqual(left.excludedSourcePaths, right.excludedSourcePaths) &&
+    areSetsEqual(left.excludedTargetPaths, right.excludedTargetPaths) &&
+    areSetsEqual(left.excludedOccurrenceIds, right.excludedOccurrenceIds);
+}
+
+function areSetsEqual<T>(
+  left: ReadonlySet<T> | undefined,
+  right: ReadonlySet<T> | undefined,
+): boolean {
+  const leftSize = left?.size ?? 0;
+  const rightSize = right?.size ?? 0;
+  if (leftSize !== rightSize) return false;
+  if (leftSize === 0) return true;
+  if (left === undefined || right === undefined) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
+}
+
+function areSourceSnapshotsEqual(left: SourceSnapshot, right: SourceSnapshot): boolean {
+  if (left.sourcePath !== right.sourcePath ||
+    left.occurrences.length !== right.occurrences.length) return false;
+  return left.occurrences.every((occurrence, index) =>
+    areLinkOccurrencesEqual(occurrence, right.occurrences[index]));
+}
+
+function areLinkOccurrencesEqual(
+  left: LinkOccurrence,
+  right: LinkOccurrence | undefined,
+): boolean {
+  return right !== undefined &&
+    left.id === right.id &&
+    left.sourcePath === right.sourcePath &&
+    left.raw === right.raw &&
+    left.linkpath === right.linkpath &&
+    left.subpath === right.subpath &&
+    left.lookupKey === right.lookupKey &&
+    left.kind === right.kind &&
+    areSourcePositionsEqual(left.position, right.position) &&
+    left.destinationKind === right.destinationKind &&
+    left.targetPath === right.targetPath &&
+    left.fileStatus === right.fileStatus &&
+    left.subpathStatus === right.subpathStatus;
+}
+
+function areSourcePositionsEqual(
+  left: LinkOccurrence["position"],
+  right: LinkOccurrence["position"],
+): boolean {
+  if (left === right) return true;
+  return left !== null && right !== null &&
+    left.line === right.line &&
+    left.column === right.column &&
+    left.endLine === right.endLine &&
+    left.endColumn === right.endColumn &&
+    left.property === right.property &&
+    left.canvasNodeId === right.canvasNodeId;
 }
 
 function getOrCreateEdge(

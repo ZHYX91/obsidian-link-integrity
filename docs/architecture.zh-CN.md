@@ -55,7 +55,7 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 全量重建先从 adapter 取得当前文件 registry，再在独立 staging `LinkIndex` 中以有限并发构建来源快照。控制器支持可注入的时间片让步和节流进度回调，避免大量快速完成的工作长期占用同一任务。
 
-建立启动 baseline 时，Vault 事件会立即注册；Metadata Cache 的 change/resolve 监听则等到首次宿主级解析完成边界（或有界兜底等待）和全量重建结束后再挂载。这样不会把宿主启动阶段的逐文件解析风暴重放成第二次全 Vault 扫描；之后的逐文件事件仍按增量处理。
+建立启动 baseline 时，Vault 事件会立即注册，但在原子 baseline 存在前直接忽略；Metadata Cache 的 change/delete 监听则等到首次宿主级解析完成边界（或有界兜底等待）和全量重建结束后再挂载。运行时刻意不订阅逐文件 `resolve(file)`：内容和命名空间事件已经会重验证变化来源及其引用者，而重放宿主启动期解析尾流只会重复全量扫描。
 
 只有 staging 完整成功后，`AtomicLinkIndexStore` 才一次性发布新索引。构建失败不会改变当前索引；已有索引继续作为 last-known-good，并由应用状态标记失败或可能过期。
 
@@ -63,16 +63,16 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 ## 增量更新
 
-增量控制器接受 create、modify、delete、rename 和 metadata-resolved 事件。重复事件先合并；快照构建使用有限并发。
+与宿主无关的增量控制器接受 create、modify、delete、rename 和合成 metadata-resolved 事件；Obsidian 运行时向其提供 Vault 事件及 Metadata Cache change/delete 事件。重复运行时事件先进入 100 ms 尾随安静窗，并由 500 ms 最大等待兜底，再于快照工作前合并；快照构建使用有限并发。
 
 一致性保护包括：
 
 - lifecycle epoch：停止或重启后，旧生命周期结果不能发布；
 - path revision：每个受影响来源具有单调 revision，旧异步快照不能覆盖新 revision；
-- 同批 coalescing：同一路径的重复事件只触发一次当前批构建；
+- 有界安静窗 coalescing：同一路径重复出现的 Vault 与 Metadata Cache 回调只触发一次构建，同时连续事件流也不能无限推迟更新；
 - lookup 和 target 反向索引：命名空间或目标元数据变化时，同时重验证直接来源、解析到该目标的来源以及可能按 lookup key 重新定向的来源。
 
-create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。Obsidian adapter 将逐文件 `resolve(file)` 转为来源及引用者的定向重验证；宿主级 `resolved` 完成信号不会再转成全来源失效，因为 Obsidian 在普通修改后也会再次触发它。
+create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。Vault modify 与 Metadata Cache changed 回调经过有界安静窗后重验证来源及其引用者。宿主级 `resolved` 完成信号只作为初始就绪边界，不会转成全来源失效，因为 Obsidian 在普通修改后也会再次触发它。快照和贡献范围替换会先做语义 no-op 检查，再决定是否改变图状态。
 
 侧栏结果数组只在索引、设置或图语义改变时失效；进度和普通状态更新复用现有数组。高级无入链投影未启用时不计算，只有当前活动页签会构建排序后的分组或目录树。渲染采用固定 200 条分页，单个视图不会把整个 Vault 实体化为 DOM。
 

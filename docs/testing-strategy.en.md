@@ -73,7 +73,7 @@ The i18n gate checks complete catalogs, English fallback, interpolation, plurals
 
 Synthetic benchmarks record file count, occurrence count, source-kind distribution, environment, and elapsed time. A quick gate may use 10k files; 50k and, where necessary, 100k must be explicitly executed as separate scales and must not be reported if a script argument silently falls back to a smaller run.
 
-Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, bursts of per-file metadata resolution, isolation queries, rule previews, and bounded sidebar DOM. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
+Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, duplicate Vault/Metadata Cache callback bursts, ignored startup `resolve(file)` storms, isolation queries, rule previews, and bounded sidebar DOM. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
 
 The local synthetic 10k and explicit 50k modes have been run for the current implementation. The latest explicit 50k run built the graph and projected isolated files in 733.3 ms (1.121 s for the complete guarded benchmark test) on the recorded local runtime. A 100k claim remains unverified and must not be inferred from the 50k result.
 

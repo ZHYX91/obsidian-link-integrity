@@ -58,6 +58,7 @@ export class LinkIntegritySidebarView extends ItemView {
 
   public override async onOpen(): Promise<void> {
     this.isOpen = true;
+    this.unsubscribe?.();
     this.unsubscribe = this.options.query.subscribe(() => this.render());
     this.render();
   }

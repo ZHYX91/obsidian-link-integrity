@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { LinkIndex } from "../../src/core/link-index";
 import { createFileRecord } from "../../src/core/model";
@@ -93,6 +93,83 @@ describe("LinkIndex", () => {
     expect(index.getOutgoingNeighborCount("Source.md")).toBe(1);
     index.replaceFiles([files[0]!]);
     expect(index.getOutgoingNeighborCount("Source.md")).toBe(0);
+  });
+
+  it("does not rebuild graph state for semantically equal contribution scopes", () => {
+    const index = new LinkIndex([
+      createFileRecord("Source.md"),
+      createFileRecord("Target.md"),
+    ]);
+    index.replaceSourceSnapshot("Source.md", snapshot("Source.md", [
+      occurrence("edge", "Source.md", { targetPath: "Target.md" }),
+    ]));
+    index.setContributionScope({
+      excludedSourcePaths: new Set(["First.md", "Second.md"]),
+      excludedTargetPaths: new Set(["Third.md", "Fourth.md"]),
+      excludedOccurrenceIds: new Set(["first", "second"]),
+    });
+    const before = index.toCanonicalState();
+    const rebuildGraphState = vi.spyOn(
+      index as unknown as { rebuildGraphState(): void },
+      "rebuildGraphState",
+    );
+
+    index.setContributionScope({
+      excludedSourcePaths: new Set(["Second.md", "First.md"]),
+      excludedTargetPaths: new Set(["Fourth.md", "Third.md"]),
+      excludedOccurrenceIds: new Set(["second", "first"]),
+    });
+
+    expect(rebuildGraphState).not.toHaveBeenCalled();
+    expect(index.toCanonicalState()).toEqual(before);
+  });
+
+  it("treats omitted and empty contribution exclusions as the same scope", () => {
+    const index = new LinkIndex();
+    const rebuildGraphState = vi.spyOn(
+      index as unknown as { rebuildGraphState(): void },
+      "rebuildGraphState",
+    );
+
+    index.setContributionScope({
+      excludedSourcePaths: new Set(),
+      excludedTargetPaths: new Set(),
+      excludedOccurrenceIds: new Set(),
+    });
+
+    expect(rebuildGraphState).not.toHaveBeenCalled();
+  });
+
+  it("keeps the stored snapshot identity when normalized semantics are unchanged", () => {
+    const index = new LinkIndex([
+      createFileRecord("Folder/Source.md"),
+      createFileRecord("Folder/Target.md"),
+    ]);
+    index.replaceSourceSnapshot("Folder/Source.md", snapshot("Folder/Source.md", [
+      occurrence("edge", "Folder/Source.md", {
+        lookupKey: "folder/target",
+        targetPath: "Folder/Target.md",
+      }),
+    ]));
+    const stored = index.getSourceSnapshot("Folder/Source.md");
+    const before = index.toCanonicalState();
+    expect(stored).not.toBeNull();
+
+    index.replaceSourceSnapshot("Folder\\Source.md", {
+      sourcePath: " Folder\\Source.md ",
+      occurrences: stored!.occurrences.map((item) => ({
+        ...item,
+        sourcePath: "Folder\\Source.md",
+        lookupKey: " FOLDER\\TARGET ",
+        targetPath: "Folder\\Target.md",
+      })),
+    });
+
+    expect(index.getSourceSnapshot("Folder/Source.md")).toBe(stored);
+    expect(index.getSourceSnapshot("Folder/Source.md")?.occurrences[0]).toBe(
+      stored?.occurrences[0],
+    );
+    expect(index.toCanonicalState()).toEqual(before);
   });
 
   it("replaces one file record without rebuilding the registry", () => {

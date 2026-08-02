@@ -55,7 +55,7 @@ Expected-isolation rules run in the query layer. They classify only candidates t
 
 A full rebuild first obtains the current file registry from the adapter, then builds source snapshots with bounded concurrency in a separate staging `LinkIndex`. The controller supports injectable task yielding and throttled progress callbacks so a large number of quickly completed operations does not monopolize one task indefinitely.
 
-For the startup baseline, Vault events are registered immediately, but Metadata Cache change/resolve listeners are attached only after one initial host-wide resolution boundary (or a bounded fallback wait) and the full rebuild. This prevents the host's initial per-file resolution storm from being replayed as a redundant second full-Vault pass; later per-file events remain incremental.
+For the startup baseline, Vault events are registered immediately but ignored until the atomic baseline exists. Metadata Cache change/delete listeners are attached only after one initial host-wide resolution boundary (or a bounded fallback wait) and the full rebuild. The runtime deliberately does not subscribe to per-file `resolve(file)`: content and namespace events already revalidate the changed source and its referers, while replaying the host's startup resolution tail would duplicate the full scan.
 
 `AtomicLinkIndexStore` publishes the new index once, and only after staging completes successfully. A build failure does not mutate the current index; an existing index remains the last-known-good result while application status marks the result failed or potentially stale.
 
@@ -63,16 +63,16 @@ For the startup baseline, Vault events are registered immediately, but Metadata 
 
 ## Incremental updates
 
-The incremental controller accepts create, modify, delete, rename, and metadata-resolved events. Repeated events are coalesced before snapshot work begins, and snapshot builds use bounded concurrency.
+The incremental controller accepts create, modify, delete, rename, and synthetic metadata-resolved events at its host-independent port. The Obsidian runtime feeds it Vault events plus Metadata Cache change/delete events. Repeated runtime events enter a 100 ms trailing quiet window with a 500 ms maximum wait, are then coalesced before snapshot work begins, and use bounded snapshot concurrency.
 
 Consistency protection includes:
 
 - lifecycle epoch: results from an old lifecycle cannot publish after stop or restart;
 - path revision: every affected source has a monotonic revision, so an older asynchronous snapshot cannot overwrite a newer revision;
-- per-batch coalescing: repeated events for one path trigger one build in the current batch;
+- bounded quiet-window coalescing: duplicate Vault and Metadata Cache callbacks for one path trigger one build without allowing a continuous stream to postpone updates indefinitely;
 - lookup and target reverse indexes: namespace or target-metadata changes revalidate the direct source, sources currently resolved to the target, and sources that may retarget through a lookup key.
 
-Create, delete, and rename events refresh the file registry and compare old and new lookup keys. Deleting a source removes its complete snapshot through the same replacement reducer. The Obsidian adapter translates per-file `resolve(file)` events into targeted source-and-referer revalidation; the host-wide `resolved` completion signal is not translated into an all-source invalidation because Obsidian fires it again after ordinary modifications.
+Create, delete, and rename events refresh the file registry and compare old and new lookup keys. Deleting a source removes its complete snapshot through the same replacement reducer. Vault modify and Metadata Cache changed callbacks revalidate the source and its referers after the bounded quiet window. The host-wide `resolved` completion signal is used only as an initial readiness boundary and is never translated into an all-source invalidation because Obsidian fires it again after ordinary modifications. Snapshot and contribution-scope replacements perform semantic no-op checks before mutating graph state.
 
 Sidebar result arrays are cached until index, settings, or graph semantics change. Progress/status updates reuse those arrays, the advanced no-incoming projection is skipped while disabled, and only the active tab builds sorted groups or trees. Rendering uses a fixed 200-result page so one view can never materialize the entire Vault as DOM.
 
