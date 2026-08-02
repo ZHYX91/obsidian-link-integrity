@@ -67,6 +67,8 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 
 设置测试覆盖 schema 归一化、迁移、未来 schema 写保护、串行合并保存、失败待重试，以及 1.12 imperative 与 1.13 declarative 定义共用同一数据来源。键盘测试覆盖 tablist 角色、roving tabindex、方向键、Home/End、焦点保持和 RTL；DOM 测试不能代替真实 Obsidian 的样式和焦点验收。
 
+宿主样式几何回归通过无额外依赖的真实 Chrome/Chromium 进程加载仓库中的实际 `styles.css` 和一份最小 Obsidian 宿主样式合同。它测量多行结果的行盒与溢出、长俄文徽标、宿主复选框的方形外观与至少 34px 的独立点击目标、原生 disclosure marker、对宿主按钮背景/阴影的覆盖、禁用 container query 时仍不溢出的 220px 侧栏回退、450px declarative 自定义设置正文，以及 RTL 逻辑缩进。该测试属于自动浏览器证据并进入常规测试门禁；运行环境必须提供 Chrome/Chromium，或通过 `LINK_INTEGRITY_CHROME_PATH` 指定可执行文件。它不能替代真实主题、系统缩放、真实 RTL、粗指针设备或移动宿主验收。
+
 i18n 门禁检查完整 catalog、英文回退、插值、复数、语言自称、稳定中英文文档结构和退役术语。
 
 ## 性能与规模
@@ -86,6 +88,8 @@ i18n 门禁检查完整 catalog、英文回退、插值、复数、语言自称�
 2026-08-02 的隔离宿主尝试通过 `obsidian-acceptance-kit` 绑定候选提交 `88fdb45` 与三项安装资产哈希，以全新 `--user-data-dir` 启动已安装的 Obsidian 1.12.7，并打开精确的随机命名临时 Vault。Link Integrity 加载前，Obsidian 弹出“信任该仓库作者并启用插件”安全提示；自动化没有接受或绕过该提示。本次宿主生命周期以 failed 结果记录，并归档为 run `b2d214ad-3c07-4f9b-b946-5940e8697c1b`。
 
 同日的正式宿主 smoke 将运行时提交 `296c163` 部署到 `D:\OneDrive\Note\.obsidian\plugins\link-integrity`，并在已安装的 Obsidian 1.13.4 中加载。已安装 SHA-256 分别为：`main.js` 的 `350cad31686b2e1dd5676b0097a29666503398c2d11ad6d20fa2a69847dae3e6`、`manifest.json` 的 `f047eede08e3828b59380ea87dc68d39b67416a931f5cb82fd1215f7bfa894e9`、`styles.css` 的 `c0ff9ddd2a7087a7d71a5dbfcaaca218317c99afee48d490900482f2e205be94`。扫描完成后得到 2 处无效链接 occurrence 和 11,831 个孤立文件；侧栏及“常规 / 无效链接 / 孤立文件”三项设置界面均可见。ready 后继续等待 45 秒，连续三个 12 秒样本中的 renderer CPU 增量分别为 0.016 秒、0 秒和 0.016 秒；renderer 工作集稳定在约 1.08 GiB，最后 24 秒变化 -0.6 MiB。每个 12 秒样本仍有约 6.8-7.1 秒 CPU 来自 Electron browser 进程，与禁用 Link Integrity 时同一 Vault 的基线一致。
+
+同日后续布局修复把运行时提交 `e03aeba` 部署到同一正式插件目录，并在完整退出、重新启动后的 Obsidian 1.13.4 中文桌面宿主中复验。最终 SHA-256 为：`main.js` 的 `522ed022b702b6c9c3132bed6d7cbf6705d29b8176f2769d720f9384ee1e40ee`、`manifest.json` 的 `f047eede08e3828b59380ea87dc68d39b67416a931f5cb82fd1215f7bfa894e9`、`styles.css` 的 `9c72248109fdeb6c6faaef60e7d6a38a7cdad0092f4ba7fbe5a7ba62c7e32149`。插件设置 `data.json` 在部署与宿主交互前后的 SHA-256 均为 `97550d63bd894c6cc8a75316aba058cacc819ea362e479c267b2cd24ca1d35b3`。真实宿主再次得到 2 处无效链接和 11,831 个孤立文件；最大化窗口后两个顶部操作、两个业务页签、无效链接结果行与更多操作按钮均完整可见且无文字重叠。孤立文件列表、文件类型 disclosure marker、方形复选框、31/31 选择计数，以及图片下 JPEG/PNG/TIFF 等二级格式与扩展名也均正确显示。普通窄窗口中曾看到的右半栏裁切来自 Obsidian 工作区保留宽于窗口的侧栏本身，不是插件内容内部溢出。
 
 这是真实桌面正式 Vault 中关于 Obsidian 1.13.4 插件加载、完整初扫、结果计数、设置渲染和启动稳态的 smoke 证据。本次没有编辑笔记正文，也没有执行结果导航或实时 create/modify/delete/rename 语义验收。1.12.7 的插件加载边界、Android 模拟器、物理设备行为以及上述实时交互路径仍需分别验证。
 
