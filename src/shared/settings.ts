@@ -25,7 +25,6 @@ export type IsolatedSort = "path" | "name" | "modified" | "broken-count";
 export interface GeneralSettings {
   readonly locale: PluginLocale;
   readonly scanOnStartup: boolean;
-  readonly showScanStatus: boolean;
   readonly defaultSidebarTab: SidebarTabId;
 }
 
@@ -92,7 +91,6 @@ export type SettingsChangeImpact =
 export type SettingsControlKey =
   | "general.locale"
   | "general.scanOnStartup"
-  | "general.showScanStatus"
   | "general.defaultSidebarTab"
   | "brokenLinks.diagnostics.missingFiles"
   | "brokenLinks.diagnostics.missingHeadings"
@@ -114,7 +112,6 @@ export function createDefaultSettings(): LinkIntegritySettings {
     general: {
       locale: "auto",
       scanOnStartup: true,
-      showScanStatus: true,
       defaultSidebarTab: "broken-links",
     },
     brokenLinks: {
@@ -187,7 +184,6 @@ export function normalizeSettings(value: unknown): LinkIntegritySettings {
     general: {
       locale: isPluginLocale(general.locale) ? general.locale : defaults.general.locale,
       scanOnStartup: booleanOr(general.scanOnStartup, defaults.general.scanOnStartup),
-      showScanStatus: booleanOr(general.showScanStatus, defaults.general.showScanStatus),
       defaultSidebarTab: isSidebarTabId(general.defaultSidebarTab)
         ? general.defaultSidebarTab
         : defaults.general.defaultSidebarTab,
@@ -316,9 +312,8 @@ function setControlValue(
       settings.general.locale = value;
       return;
     case "general.scanOnStartup":
-    case "general.showScanStatus":
       assertValue(typeof value === "boolean", key);
-      settings.general[key.split(".")[1] as "scanOnStartup" | "showScanStatus"] = value;
+      settings.general.scanOnStartup = value;
       return;
     case "general.defaultSidebarTab":
       assertValue(isSidebarTabId(value), key);

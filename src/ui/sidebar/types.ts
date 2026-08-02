@@ -67,8 +67,7 @@ export interface SidebarQueryPort {
 export interface SidebarNavigationPort {
   readonly openBrokenLink: (result: BrokenLinkResult) => void | Promise<void>;
   readonly openFile: (path: string) => void | Promise<void>;
-  readonly openSettings: () => void | Promise<void>;
-  readonly refresh: () => void | Promise<void>;
+  readonly rebuildIndex: () => void | Promise<void>;
   readonly openBrokenLinkActions?: (
     result: BrokenLinkResult,
     anchor: HTMLElement,

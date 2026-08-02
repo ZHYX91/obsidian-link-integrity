@@ -26,7 +26,6 @@ import type LinkIntegrityPlugin from "./plugin";
 const SETTINGS_CONTROL_KEYS = new Set<SettingsControlKey>([
   "general.locale",
   "general.scanOnStartup",
-  "general.showScanStatus",
   "general.defaultSidebarTab",
   "brokenLinks.diagnostics.missingFiles",
   "brokenLinks.diagnostics.missingHeadings",
@@ -117,6 +116,9 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       getSaveStatus: () => this.owner.getSettingsSaveStatus(),
       subscribeSaveStatus: (listener) => this.owner.subscribeToSettingsSaveStatus(listener),
       retrySave: () => this.owner.retrySettingsSave(),
+      getIndexStatus: () => this.owner.getIndexStatus(),
+      subscribeIndexStatus: (listener) => this.owner.subscribeToIndexStatus(listener),
+      rebuildIndex: () => this.owner.rebuild(),
       onError: (error) => this.owner.reportSettingsError(error),
     };
   }

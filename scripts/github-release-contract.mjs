@@ -103,6 +103,7 @@ async function main() {
     verifyBaselineAncestry(history.baseline.tag_name, requiredEnvironment("GITHUB_SHA"));
   }
   writeOutput("start_tag", history.baseline?.tag_name ?? "");
+  writeOutput("same_tag_release_id", history.sameTagRelease?.id ?? "");
   console.log(
     history.baseline
       ? `Release history verified: ${candidateTag} follows ancestor ${history.baseline.tag_name}`

@@ -36,12 +36,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     permissions:
+      attestations: read
       contents: read
     outputs:
       artifact_digest: ${{ steps.handoff_identity.outputs.artifact_digest }}
       artifact_id: ${{ steps.handoff_identity.outputs.artifact_id }}
       artifact_name: ${{ steps.handoff_identity.outputs.artifact_name }}
       notes_start_tag: ${{ steps.release_history.outputs.start_tag }}
+      release_decision: ${{ steps.existing_release.outputs.decision }}
     steps:
       - name: Check out repository without persistent credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -113,16 +115,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          source_a="$RUNNER_TEMP/release-source-a"
+          source_b="$RUNNER_TEMP/release-source-b"
           candidate_a="$RUNNER_TEMP/release-candidate-a"
           candidate_b="$RUNNER_TEMP/release-candidate-b"
+          mkdir "$source_a" "$source_b"
+          git archive "$GITHUB_SHA" | tar -x -C "$source_a"
+          git archive "$GITHUB_SHA" | tar -x -C "$source_b"
 
-          npm run build:bundle
-          node scripts/check-release.mjs
-          node scripts/release-assets.mjs handoff --dist-dir dist --output-dir "$candidate_a" --version "$RELEASE_VERSION"
-
-          npm run build:bundle
-          node scripts/check-release.mjs
-          node scripts/release-assets.mjs handoff --dist-dir dist --output-dir "$candidate_b" --version "$RELEASE_VERSION"
+          (
+            cd "$source_a"
+            npm ci
+            npm run build:bundle
+            node scripts/check-release.mjs
+            node scripts/release-assets.mjs handoff --dist-dir dist --output-dir "$candidate_a" --version "$RELEASE_VERSION"
+          )
+          (
+            cd "$source_b"
+            npm ci
+            npm run build:bundle
+            node scripts/check-release.mjs
+            node scripts/release-assets.mjs handoff --dist-dir dist --output-dir "$candidate_b" --version "$RELEASE_VERSION"
+          )
 
           mapfile -t first_names < <(find "$candidate_a" -mindepth 1 -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
           mapfile -t second_names < <(find "$candidate_b" -mindepth 1 -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
@@ -146,12 +160,97 @@ jobs:
           RELEASE_MODE: ${{ github.event_name == 'workflow_dispatch' && 'preflight' || 'release' }}
         run: node scripts/verify-release-source.mjs "$RELEASE_MODE" "$RELEASE_VERSION"
 
+      - name: Verify an existing same-tag Release as a read-only no-op
+        if: github.event_name == 'push'
+        id: existing_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SAME_TAG_RELEASE_ID: ${{ steps.release_history.outputs.same_tag_release_id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SAME_TAG_RELEASE_ID" ]]; then
+            echo "decision=create" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [[ "$SAME_TAG_RELEASE_ID" =~ ^[1-9][0-9]*$ ]]
+          for tool in cmp curl gh jq sha256sum; do command -v "$tool" >/dev/null; done
+          api_version="2026-03-10"
+          candidate_dir="$RUNNER_TEMP/release-candidate-b"
+          remote_dir="$RUNNER_TEMP/existing-release"
+          archive_name="link-integrity-$RELEASE_VERSION.zip"
+          public_assets=(main.js manifest.json styles.css "$archive_name")
+          mkdir "$remote_dir"
+
+          read_api() {
+            local url="$1"
+            local accept="$2"
+            local output="$3"
+            local status=""
+            local curl_status=0
+            for attempt in 1 2 3 4 5; do
+              set +e
+              status="$(curl --silent --show-error --location --output "$output" --write-out '%{http_code}' --header "Accept: $accept" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: $api_version" "$url")"
+              curl_status=$?
+              set -e
+              if [[ "$curl_status" -eq 0 && "$status" =~ ^2[0-9][0-9]$ ]]; then return 0; fi
+              if [[ "$curl_status" -eq 0 && "$status" =~ ^4[0-9][0-9]$ &&
+                    "$status" != "404" && "$status" != "408" && "$status" != "429" ]]; then
+                echo "Deterministic GitHub read failure HTTP $status for $url" >&2
+                return 1
+              fi
+              if [[ "$attempt" -lt 5 ]]; then sleep "$attempt"; fi
+            done
+            echo "GitHub read did not recover for $url (curl=$curl_status http=$status)" >&2
+            return 1
+          }
+
+          release_payload="$RUNNER_TEMP/existing-release.json"
+          read_api "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/$SAME_TAG_RELEASE_ID" "application/vnd.github+json" "$release_payload"
+          jq --exit-status --arg archive "$archive_name" --arg api "$GITHUB_API_URL" --arg repository "$GITHUB_REPOSITORY" --arg tag "$RELEASE_VERSION" --argjson release_id "$SAME_TAG_RELEASE_ID" '
+              .id == $release_id and .tag_name == $tag and .draft == false and
+              .prerelease == false and .immutable == true and
+              (.published_at | type == "string" and length > 0) and
+              ([.assets[].name] | sort) == ([$archive, "main.js", "manifest.json", "styles.css"] | sort) and
+              ([.assets[].name] | unique | length) == 4 and
+              all(.assets[];
+                .state == "uploaded" and (.size | type == "number" and . > 0) and
+                (.digest | test("^sha256:[0-9a-f]{64}$")) and
+                (.url | startswith($api + "/repos/" + $repository + "/releases/assets/")))
+            ' "$release_payload" >/dev/null
+
+          for name in "${public_assets[@]}"; do
+            expected_digest="sha256:$(sha256sum "$candidate_dir/$name" | cut -d' ' -f1)"
+            expected_size="$(wc -c < "$candidate_dir/$name")"
+            asset_url="$(jq --exit-status --raw-output --arg digest "$expected_digest" --arg name "$name" --argjson size "$expected_size" '
+                .assets[] | select(.name == $name and .digest == $digest and .size == $size) | .url
+              ' "$release_payload")"
+            read_api "$asset_url" "application/octet-stream" "$remote_dir/$name"
+            cmp --silent "$candidate_dir/$name" "$remote_dir/$name"
+          done
+          node scripts/release-assets.mjs compare --existing-dir "$remote_dir" --local-dir "$candidate_dir" --version "$RELEASE_VERSION"
+
+          for name in "${public_assets[@]}"; do
+            provenance_ready=false
+            for attempt in 1 2 3 4 5; do
+              if gh attestation verify "$remote_dir/$name" --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" --source-ref "refs/tags/$RELEASE_VERSION" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners; then
+                provenance_ready=true
+                break
+              fi
+              if [[ "$attempt" -lt 5 ]]; then sleep "$attempt"; fi
+            done
+            [[ "$provenance_ready" == "true" ]]
+          done
+          node scripts/verify-release-source.mjs release "$RELEASE_VERSION"
+          echo "decision=noop" >> "$GITHUB_OUTPUT"
+          echo "Existing immutable same-tag Release is an exact read-only no-op." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Preflight completed without publication
         if: github.event_name == 'workflow_dispatch'
         run: echo "Read-only preflight passed for $RELEASE_VERSION; no tag or Release was created."
 
       - name: Define run-and-attempt-bound handoff name
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.existing_release.outputs.decision == 'create'
         id: handoff_name
         shell: bash
         run: |
@@ -160,7 +259,7 @@ jobs:
           echo "artifact_name=$name" >> "$GITHUB_OUTPUT"
 
       - name: Upload exact verified handoff
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.existing_release.outputs.decision == 'create'
         id: upload_handoff
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -173,7 +272,7 @@ jobs:
           retention-days: 1
 
       - name: Record exact server handoff identity
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.existing_release.outputs.decision == 'create'
         id: handoff_identity
         shell: bash
         env:
@@ -185,14 +284,14 @@ jobs:
           set -euo pipefail
           [[ "$ARTIFACT_NAME" == "link-integrity-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ]]
           [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
-          [[ "$ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
           [[ "$ARTIFACT_URL" == "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/${ARTIFACT_ID}" ]]
           echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
           echo "artifact_id=$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
           echo "artifact_digest=$ARTIFACT_DIGEST" >> "$GITHUB_OUTPUT"
 
   publish:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.verify-release.outputs.release_decision == 'create'
     needs: verify-release
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -396,6 +495,17 @@ jobs:
               ' "$payload" >/dev/null
           }
 
+          release_asset_digests_ready() {
+            local payload="$1"
+            for name in "${public_assets[@]}"; do
+              local expected_digest
+              expected_digest="sha256:$(sha256sum "$candidate_dir/$name" | cut -d' ' -f1)"
+              jq --exit-status --arg digest "$expected_digest" --arg name "$name" '
+                  [.assets[] | select(.name == $name and .digest == $digest)] | length == 1
+                ' "$payload" >/dev/null || return 1
+            done
+          }
+
           empty_draft_payload_ready() {
             local payload="$1"
             jq --exit-status --arg marker "$draft_marker" --arg repository "$GITHUB_REPOSITORY" --arg tag "$RELEASE_VERSION" --arg api "$GITHUB_API_URL" '
@@ -485,7 +595,8 @@ jobs:
             local payload="$RUNNER_TEMP/new-uploaded-draft.json"
             for attempt in 1 2 3 4 5 6 7 8 9 10; do
               api_json "/repos/$GITHUB_REPOSITORY/releases/$expected_id" "$payload"
-              if uploaded_draft_payload_ready "$payload" "$expected_id"; then
+              if uploaded_draft_payload_ready "$payload" "$expected_id" &&
+                release_asset_digests_ready "$payload"; then
                 local remote_dir="$RUNNER_TEMP/remote-draft-$attempt"
                 mkdir "$remote_dir"
                 local ready=true
@@ -639,7 +750,8 @@ jobs:
                   local query_status=0
                   api_json "/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_VERSION" "$payload" true || query_status=$?
                   if [[ "$query_status" -ne 0 && "$query_status" -ne 44 ]]; then return 1; fi
-                  if [[ "$query_status" -eq 0 ]] && release_payload_ready "$payload"; then
+                  if [[ "$query_status" -eq 0 ]] && release_payload_ready "$payload" &&
+                    release_asset_digests_ready "$payload"; then
                     local remote_dir="$RUNNER_TEMP/remote-release-$stage-$attempt"
                     mkdir "$remote_dir"
                     local ready=true
@@ -691,7 +803,7 @@ jobs:
           source "$RUNNER_TEMP/release-inline.sh"
           [[ "$EXPECTED_ARTIFACT_NAME" == "link-integrity-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ]]
           [[ "$EXPECTED_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
-          [[ "$EXPECTED_ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$EXPECTED_ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
 
           run_payload="$RUNNER_TEMP/current-run.json"
           run_ready=false
@@ -713,7 +825,7 @@ jobs:
           artifact_ready=false
           for attempt in 1 2 3 4 5; do
             api_json "/repos/$GITHUB_REPOSITORY/actions/artifacts/$EXPECTED_ARTIFACT_ID" "$artifact_payload"
-            if jq --exit-status --arg api "$GITHUB_API_URL" --arg digest "$EXPECTED_ARTIFACT_DIGEST" --arg name "$EXPECTED_ARTIFACT_NAME" --arg repository "$GITHUB_REPOSITORY" --arg sha "$GITHUB_SHA" --argjson artifact_id "$EXPECTED_ARTIFACT_ID" --argjson run_id "$GITHUB_RUN_ID" '
+            if jq --exit-status --arg api "$GITHUB_API_URL" --arg digest "sha256:$EXPECTED_ARTIFACT_DIGEST" --arg name "$EXPECTED_ARTIFACT_NAME" --arg repository "$GITHUB_REPOSITORY" --arg sha "$GITHUB_SHA" --argjson artifact_id "$EXPECTED_ARTIFACT_ID" --argjson run_id "$GITHUB_RUN_ID" '
                 .id == $artifact_id and .name == $name and .expired == false and
                 .digest == $digest and .workflow_run.id == $run_id and
                 .workflow_run.head_sha == $sha and
@@ -746,7 +858,7 @@ jobs:
           transport_ready=false
           for attempt in 1 2 3 4 5; do
             api_download "$(jq --raw-output '.archive_download_url' "$artifact_payload")" "$transport_zip"
-            if [[ "sha256:$(sha256sum "$transport_zip" | cut -d' ' -f1)" == "$EXPECTED_ARTIFACT_DIGEST" ]]; then
+            if [[ "$(sha256sum "$transport_zip" | cut -d' ' -f1)" == "$EXPECTED_ARTIFACT_DIGEST" ]]; then
               transport_ready=true
               break
             fi

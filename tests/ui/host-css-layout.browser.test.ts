@@ -266,17 +266,14 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
 </section>
 <section class="link-integrity-sidebar" id="narrow-fixture" style="width: 220px">
   <div class="link-integrity-sidebar-root" style="container: none">
-  <header class="link-integrity-sidebar-header">
-    <h2>Link-Integritätsprüfung</h2>
-    <div class="link-integrity-sidebar-header-actions">
-      <button type="button">Aktualisieren</button>
-      <button type="button">Einstellungen</button>
-    </div>
-  </header>
   <div class="link-integrity-tabs">
     <button class="link-integrity-tab" id="inactive-tab" type="button">Неработающие ссылки</button>
   </div>
   <div class="link-integrity-panel">
+    <div class="link-integrity-status-row is-stale">
+      <div class="link-integrity-status">Результаты могут быть устаревшими</div>
+      <button type="button">Повторить перестроение</button>
+    </div>
     <label class="link-integrity-advanced-toggle">
       <input id="square-checkbox" type="checkbox">
       <span>Показывать ожидаемо изолированные файлы</span>

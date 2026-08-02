@@ -21,35 +21,12 @@
   container: link-integrity-sidebar / inline-size;
 }
 
-.link-integrity-sidebar-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--size-2-2);
-  align-items: center;
-  padding: var(--size-2-3) var(--size-4-2);
-  border-block-end: 1px solid var(--background-modifier-border);
-}
-
-.link-integrity-sidebar-header h2 {
-  overflow: hidden;
-  margin: 0;
-  font-size: var(--font-ui-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.link-integrity-sidebar-header-actions,
 .link-integrity-file-types-actions,
 .link-integrity-toolbar {
   display: flex;
   min-inline-size: 0;
   gap: var(--size-2-1);
   align-items: center;
-}
-
-.link-integrity-sidebar-header-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(7rem, 100%), 1fr));
 }
 
 .link-integrity-sidebar button,
@@ -79,15 +56,24 @@
   box-sizing: border-box;
 }
 
+.link-integrity-status-row {
+  display: flex;
+  min-inline-size: 0;
+  gap: var(--size-2-2);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--size-2-2) var(--size-4-2) 0;
+}
+
 .link-integrity-status {
-  grid-column: 1 / -1;
+  min-inline-size: 0;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   overflow-wrap: anywhere;
 }
 
-.link-integrity-status.is-failed,
-.link-integrity-status.is-stale {
+.link-integrity-status-row.is-failed .link-integrity-status,
+.link-integrity-status-row.is-stale .link-integrity-status {
   color: var(--text-warning);
 }
 
@@ -185,7 +171,6 @@
   color: var(--text-on-accent);
 }
 
-.link-integrity-sidebar-header-actions button,
 .link-integrity-file-types-actions button,
 .link-integrity-toolbar button,
 .link-integrity-pagination button,
@@ -542,6 +527,17 @@
 
 .link-integrity-persistence-status {
   color: var(--text-muted);
+}
+
+.link-integrity-index-maintenance {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.link-integrity-index-status {
+  min-inline-size: 0;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .link-integrity-settings-rule {

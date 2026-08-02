@@ -29,6 +29,7 @@ describe("sidebar renderer", () => {
     });
     const tabs = container.querySelectorAll('[role="tab"]');
     expect(tabs).toHaveLength(2);
+    expect(container.querySelector(".link-integrity-sidebar-header")).toBeNull();
     expect(tabs[0]?.textContent).toContain("Broken links");
     expect(tabs[1]?.textContent).toContain("Isolated files");
     (tabs[1] as HTMLButtonElement).click();
@@ -117,7 +118,7 @@ describe("sidebar renderer", () => {
     }));
   });
 
-  it("omits the status row when the general preference is disabled", () => {
+  it("keeps the ready state quiet without a permanent status row", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");
     const state = viewState();
@@ -129,13 +130,12 @@ describe("sidebar renderer", () => {
       fileTypeCategories: createFileTypeCategoryOptions(translator),
       defaultFormatFamilyIds: new Set(["markdown"]),
       allowNoIncomingFilter: false,
-      showStatus: false,
       onStateChange: vi.fn(),
     });
     expect(container.querySelector(".link-integrity-status")).toBeNull();
   });
 
-  it("keeps an unscanned baseline explicit even when routine scan status is hidden", () => {
+  it("offers an explicit GUI action before the first lazy scan", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");
     const state = viewState();
@@ -143,21 +143,57 @@ describe("sidebar renderer", () => {
       ...querySnapshot(),
       status: { state: "idle" as const, current: 0, total: 0, errorMessage: null },
     };
+    const nav = navigation();
     renderSidebar(container, {
       model: createSidebarViewModel(snapshot, state),
       state,
       translator,
-      navigation: navigation(),
+      navigation: nav,
       fileTypeCategories: createFileTypeCategoryOptions(translator),
       defaultFormatFamilyIds: new Set(["markdown"]),
       allowNoIncomingFilter: false,
-      showStatus: false,
       onStateChange: vi.fn(),
     });
 
-    expect(container.querySelector(".link-integrity-status")?.textContent).toBe("Not scanned");
-    expect(container.textContent).toContain("Refresh to build the first complete Vault index.");
+    expect(container.textContent).toContain("Not scanned");
+    expect(container.textContent).toContain("The index is built automatically");
+    const start = Array.from(container.querySelectorAll("button"))
+      .find(({ textContent }) => textContent === "Build index");
+    start?.click();
+    expect(nav.rebuildIndex).toHaveBeenCalledOnce();
     expect(container.textContent).not.toContain("No broken links");
+  });
+
+  it("shows a contextual rebuild action only when results need recovery", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = viewState();
+    const nav = navigation();
+    const snapshot = {
+      ...querySnapshot(),
+      status: {
+        state: "failed" as const,
+        current: 0,
+        total: 0,
+        errorMessage: "Index read failed",
+      },
+    };
+    renderSidebar(container, {
+      model: createSidebarViewModel(snapshot, state),
+      state,
+      translator,
+      navigation: nav,
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false,
+      onStateChange: vi.fn(),
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Index read failed");
+    const retry = Array.from(container.querySelectorAll("button"))
+      .find(({ textContent }) => textContent === "Retry rebuild");
+    retry?.click();
+    expect(nav.rebuildIndex).toHaveBeenCalledOnce();
   });
 
   it("exposes sorting controls for both business tabs", () => {
@@ -371,8 +407,7 @@ function navigation() {
   return {
     openBrokenLink: vi.fn(),
     openFile: vi.fn(),
-    openSettings: vi.fn(),
-    refresh: vi.fn(),
+    rebuildIndex: vi.fn(),
   };
 }
 

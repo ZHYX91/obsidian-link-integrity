@@ -57,15 +57,6 @@ import {
   LinkIntegritySidebarView,
 } from "./sidebar-view";
 
-interface SettingsHost {
-  readonly open: () => void;
-  readonly openTabById: (id: string) => void;
-}
-
-interface AppWithSettings {
-  readonly setting: SettingsHost;
-}
-
 export default class LinkIntegrityPlugin extends Plugin {
   public override settings!: LinkIntegritySettings;
   private settingsWriteProtected = false;
@@ -74,6 +65,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   private query!: SidebarQueryService;
   private ribbonElement: HTMLElement | null = null;
   private openCommand: Command | null = null;
+  private rebuildCommand: Command | null = null;
   private runtimeStarted = false;
   private coordinatorStarted = false;
   private baselineAvailable = false;
@@ -109,8 +101,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       openFile: async (path) => {
         await this.openFile(path);
       },
-      openSettings: () => this.openSettings(),
-      refresh: () => this.rebuild(),
+      rebuildIndex: () => this.rebuild(),
       openBrokenLinkActions: (result, anchor) => this.showBrokenLinkActions(result, anchor),
       openIsolatedFileActions: (result, anchor) =>
         this.showIsolatedFileActions(result.path, anchor),
@@ -119,6 +110,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       query: this.query,
       navigation,
       getSettings: () => this.settings,
+      ensureIndex: () => this.ensureIndex(),
       onViewStateChange: (state, previousState) =>
         this.persistViewState(state, previousState),
       onActionError: (error) => this.reportError(error),
@@ -217,8 +209,11 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.rebuildRequestCount += 1;
     this.query.setStatus({ state: "scanning", current: 0, total: 0, errorMessage: null });
     try {
-      await this.coordinator.rebuild();
+      const rebuild = this.coordinator.rebuild();
+      this.flushPendingSourceEvents();
+      await rebuild;
       this.baselineAvailable = true;
+      this.flushPendingSourceEvents();
       this.applyGraphContributionRules();
       this.query.setStatus(
         { state: "ready", current: 0, total: 0, errorMessage: null },
@@ -244,9 +239,15 @@ export default class LinkIntegrityPlugin extends Plugin {
   private async startRuntime(): Promise<void> {
     if (this.runtimeStarted || this.unloaded) return;
     this.runtimeStarted = true;
+    if (!this.coordinatorStarted) {
+      this.coordinator.start();
+      this.coordinatorStarted = true;
+    }
     this.registerVaultEvents();
     try {
-      if (this.settings.general.scanOnStartup) {
+      const sidebarAlreadyOpen = this.app.workspace
+        .getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE).length > 0;
+      if (this.settings.general.scanOnStartup || sidebarAlreadyOpen) {
         await this.waitForInitialMetadataResolution();
         if (this.unloaded) return;
         await this.rebuild();
@@ -302,11 +303,6 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private enqueue(event: SourceEvent): void {
     if (!this.runtimeStarted || this.unloaded) return;
-    // Startup filesystem and metadata events are already represented by the
-    // atomic baseline. Replaying them afterward duplicates the full scan and
-    // can amplify a large Vault's metadata-resolution tail into thousands of
-    // redundant incremental batches.
-    if (!this.baselineAvailable) return;
     this.pendingSourceEvents.push(event);
     if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
     this.eventFlushTimer = window.setTimeout(() => {
@@ -322,14 +318,16 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (this.eventMaxFlushTimer !== null) window.clearTimeout(this.eventMaxFlushTimer);
     this.eventFlushTimer = null;
     this.eventMaxFlushTimer = null;
-    if (!this.runtimeStarted || this.unloaded || !this.baselineAvailable) {
+    if (!this.runtimeStarted || this.unloaded) {
       this.pendingSourceEvents = [];
       return;
     }
+    if (!this.baselineAvailable && this.coordinator.state !== "rebuilding") return;
     const events = this.pendingSourceEvents;
     this.pendingSourceEvents = [];
     if (events.length === 0) return;
     for (const event of events) this.coordinator.enqueue(event);
+    if (!this.baselineAvailable) return;
     if (this.notificationPending) return;
     this.notificationPending = true;
     void this.coordinator.whenIdle()
@@ -385,6 +383,32 @@ export default class LinkIntegrityPlugin extends Plugin {
     } else {
       this.openCommand.name = label;
     }
+    const rebuildLabel = translator.t("command.rebuildIndex");
+    if (this.rebuildCommand === null) {
+      this.rebuildCommand = this.addCommand({
+        id: "rebuild-link-index",
+        name: rebuildLabel,
+        icon: "refresh-cw",
+        callback: () => {
+          void this.rebuild().catch((error: unknown) => this.reportError(error));
+        },
+      });
+    } else {
+      this.rebuildCommand.name = rebuildLabel;
+    }
+  }
+
+  public async ensureIndex(): Promise<void> {
+    if (!this.runtimeStarted || this.baselineAvailable || this.rebuildRequestCount > 0) return;
+    await this.rebuild();
+  }
+
+  public getIndexStatus(): IndexStatus {
+    return this.query.getSnapshot().status;
+  }
+
+  public subscribeToIndexStatus(listener: (status: IndexStatus) => void): () => void {
+    return this.query.subscribe(() => listener(this.query.getSnapshot().status));
   }
 
   private async openBrokenLink(result: BrokenLinkResult): Promise<void> {
@@ -406,12 +430,6 @@ export default class LinkIntegrityPlugin extends Plugin {
     const leaf = this.app.workspace.getLeaf(false);
     await leaf.openFile(file);
     return leaf;
-  }
-
-  private openSettings(): void {
-    const settingsHost = (this.app as unknown as AppWithSettings).setting;
-    settingsHost.open();
-    settingsHost.openTabById(this.manifest.id);
   }
 
   private showBrokenLinkActions(result: BrokenLinkResult, anchor: HTMLElement): void {
@@ -447,11 +465,6 @@ export default class LinkIntegrityPlugin extends Plugin {
         .setTitle(rule.title)
         .onClick(() => this.addIgnoreRule(rule.scope, rule.kind, rule.value, rule.title, anchor)));
     }
-    menu.addSeparator();
-    menu.addItem((item) => item
-      .setTitle(translator.t("common.settings"))
-      .setIcon("settings")
-      .onClick(() => this.openSettings()));
     showMenuAtAnchor(menu, anchor);
   }
 
@@ -480,11 +493,6 @@ export default class LinkIntegrityPlugin extends Plugin {
           anchor,
         )));
     }
-    menu.addSeparator();
-    menu.addItem((item) => item
-      .setTitle(translator.t("common.settings"))
-      .setIcon("settings")
-      .onClick(() => this.openSettings()));
     showMenuAtAnchor(menu, anchor);
   }
 

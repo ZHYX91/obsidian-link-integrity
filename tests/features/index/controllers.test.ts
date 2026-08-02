@@ -335,6 +335,40 @@ describe("index coordinator", () => {
     expect(coordinator.state).toBe("stale");
     expect(coordinator.index.toCanonicalState()).toEqual((await buildOracle(vault)).toCanonicalState());
   });
+
+  it("does not create a partial index from buffered events when the first baseline fails", async () => {
+    const vault = new VirtualVault({ "A.md": [] });
+    const coordinator = new LinkIndexCoordinator(vault);
+    coordinator.start();
+    const gate = deferred<void>();
+    const started = deferred<void>();
+    const baseBuild = vault.buildSourceSnapshot;
+    let failFirst = true;
+    vault.buildSourceSnapshot = async (path) => {
+      if (failFirst) {
+        failFirst = false;
+        started.resolve();
+        await gate.promise;
+        throw new Error("first baseline failed");
+      }
+      return baseBuild(path);
+    };
+
+    const rebuilding = coordinator.rebuild();
+    await started.promise;
+    vault.create("B.md", []);
+    coordinator.enqueue({ type: "create", path: "B.md" });
+    gate.resolve();
+    await expect(rebuilding).rejects.toThrow("first baseline failed");
+    await coordinator.whenIdle();
+
+    expect(coordinator.state).toBe("failed");
+    expect(coordinator.store.generation).toBe(0);
+    expect(coordinator.index.files).toEqual([]);
+
+    await coordinator.rebuild();
+    expect(coordinator.index.toCanonicalState()).toEqual((await buildOracle(vault)).toCanonicalState());
+  });
 });
 
 class VirtualVault implements LinkIndexPort {

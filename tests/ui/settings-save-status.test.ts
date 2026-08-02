@@ -45,10 +45,39 @@ describe("settings persistence status", () => {
     });
     const status = container.querySelector('[role="status"]');
     expect(status?.textContent).toBe("Settings saved");
+    expect(container.hidden).toBe(true);
     const notify = listener as ((status: SettingsSaveStatus) => void) | null;
     notify?.({ state: "saving", error: null });
     expect(status?.textContent).toBe("Saving settings");
+    expect(container.hidden).toBe(false);
     cleanup();
+    expect(container.hidden).toBe(false);
     expect(unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it("provides index status and a manual rebuild action in General settings", () => {
+    const container = document.createElement("div");
+    const rebuild = vi.fn();
+    const cleanup = renderCustomSetting(container, "index-maintenance", {
+      settings: createDefaultSettings(),
+      translator: createTranslator("en", "en"),
+      writeProtected: false,
+      createId: (kind) => kind,
+      onSettingsChange: vi.fn(),
+      getIndexStatus: () => ({
+        state: "ready",
+        current: 0,
+        total: 0,
+        errorMessage: null,
+      }),
+      rebuildIndex: rebuild,
+    });
+
+    expect(container.textContent).toContain("Results are up to date");
+    const button = Array.from(container.querySelectorAll("button"))
+      .find(({ textContent }) => textContent === "Rebuild index");
+    button?.click();
+    expect(rebuild).toHaveBeenCalledOnce();
+    cleanup();
   });
 });

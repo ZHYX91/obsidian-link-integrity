@@ -37,6 +37,8 @@ export function renderCustomSetting(
   settingElement.append(body);
   const cleanup = id === "persistence-status"
     ? renderPersistenceStatus(body, context)
+    : id === "index-maintenance"
+      ? renderIndexMaintenance(body, context)
     : id === "isolated-candidate-types"
     ? renderCandidateTypes(body, context)
     : id === "expected-isolation-rules"
@@ -64,13 +66,64 @@ function renderPersistenceStatus(
   ));
   const update = (snapshot = context.getSaveStatus?.()): void => {
     const state = snapshot?.state ?? "saved";
+    const visible = state !== "saved";
+    const row = container.parentElement;
+    if (row !== null) row.hidden = !visible;
     status.textContent = context.translator.t(`status.save.${state}`);
     retry.hidden = state !== "pending";
     retry.disabled = state !== "pending" || context.retrySave === undefined;
   };
   container.prepend(status);
   update();
-  return context.subscribeSaveStatus?.(update);
+  const unsubscribe = context.subscribeSaveStatus?.(update);
+  return () => {
+    unsubscribe?.();
+    const row = container.parentElement;
+    if (row !== null) row.hidden = false;
+  };
+}
+
+function renderIndexMaintenance(
+  container: HTMLElement,
+  context: SettingsUiContext,
+): (() => void) | undefined {
+  container.classList.add("link-integrity-index-maintenance");
+  const status = container.ownerDocument.createElement("div");
+  status.className = "link-integrity-index-status";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  const rebuild = button(container, context.translator.t("index.start"), () => runAction(
+    () => context.rebuildIndex?.(),
+    context,
+  ));
+  const update = (snapshot = context.getIndexStatus?.()): void => {
+    const current = snapshot ?? {
+      state: "idle" as const,
+      current: 0,
+      total: 0,
+      errorMessage: null,
+    };
+    status.textContent = current.state === "scanning"
+      ? context.translator.t("status.scanning", {
+        current: current.current,
+        total: current.total,
+      })
+      : current.state === "failed" && current.errorMessage !== null
+        ? current.errorMessage
+        : context.translator.t(`status.${current.state}`);
+    status.setAttribute("role", current.state === "failed" ? "alert" : "status");
+    rebuild.textContent = current.state === "idle"
+      ? context.translator.t("index.start")
+      : current.state === "scanning"
+        ? context.translator.t("index.rebuilding")
+        : current.state === "failed" || current.state === "stale"
+          ? context.translator.t("index.retry")
+          : context.translator.t("index.rebuild");
+    rebuild.disabled = context.rebuildIndex === undefined || current.state === "scanning";
+  };
+  container.prepend(status);
+  update();
+  return context.subscribeIndexStatus?.(update);
 }
 
 function renderCandidateTypes(

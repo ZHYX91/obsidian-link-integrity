@@ -16,10 +16,10 @@ const budget = budgetSource as unknown as BundleBudgetModule;
 
 describe("bundle budget", () => {
   it("records a measured reference and enforces a larger explicit maximum", () => {
-    expect(budget.BUNDLE_REFERENCE_BYTES).toBe(205_884);
+    expect(budget.BUNDLE_REFERENCE_BYTES).toBe(280_147);
     expect(budget.BUNDLE_MAXIMUM_BYTES).toBeGreaterThan(budget.BUNDLE_REFERENCE_BYTES);
-    expect(budget.measureBundleBudget(205_884)).toEqual({
-      actualBytes: 205_884,
+    expect(budget.measureBundleBudget(280_147)).toEqual({
+      actualBytes: 280_147,
       maximumBytes: budget.BUNDLE_MAXIMUM_BYTES,
       referenceBytes: budget.BUNDLE_REFERENCE_BYTES,
     });

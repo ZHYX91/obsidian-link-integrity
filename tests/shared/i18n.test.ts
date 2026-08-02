@@ -53,8 +53,12 @@ describe("i18n", () => {
     expect(resolveTextDirection("en", "ar-SA")).toBe("ltr");
   });
 
-  it("provides a refreshable command and ribbon label", () => {
+  it("provides localized host-following language and command labels", () => {
     expect(createTranslator("zh-TW", "en").t("command.openSidebar"))
       .toBe("開啟 Link Integrity");
+    expect(createTranslator("zh-CN", "en").t("settings.general.language.auto"))
+      .toBe("跟随 Obsidian");
+    expect(createTranslator("en", "en").t("settings.general.language.auto"))
+      .toBe("Follow Obsidian");
   });
 });

@@ -56,7 +56,7 @@ Candidate validation rejects symbolic links, directories, device files, extra or
 
 Preflight and prepare are read-only and never create or mutate a remote Release. The candidate artifact name binds both `github.run_id` and `github.run_attempt`, and overwrite is forbidden.
 
-After upload, prepare reads the current-run artifact back from the GitHub API and passes publish:
+After upload, prepare reads the current-run artifact back from the GitHub API and, when a new Release is required, passes publish:
 
 - the exact artifact name;
 - the GitHub artifact ID;
@@ -64,6 +64,8 @@ After upload, prepare reads the current-run artifact back from the GitHub API an
 - the current run ID and attempt.
 
 Publish verifies repository and owner, run, attempt, ID, name, and server digest, then downloads by ID. Searching by “latest artifact with this name” or tolerating multiple candidates is forbidden.
+
+The actual `actions/upload-artifact` `artifact-digest` output is 64 lowercase hexadecimal characters; the Actions Artifact API exposes the same digest with a `sha256:` prefix. Prepare retains the former, publish adds the prefix only at the API comparison boundary, and the downloaded transport ZIP is compared with an unprefixed local SHA-256. Mixing those representations must not make every legitimate candidate fail.
 
 ## 6. Publish permissions and code isolation
 
@@ -78,7 +80,7 @@ Publish cannot checkout, set up Node/npm, install dependencies, build, or execut
 
 A new publication follows GitHub's [recommended immutable-release sequence](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases) explicitly:
 
-1. Authenticated paginated Release readback, which includes drafts for a token with push access, must first prove that no Release occupies the candidate version. An existing draft or any inconsistent Release fails closed; an existing exact immutable Release can only take the same-tag no-op path.
+1. A read-only verify job first determines candidate-version state through authenticated paginated Release readback, including drafts visible to its token. An existing draft or inconsistent Release fails closed. An existing same-tag Release must pass exact assets, server digests, remote bytes, tag, and provenance checks in that read-only job; success ends as a no-op without uploading a handoff or starting the write-capable publish job.
 2. The workflow creates an empty draft through the REST API with a hidden marker bound to the current run ID, run attempt, and source commit, then captures the numeric Release ID directly from the validated `201` response. If that write response is ambiguous, it does not replay the non-idempotent write; bounded paginated readback may only recover the one exact empty draft carrying that marker.
 3. The workflow uploads exactly the four public assets through the captured Release ID without clobbering, then reads the same Release ID back while it is still a draft and verifies the exact asset set, server digests, and every remote byte.
 4. Only that captured, current-run draft ID is transitioned to published. Final readback must observe the exact immutable contract.
@@ -92,7 +94,7 @@ Both dispatch and tag triggers verify:
 - repository and default-branch identity;
 - that the tag points exactly to the candidate source commit;
 - that the source commit belongs to default-branch history;
-- that the candidate version is greater than every genuinely published stable Release.
+- except for the exact same-tag no-op in section 8, that the candidate version is greater than every genuinely published stable Release.
 
 The notes baseline is the highest lower stable Release, whose tag commit must be an ancestor of the candidate. With no lower stable Release, the workflow uses an explicit first-release path and does not guess a baseline.
 
@@ -100,7 +102,7 @@ Drafts, prereleases, non-stable tags, and entries without a verifiable tag do no
 
 ## 8. Strict same-tag no-op
 
-If the same tag already exists, only a strict no-op is accepted:
+If the same tag already exists, only a strict no-op completed in the read-only verify job is accepted; the write-capable publish job is not the ordinary same-tag checker:
 
 - the Release is immutable, neither draft nor prerelease;
 - the tag still points exactly to the candidate source commit;

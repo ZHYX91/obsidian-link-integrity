@@ -80,15 +80,15 @@ export function getSettingsPageDefinitions(
             t("settings.general.scanOnStartup"),
             t("settings.general.scanOnStartup.description"),
           ),
-          toggle(
-            "general.showScanStatus",
-            t("settings.general.showStatus"),
-            t("settings.general.showStatus.description"),
-          ),
           dropdown("general.defaultSidebarTab", t("settings.general.defaultTab"), undefined, [
             { value: "broken-links", label: t("sidebar.tab.broken") },
             { value: "isolated-files", label: t("sidebar.tab.isolated") },
           ]),
+          custom(
+            "index-maintenance",
+            t("settings.general.indexMaintenance"),
+            t("settings.general.indexMaintenance.description"),
+          ),
           custom("persistence-status", t("status.save.saved")),
         ],
       }],

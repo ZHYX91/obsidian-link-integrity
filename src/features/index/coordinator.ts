@@ -124,7 +124,13 @@ export class LinkIndexCoordinator {
       );
       if (this.active) {
         this.incremental.start();
-        for (const event of remaining) this.incremental.enqueue(event);
+        // A failed first baseline has no trustworthy graph onto which events
+        // can be applied. The next rebuild reads current Vault state in full.
+        // With a published baseline, remaining events still update the
+        // last-known-good index while its status remains stale.
+        if (this.store.generation > 0 || this.stateValue !== "failed") {
+          for (const event of remaining) this.incremental.enqueue(event);
+        }
       }
     }
   }

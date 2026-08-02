@@ -56,7 +56,7 @@ ZIP 精确包含一个 `link-integrity/` 安装目录，其中三个条目的顺
 
 preflight 和 prepare 全程只读，不创建或修改远端 Release。候选 artifact 名同时绑定 `github.run_id` 和 `github.run_attempt`，禁止 overwrite。
 
-prepare 上传后，从 GitHub API 回读当前运行的 artifact，并向 publish 传递：
+prepare 上传后，从 GitHub API 回读当前运行的 artifact，并在需要创建新 Release 时向 publish 传递：
 
 - 精确 artifact 名；
 - GitHub artifact ID；
@@ -64,6 +64,8 @@ prepare 上传后，从 GitHub API 回读当前运行的 artifact，并向 publi
 - 当前 run ID 与 attempt。
 
 publish 必须验证 artifact 所属仓库和 owner、run、attempt、ID、名称以及服务端 digest，然后按 ID 下载。按名称搜索“最新同名 artifact”或容忍多个候选均被禁止。
+
+`actions/upload-artifact` 的 `artifact-digest` 输出按其实际合同是 64 位小写十六进制；Actions Artifact API 回读值是带 `sha256:` 前缀的同一摘要。prepare 保存前者，publish 只在 API 比较边界补前缀，并以不带前缀的本地 ZIP SHA-256 验证下载字节，禁止混用两种表示导致合法候选必然失败。
 
 ## 6. publish 权限与代码隔离
 
@@ -78,7 +80,7 @@ publish 不得 checkout、setup Node/npm、安装依赖、build，或执行任�
 
 新发布显式遵循 GitHub [推荐的 immutable Release 顺序](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases)：
 
-1. 首先通过带认证的分页 Release 回读（有 push 权限的 token 可看到 draft）证明候选版本未被任何 Release 占用。若已存在 draft 或任意不一致 Release，则 fail-closed；只有精确一致的既有 immutable Release 可以进入 same-tag no-op。
+1. 只读 verify job 先通过带认证的分页 Release 回读（token 可看到 draft）确定候选版本状态。若已存在 draft 或任意不一致 Release，则 fail-closed；既有同 tag Release 必须在只读 job 中完成精确附件、服务端摘要、远端字节、tag 和 provenance 验证，成功后直接结束为 no-op，不上传 handoff，也不启动带写权限的 publish。
 2. workflow 通过 REST API 创建不带附件的空 draft；其隐藏标记绑定当前 run ID、run attempt 与 source commit，并从已验证的 `201` 响应直接记录数值 Release ID。若写入响应不明确，不重放这一非幂等写入；只能通过有界分页回读恢复带有该标记的唯一且精确空 draft。
 3. workflow 通过已捕获的 Release ID 在不 clobber 的前提下精确上传四个公共附件，再按同一个 ID 回读；此时它必须仍是 draft，附件集合、服务端摘要和每个远端字节都必须精确一致。
 4. 只有本次捕获的 draft ID 可以切换为 published；最终回读必须达到精确 immutable 合同。
@@ -92,7 +94,7 @@ dispatch 和 tag 触发都必须验证：
 - 仓库和默认分支身份；
 - tag 精确指向候选 source commit；
 - source commit 位于默认分支历史；
-- 候选版本高于所有真实已发布的稳定 Release。
+- 除第 8 节精确 same-tag no-op 外，候选版本高于所有真实已发布的稳定 Release。
 
 Release notes baseline 选择最高的较低稳定 Release，并验证其 tag commit 是候选 commit 的祖先。没有较低稳定 Release 时使用明确的 first-release 路径，不猜测 baseline。
 
@@ -100,7 +102,7 @@ draft、prerelease、非稳定 tag 和缺少可验证 tag 的条目不参与稳�
 
 ## 8. same-tag 严格 no-op
 
-若同一 tag 已存在，只允许严格 no-op：
+若同一 tag 已存在，只允许在只读 verify job 中完成严格 no-op；带写权限的 publish job 不承担常规 same-tag 检查：
 
 - Release 已 immutable，且不是 draft 或 prerelease；
 - tag 仍精确指向候选 source commit；

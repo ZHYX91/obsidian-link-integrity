@@ -17,6 +17,7 @@ describe("sidebar host state composition", () => {
       },
       navigation: {} as never,
       getSettings: () => settings,
+      ensureIndex: () => undefined,
       onViewStateChange: () => undefined,
       onActionError: () => undefined,
     });

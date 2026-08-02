@@ -41,7 +41,7 @@ describe("workflow supply-chain contract", () => {
 
   it("keeps verification read-only and publication free of checkout and project execution", () => {
     const verify = release.split("\n  publish:\n", 1)[0];
-    expect(verify).toContain("permissions:\n      contents: read");
+    expect(verify).toContain("permissions:\n      attestations: read\n      contents: read");
     expect(publish).toContain("actions: read");
     expect(publish).toContain("attestations: write");
     expect(publish).toContain("contents: write");
@@ -66,7 +66,10 @@ describe("workflow supply-chain contract", () => {
     expect(publish).toContain(".run_attempt == $attempt");
     expect(publish).toContain(".repository.owner.login == $owner");
     expect(publish).toContain(".digest == $digest");
-    expect(publish).toContain('sha256:$(sha256sum "$transport_zip"');
+    expect(release).toContain('[[ "$ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]');
+    expect(publish).toContain('--arg digest "sha256:$EXPECTED_ARTIFACT_DIGEST"');
+    expect(publish).toContain('$(sha256sum "$transport_zip"');
+    expect(publish).not.toContain('sha256:$(sha256sum "$transport_zip"');
   });
 
   it("publishes exactly four assets while keeping SHA256SUMS inside the handoff", () => {
@@ -169,6 +172,19 @@ describe("workflow supply-chain contract", () => {
     expect(publish).not.toContain('created_draft_id="$(create_empty_draft');
     expect(publish.match(/verify_tag_identity/gu)?.length).toBeGreaterThanOrEqual(5);
     expect(publish).toContain("verify_remote_release final false");
+    expect(release).toContain("Verify an existing same-tag Release as a read-only no-op");
+    expect(release).toContain('echo "decision=noop" >> "$GITHUB_OUTPUT"');
+    expect(release).toContain("needs.verify-release.outputs.release_decision == 'create'");
+  });
+
+  it("builds in two independent clean source directories and checks service digests", () => {
+    expect(release).toContain('source_a="$RUNNER_TEMP/release-source-a"');
+    expect(release).toContain('source_b="$RUNNER_TEMP/release-source-b"');
+    expect(release.match(/git archive "\$GITHUB_SHA" \| tar -x -C/gu)).toHaveLength(2);
+    expect(release).toContain('cd "$source_a"');
+    expect(release).toContain('cd "$source_b"');
+    expect(release).toContain("release_asset_digests_ready");
+    expect(release).toContain('.digest == $digest');
   });
 });
 

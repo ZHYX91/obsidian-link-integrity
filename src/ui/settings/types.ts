@@ -6,6 +6,7 @@ import type {
 } from "../../shared/settings";
 import type { Translator } from "../../shared/i18n";
 import type { SettingsSaveStatus } from "../../shared/settings-save-coordinator";
+import type { IndexStatus } from "../sidebar";
 
 export const SETTINGS_TAB_IDS = ["general", "broken-links", "isolated-files"] as const;
 export type SettingsTabId = (typeof SETTINGS_TAB_IDS)[number];
@@ -16,6 +17,7 @@ export type SettingsCustomSectionId =
   | "periodic-notes-preset"
   | "broken-ignore-rules"
   | "isolated-ignore-rules"
+  | "index-maintenance"
   | "persistence-status";
 
 export interface ExpectedRulePreviewState {
@@ -44,5 +46,8 @@ export interface SettingsUiContext {
     listener: (status: SettingsSaveStatus) => void,
   ) => () => void;
   readonly retrySave?: () => void | Promise<void>;
+  readonly getIndexStatus?: () => IndexStatus;
+  readonly subscribeIndexStatus?: (listener: (status: IndexStatus) => void) => () => void;
+  readonly rebuildIndex?: () => void | Promise<void>;
   readonly onError?: (error: unknown) => void;
 }

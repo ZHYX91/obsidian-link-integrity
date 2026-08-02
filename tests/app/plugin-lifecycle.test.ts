@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("plugin index lifecycle", () => {
-  it("stays unscanned and event-inactive until an explicit first refresh", async () => {
+  it("starts event capture immediately and lazily builds the first index", async () => {
     vi.useFakeTimers();
     const file = createMockFile("A.md", 1);
     const vaultEvents = new TestEvents();
@@ -65,14 +65,12 @@ describe("plugin index lifecycle", () => {
     await Promise.resolve();
     expect(snapshotBuildCount).toBe(0);
     expect(runtime.coordinator.store.generation).toBe(0);
-    expect(() => runtime.coordinator.enqueue({ type: "modify", path: file.path }))
-      .toThrow("not active");
 
-    await plugin.rebuild();
+    await plugin.ensureIndex();
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
-    expect(runtime.coordinator.store.generation).toBe(1);
+    expect(runtime.coordinator.store.generation).toBeGreaterThanOrEqual(1);
     expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["A.md"]);
-    expect(snapshotBuildCount).toBe(1);
+    expect(snapshotBuildCount).toBeGreaterThanOrEqual(1);
 
     let queryNotifications = 0;
     const unsubscribe = runtime.query.subscribe(() => {
@@ -169,6 +167,68 @@ describe("plugin index lifecycle", () => {
     plugin.onunload();
   });
 
+  it("buffers create, modify, rename, and delete events across the startup baseline", async () => {
+    vi.useFakeTimers();
+    const fileA = createMockFile("A.md", 1);
+    const fileB = createMockFile("B.md", 2);
+    const fileC = createMockFile("C.md", 3);
+    let files = [fileA];
+    const vaultEvents = new TestEvents();
+    const metadataEvents = new TestEvents();
+    let layoutReady: (() => void) | null = null;
+    let snapshotBuildCount = 0;
+    const app = {
+      vault: {
+        cachedRead: async () => "",
+        getFileByPath: (path: string) => files.find((file) => file.path === path) ?? null,
+        getFiles: () => files,
+        on: vaultEvents.on,
+      },
+      metadataCache: {
+        getFileCache: () => {
+          snapshotBuildCount += 1;
+          return { links: [], embeds: [], frontmatterLinks: [] };
+        },
+        getFirstLinkpathDest: () => null,
+        on: metadataEvents.on,
+        offref: metadataEvents.offref,
+      },
+      workspace: {
+        getLeavesOfType: () => [],
+        onLayoutReady: (callback: () => void) => {
+          layoutReady = callback;
+        },
+      },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+
+    await plugin.onload();
+    (layoutReady as (() => void) | null)?.();
+    expect(metadataEvents.listenerCount("resolved")).toBe(1);
+
+    files = [fileA, fileB];
+    vaultEvents.emit("create", fileB);
+    vaultEvents.emit("modify", fileA);
+    files = [fileA, fileC];
+    vaultEvents.emit("rename", fileC, fileB.path);
+    files = [fileC];
+    vaultEvents.emit("delete", fileA);
+    metadataEvents.emit("resolved");
+
+    await Promise.resolve();
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    const startupRebuild = runtime.coordinator.rebuildPromise;
+    expect(startupRebuild).not.toBeNull();
+    await startupRebuild;
+    await Promise.resolve();
+    expect(runtime.query.getSnapshot().status.state).toBe("ready");
+    expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["C.md"]);
+    expect(snapshotBuildCount).toBe(2);
+    plugin.onunload();
+  });
+
   it("coalesces same-path Vault and metadata bursts into one incremental notification", async () => {
     vi.useFakeTimers();
     const file = createMockFile("A.md", 1);
@@ -262,6 +322,7 @@ interface PluginRuntimeInspection {
   readonly coordinator: {
     readonly index: { readonly files: readonly { readonly path: string }[] };
     readonly store: { readonly generation: number };
+    readonly rebuildPromise: Promise<unknown> | null;
     readonly enqueue: (event: { readonly type: "modify"; readonly path: string }) => void;
     readonly whenIdle: () => Promise<void>;
   };

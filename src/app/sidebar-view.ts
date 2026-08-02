@@ -20,6 +20,7 @@ export interface LinkIntegritySidebarViewOptions {
   readonly query: SidebarQueryPort;
   readonly navigation: SidebarNavigationPort;
   readonly getSettings: () => LinkIntegritySettings;
+  readonly ensureIndex: () => void | Promise<void>;
   readonly onViewStateChange: (
     state: SidebarViewState,
     previousState: SidebarViewState,
@@ -61,6 +62,11 @@ export class LinkIntegritySidebarView extends ItemView {
     this.unsubscribe?.();
     this.unsubscribe = this.options.query.subscribe(() => this.render());
     this.render();
+    try {
+      await this.options.ensureIndex();
+    } catch (error) {
+      this.options.onActionError(error);
+    }
   }
 
   public override async onClose(): Promise<void> {
@@ -93,7 +99,6 @@ export class LinkIntegritySidebarView extends ItemView {
       fileTypeCategories: categories,
       defaultFormatFamilyIds: new Set(settings.isolatedFiles.candidateFormatFamilyIds),
       allowNoIncomingFilter: settings.isolatedFiles.allowNoIncomingFilter,
-      showStatus: settings.general.showScanStatus,
       onStateChange: (nextState) => {
         const previousState = this.state;
         this.state = nextState;

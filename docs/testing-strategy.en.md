@@ -51,7 +51,7 @@ A clean rebuild is the correctness oracle for the incremental implementation. Te
 2. rebuild a clean index from the current virtual Vault;
 3. compare normalized files, snapshots, occurrence statuses, edge counts, and self-links.
 
-Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, global metadata-resolved handling, and bounded concurrency.
+Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, buffered replay of create/modify/delete/rename during the startup baseline, global metadata-resolved handling, and bounded concurrency.
 
 ## Rebuild and failure tests
 
@@ -63,13 +63,13 @@ Failure tests should assert more than an exception: they must verify whether a t
 
 ## UI, settings, and localization tests
 
-Automated UI tests should cover the two business tabs, three settings tabs, search, sorting, list/tree or grouped views, temporary format filters, advanced expected-isolation display, low-confidence markers, and fixed 200-result pagination with reachable first and final pages.
+Automated UI tests should cover the two business tabs, three settings tabs, absence of a fixed sidebar title/refresh/settings row, first-index build, contextual recovery rebuild, the permanent settings-page rebuild entry, search, sorting, list/tree or grouped views, temporary format filters, advanced expected-isolation display, low-confidence markers, and fixed 200-result pagination with reachable first and final pages.
 
 Settings tests cover schema normalization, migration, future-schema write protection, serialized coalescing saves, retryable failures, and a single definition source shared by the 1.12 imperative and 1.13 declarative settings implementations. Keyboard tests cover tablist roles, roving tabindex, arrow keys, Home/End, focus retention, and RTL. DOM tests cannot replace real Obsidian style and focus acceptance.
 
 The host-style geometry regression launches a real Chrome/Chromium process without adding a package dependency and loads the repository's actual `styles.css` together with a minimal Obsidian host-style contract. It measures multiline result line boxes and overflow, a long Russian badge, square host checkboxes with separate targets of at least 34px, native disclosure markers, overrides of host button backgrounds and shadows, a non-overflowing 220px sidebar fallback with container queries disabled, a 450px declarative custom-settings body, and logical RTL indentation. This is automated browser evidence in the regular test gate; the environment must provide Chrome/Chromium or set `LINK_INTEGRITY_CHROME_PATH` to an executable. It does not replace acceptance with real themes, system scaling, a real RTL interface, coarse-pointer devices, or a mobile host.
 
-The i18n gate checks complete catalogs, English fallback, interpolation, plurals, language autonyms, structural parity of stable Chinese and English documents, and retired terminology.
+The i18n gate checks 11 complete independent catalogs, compile-time exact key coverage, interpolation, plurals, language autonyms, the Follow Obsidian label, structural parity of stable Chinese and English documents, and retired terminology. A stable catalog may not be completed by spreading the English object over missing translations.
 
 ## Performance and scale
 
@@ -77,7 +77,7 @@ Synthetic benchmarks record file count, occurrence count, source-kind distributi
 
 Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, duplicate Vault/Metadata Cache callback bursts, ignored startup `resolve(file)` storms, isolation queries, rule previews, and bounded sidebar DOM. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
 
-The local synthetic 10k and explicit 50k modes have been run for the current implementation. The latest explicit 50k run built the graph and projected isolated files in 733.3 ms (1.121 s for the complete guarded benchmark test) on the recorded local runtime. A 100k claim remains unverified and must not be inferred from the 50k result.
+The local synthetic 10k and explicit 50k modes have been run for the current implementation. On the exact runtime, the 2026-08-02 candidate built the 10k graph and isolated projection in 116.9 ms; explicit 50k mode took 606.0 ms and the complete guarded 50k benchmark test took 955 ms. A 100k claim remains unverified and must not be inferred from the 50k result.
 
 ## Package and host acceptance
 

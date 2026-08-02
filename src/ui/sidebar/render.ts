@@ -26,7 +26,6 @@ export interface SidebarRenderOptions {
   readonly fileTypeCategories: readonly FileTypeCategoryOption[];
   readonly defaultFormatFamilyIds: ReadonlySet<string>;
   readonly allowNoIncomingFilter: boolean;
-  readonly showStatus?: boolean;
   readonly onStateChange: (state: SidebarViewState) => void;
   readonly onActionError?: (error: unknown) => void;
   readonly document?: Document;
@@ -49,19 +48,23 @@ export function renderSidebar(
   root.className = "link-integrity-sidebar-root";
   container.append(root);
 
-  renderHeader(root, resolvedOptions);
   const panel = renderTabs(root, resolvedOptions);
-  renderToolbar(panel, resolvedOptions);
+  renderContextualStatus(panel, resolvedOptions);
   if (options.model.status.state === "idle") {
     renderEmptyState(
       panel,
       options.translator.t("status.idle"),
       options.translator.t("status.idle.description"),
+      options.translator.t("index.start"),
+      () => runAction(options.navigation.rebuildIndex, options.onActionError),
     );
-  } else if (options.model.activeTab === "broken-links") {
-    renderBrokenResults(panel, resolvedOptions);
   } else {
-    renderIsolatedResults(panel, resolvedOptions);
+    renderToolbar(panel, resolvedOptions);
+    if (options.model.activeTab === "broken-links") {
+      renderBrokenResults(panel, resolvedOptions);
+    } else {
+      renderIsolatedResults(panel, resolvedOptions);
+    }
   }
 
   return () => {
@@ -71,35 +74,30 @@ export function renderSidebar(
   };
 }
 
-function renderHeader(container: HTMLElement, options: SidebarRenderOptions): void {
-  const { t } = options.translator;
-  const header = container.ownerDocument.createElement("header");
-  header.className = "link-integrity-sidebar-header";
-  const heading = createText(container.ownerDocument, "h2", t("app.name"));
-  const actions = container.ownerDocument.createElement("div");
-  actions.className = "link-integrity-sidebar-header-actions";
-  actions.append(
-    createActionButton(container.ownerDocument, t("common.refresh"), () =>
-      runAction(options.navigation.refresh, options.onActionError)),
-    createActionButton(container.ownerDocument, t("common.settings"), () =>
-      runAction(options.navigation.openSettings, options.onActionError)),
-  );
-  header.append(heading, actions);
-
-  if (options.showStatus === false && options.model.status.state !== "idle") {
-    container.append(header);
-    return;
-  }
+function renderContextualStatus(
+  container: HTMLElement,
+  options: SidebarRenderOptions,
+): void {
+  if (options.model.status.state === "ready" || options.model.status.state === "idle") return;
+  const row = container.ownerDocument.createElement("div");
+  row.className = `link-integrity-status-row is-${options.model.status.state}`;
   const status = createText(
     container.ownerDocument,
     "div",
     formatStatus(options),
-    `link-integrity-status is-${options.model.status.state}`,
+    "link-integrity-status",
   );
   status.setAttribute("role", options.model.status.state === "failed" ? "alert" : "status");
   status.setAttribute("aria-live", "polite");
-  header.append(status);
-  container.append(header);
+  row.append(status);
+  if (options.model.status.state === "failed" || options.model.status.state === "stale") {
+    row.append(createActionButton(
+      container.ownerDocument,
+      options.translator.t("index.retry"),
+      () => runAction(options.navigation.rebuildIndex, options.onActionError),
+    ));
+  }
+  container.append(row);
 }
 
 function renderTabs(container: HTMLElement, options: SidebarRenderOptions): HTMLElement {
@@ -630,13 +628,22 @@ function renderIsolatedItem(
   return row;
 }
 
-function renderEmptyState(container: HTMLElement, title: string, description: string): void {
+function renderEmptyState(
+  container: HTMLElement,
+  title: string,
+  description: string,
+  actionLabel?: string,
+  action?: () => void,
+): void {
   const empty = container.ownerDocument.createElement("div");
   empty.className = "link-integrity-empty-state";
   empty.append(
     createText(container.ownerDocument, "h3", title),
     createText(container.ownerDocument, "p", description),
   );
+  if (actionLabel !== undefined && action !== undefined) {
+    empty.append(createActionButton(container.ownerDocument, actionLabel, action));
+  }
   container.append(empty);
 }
 

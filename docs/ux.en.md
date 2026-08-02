@@ -14,12 +14,12 @@ Desktop and mobile use the same product semantics. A narrow layout may rearrange
 
 ## 2. Sidebar information architecture
 
-The sidebar header shows scan status and provides refresh and settings actions. Two business tabs are available:
+The sidebar starts with the two business tabs. It does not repeat the plugin title or keep a permanent refresh/settings action row. Plugin settings are entered through Obsidian's plugin settings page. The tabs are:
 
 1. **Broken links**, with the number of currently visible occurrences.
 2. **Isolated files**, with the main projection count, excluding expected isolated files by default.
 
-Scanning progress, stale results, and a failed rebuild that still shows the last successful result must be explicit. A full-rebuild failure must never replace the last-known-good result with an empty list.
+The ready state consumes no permanent status row. Progress appears only while scanning; stale or failed state appears contextually in the current panel with a Retry rebuild action. With no baseline, opening the sidebar starts the first complete build automatically while retaining a discoverable Build index action. A full-rebuild failure must never replace the last-known-good result with an empty list.
 
 Result DOM is bounded to 200 occurrences or files per page. Previous/next controls preserve access to the complete filtered and sorted projection; badges remain full-result counts, the range label identifies the current page, and changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
@@ -67,11 +67,11 @@ Settings contain three tabs: General, Broken links, and Isolated files. The impe
 
 ### 4.1 General
 
-- Language: automatic or one of 11 bundled languages.
-- Default sidebar tab and scan-status visibility.
-- Startup and shared display preferences.
+- Language: Follow Obsidian or one of 11 bundled languages.
+- Default sidebar tab and scan on startup.
+- Link-index status and a manual rebuild action for recovery or complete verification, not routine refresh.
 
-A language change updates plugin UI immediately. Settings search, keyboard navigation, and status text use the selected locale. A missing message may fall back to English but must never expose an internal key.
+A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings search, keyboard navigation, and status text use the selected locale. All 11 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
 
 ### 4.2 Broken links
 
@@ -105,7 +105,7 @@ An ignore rule states its actual scope: hide broken diagnostics, exclude isolate
 
 ## 6. Saving, errors, and recovery
 
-Settings use a serialized, coalescing save queue. The interface distinguishes saved, saving, pending retry, and failed states:
+Settings use a serialized, coalescing save queue. The ordinary saved state does not consume a permanent row; status appears only while a save is scheduled, active, or failed:
 
 - Rapid edits may coalesce, but a write that already started is not silently cancelled.
 - A failed save retains pending in-memory settings and exposes Retry.
