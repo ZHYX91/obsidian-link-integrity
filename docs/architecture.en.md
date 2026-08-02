@@ -86,4 +86,4 @@ The scan-on-startup setting determines whether a full rebuild begins proactively
 
 Automated tests cover core graph invariants, snapshot replacement, same-name target revalidation, random-event differential equality, last-known-good retention, event replay, lifecycle cancellation, and query semantics. Actual resolution accuracy ultimately depends on the live Obsidian APIs and real file caches.
 
-There is currently no derived-graph persistence, external-URL network checking, automatic deletion, or bulk repair. Behavior in real Obsidian 1.12.7/current 1.13.x hosts, an Android emulator, and physical devices cannot be inferred from architecture tests and must be accepted separately.
+There is currently no derived-graph persistence, external-URL network checking, automatic deletion, or bulk repair. A formal-Vault smoke records the observed Obsidian 1.13.4 startup, sidebar, and settings behavior, but architecture tests and that smoke do not establish the full Obsidian 1.12.7/current 1.13.x matrix, live-event paths, Android emulator behavior, or physical-device behavior; those boundaries require separate acceptance.

@@ -74,4 +74,4 @@ The plugin is diagnostic and non-destructive. Automatic deletion, bulk repair, n
 
 ## Current delivery status
 
-The core semantics, query projections, full and incremental index controllers, and automated tests are implemented in the repository. The first version remains in local implementation and acceptance and has not been released. Real Obsidian host, Android emulator, and physical-device acceptance are separate evidence boundaries; until that evidence exists, type checking, unit tests, and synthetic benchmarks cannot substitute for those claims.
+The core semantics, query projections, full and incremental index controllers, and automated tests are implemented in the repository. The first version remains in local implementation and acceptance and has not been released. A production-Vault smoke has verified the observed desktop workflow in Obsidian 1.13.4; Obsidian 1.12.7, Android emulator, physical-device, and broader live-event acceptance remain separate evidence boundaries. Type checking, unit tests, synthetic benchmarks, and one desktop smoke cannot substitute for those missing claims.
