@@ -69,6 +69,18 @@ export function getAllFormatIds(
   return new Set(categories.flatMap(({ formats }) => formats.map(({ id }) => id)));
 }
 
+function setCheckboxSelectionState(
+  checkbox: HTMLInputElement,
+  state: SelectionState,
+): void {
+  const mixed = state === "mixed";
+  checkbox.checked = state === "checked";
+  checkbox.indeterminate = mixed;
+  checkbox.setAttribute("aria-checked", mixed ? "mixed" : String(checkbox.checked));
+  if (mixed) checkbox.dataset.indeterminate = "true";
+  else checkbox.removeAttribute("data-indeterminate");
+}
+
 export function renderFileTypeSelection(
   container: HTMLElement,
   model: FileTypeSelectionModel,
@@ -84,23 +96,51 @@ export function renderFileTypeSelection(
   }
 
   const allIds = getAllFormatIds(model.categories);
+  let selectedFormatIds = new Set(model.selectedFormatIds);
+  const categoryCheckboxes = new Map<string, HTMLInputElement>();
+  const formatCheckboxes = new Map<string, HTMLInputElement>();
   const summary = createText(
     root.ownerDocument,
     "div",
-    options.selectedCountLabel(model.selectedFormatIds.size, allIds.size),
+    options.selectedCountLabel(selectedFormatIds.size, allIds.size),
     "link-integrity-file-types-summary",
   );
   root.append(summary);
 
+  const updateSelection = (next: ReadonlySet<string>): void => {
+    selectedFormatIds = new Set(next);
+    summary.textContent = options.selectedCountLabel(selectedFormatIds.size, allIds.size);
+    for (const category of model.categories) {
+      const checkbox = categoryCheckboxes.get(category.id);
+      if (checkbox !== undefined) {
+        setCheckboxSelectionState(
+          checkbox,
+          getCategorySelectionState(category, selectedFormatIds),
+        );
+      }
+      for (const format of category.formats) {
+        const formatCheckbox = formatCheckboxes.get(format.id);
+        if (formatCheckbox !== undefined) {
+          formatCheckbox.checked = selectedFormatIds.has(format.id);
+        }
+      }
+    }
+  };
+
+  const commitSelection = (next: ReadonlySet<string>): void => {
+    updateSelection(next);
+    options.onChange(new Set(selectedFormatIds));
+  };
+
   const actions = root.ownerDocument.createElement("div");
   actions.className = "link-integrity-file-types-actions";
   actions.append(
-    actionButton(root.ownerDocument, options.selectAllLabel, () => options.onChange(allIds)),
-    actionButton(root.ownerDocument, options.clearLabel, () => options.onChange(new Set())),
+    actionButton(root.ownerDocument, options.selectAllLabel, () => commitSelection(allIds)),
+    actionButton(root.ownerDocument, options.clearLabel, () => commitSelection(new Set())),
     actionButton(
       root.ownerDocument,
       options.restoreDefaultLabel,
-      () => options.onChange(new Set(model.defaultFormatIds)),
+      () => commitSelection(model.defaultFormatIds),
     ),
   );
   root.append(actions);
@@ -111,15 +151,23 @@ export function renderFileTypeSelection(
     const header = root.ownerDocument.createElement("summary");
     const parentCheckbox = root.ownerDocument.createElement("input");
     parentCheckbox.type = "checkbox";
-    const state = getCategorySelectionState(category, model.selectedFormatIds);
-    parentCheckbox.checked = state === "checked";
-    parentCheckbox.indeterminate = state === "mixed";
+    setCheckboxSelectionState(
+      parentCheckbox,
+      getCategorySelectionState(category, selectedFormatIds),
+    );
     parentCheckbox.setAttribute("aria-label", category.label);
+    categoryCheckboxes.set(category.id, parentCheckbox);
     parentCheckbox.addEventListener("click", (event) => event.stopPropagation());
     parentCheckbox.addEventListener("change", () => {
-      options.onChange(toggleCategorySelection(model, category.id));
+      commitSelection(toggleCategorySelection({
+        ...model,
+        selectedFormatIds,
+      }, category.id));
     });
-    header.append(parentCheckbox, root.ownerDocument.createTextNode(category.label));
+    header.append(
+      checkboxTarget(root.ownerDocument, parentCheckbox, category.label),
+      root.ownerDocument.createTextNode(category.label),
+    );
     section.append(header);
 
     const formats = root.ownerDocument.createElement("div");
@@ -129,9 +177,10 @@ export function renderFileTypeSelection(
       label.className = "link-integrity-file-format";
       const checkbox = root.ownerDocument.createElement("input");
       checkbox.type = "checkbox";
-      checkbox.checked = model.selectedFormatIds.has(format.id);
+      checkbox.checked = selectedFormatIds.has(format.id);
+      formatCheckboxes.set(format.id, checkbox);
       checkbox.addEventListener("change", () => {
-        options.onChange(toggleFormatSelection(model.selectedFormatIds, format.id));
+        commitSelection(toggleFormatSelection(selectedFormatIds, format.id));
       });
       const extensions = format.extensions.map((item) => `.${item}`).join(", ");
       label.append(
@@ -158,6 +207,19 @@ function actionButton(
   button.textContent = label;
   button.addEventListener("click", onClick);
   return button;
+}
+
+function checkboxTarget(
+  document: Document,
+  checkbox: HTMLInputElement,
+  label: string,
+): HTMLLabelElement {
+  const target = document.createElement("label");
+  target.className = "link-integrity-checkbox-target";
+  target.setAttribute("aria-label", label);
+  target.addEventListener("click", (event) => event.stopPropagation());
+  target.append(checkbox);
+  return target;
 }
 
 function createText(

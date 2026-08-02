@@ -52,6 +52,8 @@ describe("file type selection", () => {
       'input[aria-label="Images"]',
     );
     expect(imageParent?.indeterminate).toBe(true);
+    expect(imageParent?.dataset.indeterminate).toBe("true");
+    expect(imageParent?.getAttribute("aria-checked")).toBe("mixed");
     const png = Array.from(container.querySelectorAll("label"))
       .find((label) => label.querySelector("span")?.textContent === "PNG")
       ?.querySelector<HTMLInputElement>("input");
@@ -60,5 +62,54 @@ describe("file type selection", () => {
       png.dispatchEvent(new Event("change", { bubbles: true }));
     }
     expect(onChange).toHaveBeenCalledWith(new Set(["jpeg", "png"]));
+  });
+
+  it("keeps the Obsidian mixed-state contract synchronized as selections change", () => {
+    const container = document.createElement("div");
+    const onChange = vi.fn();
+    renderFileTypeSelection(container, {
+      categories,
+      selectedFormatIds: new Set(["jpeg"]),
+      defaultFormatIds: new Set(["markdown"]),
+    }, {
+      selectAllLabel: "Select all",
+      clearLabel: "Clear",
+      restoreDefaultLabel: "Restore defaults",
+      selectedCountLabel: (selected, total) => `${selected}/${total}`,
+      onChange,
+    });
+    const imageParent = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Images"]',
+    )!;
+    const imageDetails = imageParent.closest("details")!;
+    const imageTarget = imageParent.closest<HTMLLabelElement>(
+      ".link-integrity-checkbox-target",
+    );
+    const imageFormatCount = categories.find(({ id }) => id === "image")!.formats.length;
+    expect(imageTarget?.getAttribute("aria-label")).toBe("Images");
+
+    imageParent.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(imageDetails.open).toBe(false);
+    imageParent.checked = true;
+    imageParent.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(imageParent.checked).toBe(true);
+    expect(imageParent.indeterminate).toBe(false);
+    expect(imageParent.hasAttribute("data-indeterminate")).toBe(false);
+    expect(imageParent.getAttribute("aria-checked")).toBe("true");
+    expect(onChange).toHaveBeenLastCalledWith(expect.any(Set));
+    expect((onChange.mock.lastCall?.[0] as Set<string>).size).toBe(imageFormatCount);
+
+    const png = Array.from(imageDetails.querySelectorAll("label"))
+      .find((label) => label.querySelector("span")?.textContent === "PNG")!
+      .querySelector<HTMLInputElement>("input")!;
+    png.checked = false;
+    png.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(imageParent.checked).toBe(false);
+    expect(imageParent.indeterminate).toBe(true);
+    expect(imageParent.dataset.indeterminate).toBe("true");
+    expect(imageParent.getAttribute("aria-checked")).toBe("mixed");
+
+    imageDetails.querySelector<HTMLElement>("summary")!.click();
+    expect(imageDetails.open).toBe(true);
   });
 });

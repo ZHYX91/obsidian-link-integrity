@@ -152,12 +152,16 @@ function renderExpectedRule(
   enabled.type = "checkbox";
   enabled.checked = rule.enabled;
   enabled.disabled = context.writeProtected;
+  enabled.setAttribute("aria-label", rule.name || t("settings.expected.ruleName"));
   enabled.addEventListener("click", (event) => event.stopPropagation());
   enabled.addEventListener("change", () => replaceExpectedRule(context, {
     ...rule,
     enabled: enabled.checked,
   }));
-  summary.append(enabled, document.createTextNode(rule.name));
+  summary.append(
+    summaryCheckboxTarget(document, enabled, rule.name || t("settings.expected.ruleName")),
+    document.createTextNode(rule.name),
+  );
   details.append(summary);
 
   const name = labeledInput(details, t("settings.expected.ruleName"), rule.name);
@@ -357,12 +361,17 @@ function renderPeriodicEntry(
   const details = document.createElement("details");
   details.className = "link-integrity-periodic-entry";
   const summary = document.createElement("summary");
+  const entryLabel = t(labels[kind]);
   const enabled = document.createElement("input");
   enabled.type = "checkbox";
   enabled.checked = entry.enabled;
   enabled.disabled = context.writeProtected;
+  enabled.setAttribute("aria-label", entryLabel);
   enabled.addEventListener("click", (event) => event.stopPropagation());
-  summary.append(enabled, document.createTextNode(t(labels[kind])));
+  summary.append(
+    summaryCheckboxTarget(document, enabled, entryLabel),
+    document.createTextNode(entryLabel),
+  );
   details.append(summary);
   const folder = labeledInput(details, t("settings.expected.periodFolder"), entry.folder);
   const formats = labeledTextarea(
@@ -441,12 +450,17 @@ function renderIgnoreRule(
   enabled.type = "checkbox";
   enabled.checked = rule.enabled;
   enabled.disabled = context.writeProtected;
+  const enabledLabel = rule.note || rule.matcher.value || t("settings.ignore.title");
+  enabled.setAttribute("aria-label", enabledLabel);
   enabled.addEventListener("click", (event) => event.stopPropagation());
   enabled.addEventListener("change", () => replaceIgnoreRule(context, {
     ...rule,
     enabled: enabled.checked,
   }));
-  summary.append(enabled, document.createTextNode(rule.note || rule.matcher.value));
+  summary.append(
+    summaryCheckboxTarget(document, enabled, enabledLabel),
+    document.createTextNode(rule.note || rule.matcher.value),
+  );
   details.append(summary);
 
   const scope = select(document, scopeOptions(t), rule.scope);
@@ -676,6 +690,19 @@ function checkboxLabel(
   label.append(checkbox, container.ownerDocument.createTextNode(labelText));
   container.append(label);
   return { label, checkbox };
+}
+
+function summaryCheckboxTarget(
+  document: Document,
+  checkbox: HTMLInputElement,
+  labelText: string,
+): HTMLLabelElement {
+  const target = document.createElement("label");
+  target.className = "link-integrity-checkbox-target";
+  target.setAttribute("aria-label", labelText);
+  target.addEventListener("click", (event) => event.stopPropagation());
+  target.append(checkbox);
+  return target;
 }
 
 function select(

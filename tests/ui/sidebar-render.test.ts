@@ -199,11 +199,12 @@ describe("sidebar renderer", () => {
       .toEqual(["path", "name", "modified", "broken-count"]);
   });
 
-  it("restores focus to the selected tab after a synchronous re-render", async () => {
+  it("reveals and restores focus to a clipped tab after a synchronous re-render", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const translator = createTranslator("en", "en");
     let state = viewState();
+    const scrollIntoView = vi.fn();
     const rerender = (): void => {
       renderSidebar(container, {
         model: createSidebarViewModel(querySnapshot(), state),
@@ -218,10 +219,22 @@ describe("sidebar renderer", () => {
           rerender();
         },
       });
+      const activeTab = container.querySelector<HTMLButtonElement>(
+        '[role="tab"][aria-selected="true"]',
+      );
+      if (activeTab !== null) {
+        Object.defineProperty(activeTab, "scrollIntoView", {
+          configurable: true,
+          value: scrollIntoView,
+        });
+      }
     };
     rerender();
+    const tabList = container.querySelector<HTMLElement>('[role="tablist"]');
+    if (tabList !== null) tabList.scrollLeft = 120;
     container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1]?.click();
     await Promise.resolve();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
     expect(document.activeElement?.textContent).toContain("Isolated files");
     container.remove();
   });

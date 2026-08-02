@@ -15,30 +15,13 @@ export function moveHorizontalTabIndex(
   return (currentIndex + logicalStep + tabCount) % tabCount;
 }
 
-export interface ScrollLayout {
-  readonly clientWidth: number;
-  readonly scrollWidth: number;
-  readonly scrollLeft: number;
-  readonly itemOffsetLeft: number;
-  readonly itemOffsetWidth: number;
-}
-
-export function getRevealScrollLeft(layout: ScrollLayout): number {
-  const clientWidth = finiteNonNegative(layout.clientWidth);
-  const scrollWidth = finiteNonNegative(layout.scrollWidth);
-  const maximum = Math.max(0, scrollWidth - clientWidth);
-  const current = clamp(finiteNonNegative(layout.scrollLeft), 0, maximum);
-  const start = Number.isFinite(layout.itemOffsetLeft) ? layout.itemOffsetLeft : 0;
-  const end = start + finiteNonNegative(layout.itemOffsetWidth);
-  if (start < current) return clamp(start, 0, maximum);
-  if (end > current + clientWidth) return clamp(end - clientWidth, 0, maximum);
-  return current;
-}
-
-function finiteNonNegative(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, value) : 0;
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
+export function revealHorizontalTab(tab: HTMLElement, focus: boolean): void {
+  if (typeof tab.scrollIntoView === "function") {
+    tab.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (focus) tab.focus({ preventScroll: true });
+    return;
+  }
+  // Older DOM shims do not expose scrollIntoView. Let native focus scrolling be
+  // the fallback instead of attempting direction-dependent scrollLeft math.
+  if (focus) tab.focus();
 }

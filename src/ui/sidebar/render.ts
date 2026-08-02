@@ -3,7 +3,7 @@ import {
   renderFileTypeSelection,
   type FileTypeCategoryOption,
 } from "../file-type-selection";
-import { moveHorizontalTabIndex } from "../tab-navigation";
+import { moveHorizontalTabIndex, revealHorizontalTab } from "../tab-navigation";
 import type {
   BrokenLinkResult,
   IsolatedFileResult,
@@ -158,9 +158,10 @@ function renderTabs(container: HTMLElement, options: SidebarRenderOptions): HTML
 function selectSidebarTab(options: SidebarRenderOptions, tabId: SidebarTabId): void {
   options.onStateChange({ ...options.state, activeTab: tabId });
   queueMicrotask(() => {
-    options.mountElement
-      ?.querySelector<HTMLButtonElement>(`#link-integrity-sidebar-tab-${tabId}`)
-      ?.focus({ preventScroll: true });
+    const tab = options.mountElement
+      ?.querySelector<HTMLButtonElement>(`#link-integrity-sidebar-tab-${tabId}`);
+    if (tab?.getAttribute("aria-selected") !== "true") return;
+    revealHorizontalTab(tab, true);
   });
 }
 

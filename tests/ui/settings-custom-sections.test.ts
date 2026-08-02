@@ -28,6 +28,10 @@ describe("custom settings sections", () => {
     }));
     expect(container.textContent).toContain("File type, folder, and naming conditions use AND");
     expect(container.textContent).toContain("Daily/2026-08-01.md");
+    const summaryCheckbox = container.querySelector<HTMLInputElement>(
+      ".link-integrity-settings-rule > summary input[type=checkbox]",
+    );
+    expect(summaryCheckbox?.getAttribute("aria-label")).toBe("Daily notes");
     const name = Array.from(container.querySelectorAll("label"))
       .find(({ textContent }) => textContent?.includes("Rule name"))
       ?.querySelector<HTMLInputElement>('input[type="text"]');
@@ -68,6 +72,12 @@ describe("custom settings sections", () => {
     expect(container.textContent).toContain("Matches 3 items");
     expect(container.textContent).toContain("Generated/a.md");
     expect(container.querySelector(".is-graph-risk")).not.toBeNull();
+    const summaryCheckbox = container.querySelector<HTMLInputElement>(
+      ".is-graph-risk > summary input[type=checkbox]",
+    );
+    expect(summaryCheckbox?.getAttribute("aria-label")).toBe("Generated files");
+    summaryCheckbox?.click();
+    expect(summaryCheckbox?.closest("details")?.open).toBe(false);
   });
 
   it("offers five independent periodic-note presets without a runtime integration", () => {
@@ -84,6 +94,38 @@ describe("custom settings sections", () => {
       "Quarterly notes",
       "Yearly notes",
     ]) expect(container.textContent).toContain(label);
+    const summaryCheckboxes = Array.from(container.querySelectorAll<HTMLInputElement>(
+      ".link-integrity-periodic-entry > summary input[type=checkbox]",
+    ));
+    expect(summaryCheckboxes.map((checkbox) => checkbox.getAttribute("aria-label"))).toEqual([
+      "Daily notes",
+      "Weekly notes",
+      "Monthly notes",
+      "Quarterly notes",
+      "Yearly notes",
+    ]);
+    for (const checkbox of summaryCheckboxes) {
+      checkbox.click();
+      expect(checkbox.closest("details")?.open).toBe(false);
+    }
+  });
+
+  it("keeps summary checkbox activation separate from details expansion", () => {
+    const container = document.createElement("div");
+    renderCustomSetting(
+      container,
+      "expected-isolation-rules",
+      context(withExpectedRule(createDefaultSettings(), expectedRule())),
+    );
+    const details = container.querySelector<HTMLDetailsElement>(".link-integrity-settings-rule")!;
+    const checkbox = details.querySelector<HTMLInputElement>("summary input[type=checkbox]")!;
+    const target = checkbox.closest<HTMLLabelElement>(".link-integrity-checkbox-target")!;
+
+    expect(target.getAttribute("aria-label")).toBe("Daily notes");
+    target.click();
+    expect(details.open).toBe(false);
+    details.querySelector<HTMLElement>("summary")!.click();
+    expect(details.open).toBe(true);
   });
 });
 

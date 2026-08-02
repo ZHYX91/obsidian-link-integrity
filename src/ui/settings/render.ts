@@ -7,7 +7,7 @@ import {
 } from "../../shared/settings";
 import { getSettingsPageDefinitions, type SettingsItemDefinition } from "./definitions";
 import { renderCustomSetting } from "./custom-sections";
-import { getRevealScrollLeft, moveHorizontalTabIndex } from "../tab-navigation";
+import { moveHorizontalTabIndex, revealHorizontalTab } from "../tab-navigation";
 import type { SettingsTabId, SettingsUiContext } from "./types";
 
 export interface ImperativeSettingsRenderOptions {
@@ -48,7 +48,7 @@ export function renderImperativeSettings(
     button.setAttribute("aria-controls", settingsPanelId(page.id));
     button.tabIndex = active ? 0 : -1;
     button.addEventListener("click", () => {
-      if (page.id === activePage.id) button.focus({ preventScroll: true });
+      if (page.id === activePage.id) revealHorizontalTab(button, true);
       else options.onSelectTab(page.id, true);
     });
     button.addEventListener("keydown", (event) => {
@@ -106,14 +106,7 @@ export function renderImperativeSettings(
   const ownerWindow = container.ownerDocument.defaultView;
   const reveal = (): void => {
     if (activeButton === undefined) return;
-    tabList.scrollLeft = getRevealScrollLeft({
-      clientWidth: tabList.clientWidth,
-      scrollWidth: tabList.scrollWidth,
-      scrollLeft: tabList.scrollLeft,
-      itemOffsetLeft: activeButton.offsetLeft,
-      itemOffsetWidth: activeButton.offsetWidth,
-    });
-    if (options.focusActiveTab === true) activeButton.focus({ preventScroll: true });
+    revealHorizontalTab(activeButton, options.focusActiveTab === true);
   };
   const frame = ownerWindow?.requestAnimationFrame(reveal);
   if (frame !== undefined) cleanups.push(() => ownerWindow?.cancelAnimationFrame(frame));

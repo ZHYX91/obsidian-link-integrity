@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
-  getRevealScrollLeft,
   moveHorizontalTabIndex,
+  revealHorizontalTab,
 } from "../../src/ui/tab-navigation";
 
 describe("tab navigation", () => {
@@ -13,20 +13,45 @@ describe("tab navigation", () => {
     expect(moveHorizontalTabIndex(1, "End", 3, "ltr")).toBe(2);
   });
 
-  it("reveals a clipped tab without overscrolling", () => {
-    expect(getRevealScrollLeft({
-      clientWidth: 100,
-      scrollWidth: 300,
-      scrollLeft: 50,
-      itemOffsetLeft: 170,
-      itemOffsetWidth: 40,
-    })).toBe(110);
-    expect(getRevealScrollLeft({
-      clientWidth: 100,
-      scrollWidth: 300,
-      scrollLeft: 50,
-      itemOffsetLeft: 60,
-      itemOffsetWidth: 20,
-    })).toBe(50);
+  it.each(["ltr", "rtl"] as const)(
+    "delegates clipped-tab reveal to the browser in %s layouts",
+    (direction) => {
+      const tabList = document.createElement("div");
+      const tab = document.createElement("button");
+      tabList.dir = direction;
+      tabList.scrollLeft = direction === "rtl" ? -120 : 120;
+      tabList.append(tab);
+      document.body.append(tabList);
+      const scrollIntoView = vi.fn();
+      Object.defineProperty(tab, "scrollIntoView", {
+        configurable: true,
+        value: scrollIntoView,
+      });
+
+      revealHorizontalTab(tab, true);
+
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: "nearest",
+        inline: "nearest",
+      });
+      expect(document.activeElement).toBe(tab);
+      // The helper must not normalize Chromium's negative RTL scrollLeft model.
+      expect(tabList.scrollLeft).toBe(direction === "rtl" ? -120 : 120);
+      tabList.remove();
+    },
+  );
+
+  it("falls back to native focus when scrollIntoView is unavailable", () => {
+    const tab = document.createElement("button");
+    document.body.append(tab);
+    Object.defineProperty(tab, "scrollIntoView", {
+      configurable: true,
+      value: undefined,
+    });
+
+    revealHorizontalTab(tab, true);
+
+    expect(document.activeElement).toBe(tab);
+    tab.remove();
   });
 });
