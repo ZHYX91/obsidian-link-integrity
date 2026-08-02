@@ -1,25 +1,81 @@
 # Link Integrity
 
-[English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.de.md) · [Français](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.fr.md) · [Русский](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ru.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.pt-BR.md) · [日本語](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ko.md) · [Español](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.es.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.vi.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
 Link Integrity は Broken links と Isolated files を検出する、ローカル専用・読み取り専用の Obsidian 診断プラグインです。
 
-## 検出内容
+## スクリーンショット
 
-無効な内部参照、孤立ファイル、信頼度の低い結果、必要に応じて「孤立が想定される」ファイルを表示します。自己リンク、外部 URL、Bases の動的クエリはグラフの辺になりません。
+コンパクトなサイドバーで壊れたリンクと孤立ファイルを確認できます。
+
+![Link Integrity サイドバー](../assets/link-integrity-overview-en.png)
+
+Obsidian の設定でインデックス、除外ルール、ファイル形式、想定された孤立を構成できます。
+
+![Link Integrity 設定](../assets/link-integrity-settings-en.png)
+
+## 機能
+
+- Markdown、埋め込み、Frontmatter、Canvas、Bases の明示的ファイル参照にある壊れたファイル・見出し・ブロックリンクを報告します。
+- 別の既存 Vault ファイルとの有効な入出力接続がないファイルを検出します。自己リンクと外部 URL は接続になりません。
+- 壊れた出力リンクを含む孤立ファイルは、信頼度の低い候補として表示します。
+- 定期ノート、テンプレート、アーカイブを、架空のグラフ辺を作らずに Expected isolated として任意表示します。
+- Obsidian ファイル、画像形式、音声、動画、PDF、設定した添付拡張子で絞り込めます。
+- 必要に応じて完全な基準を構築し、その後は増分更新で結果を維持します。
+- 各診断からソースを開けます。解析と索引はすべてローカルです。
+
+Bases の動的クエリ結果は明示的な辺ではありません。ファイルは解決して見出しやブロックだけが欠ける場合、ファイル接続は維持され、サブパス診断が別に表示されます。
+
+## 要件と互換性
+
+- Obsidian 1.12.7 以降。
+- デスクトップとモバイル向けです。実際のホストや端末はそれぞれ独立した受け入れ境界です。
+- 現在の Vault だけを診断し、外部 Web は検査しません。
 
 ## インストール
 
-最初の公開版は未リリースです。隔離した開発用 Vault で `main.js`、`manifest.json`、`styles.css` を `.obsidian/plugins/link-integrity/` にコピーしてください。更新時も `data.json` は保持されます。
+最初の公開版は最終確認待ちです。公開後は **設定 → コミュニティプラグイン → 閲覧** からインストールするか、[最新リリース](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)の `link-integrity-<version>.zip` を利用できます。
 
-## プライバシーとデータ
+手動では `main.js`、`manifest.json`、`styles.css` を `Vault/.obsidian/plugins/link-integrity/` に配置します。更新時はこの 3 ファイルだけを置き換え、設定をリセットしない限り `data.json` を保持してください。
 
-処理はすべてローカルです。Vault の内容を送信・変更せず、外部 URL を検査せず、派生グラフを永続化しません。
+## 使い方
 
-## 互換性
+1. コミュニティプラグインで Link Integrity を有効にします。
+2. リボンまたはコマンドパレットからサイドバーを開き、**Broken links** と **Isolated files** を切り替えます。
+3. 診断を選ぶとソースが開きます。フィルターは現在の表示だけを変更します。
+4. 起動時スキャンが無効、または基準構築が失敗した場合は、一般設定の **インデックスを構築** または **再構築** を使用します。その後は増分更新で自動的に最新状態を保ちます。
 
-Obsidian 1.12.7 以降が必要で、デスクトップとモバイルを対象とします。
+## 設定
 
-## 状況
+- **一般**：言語、起動時スキャン、グループ化、インデックス構築操作。既定言語は **Obsidian に従う** です。
+- **Broken links**：診断カテゴリと、プレビュー付きの名前付き除外ルール。
+- **Isolated files**：既定ファイル形式、任意の入リンクなし分析、Expected isolated の表示、各種ルール。
+- 想定された孤立ルールは、形式、完全一致または再帰フォルダー、日付形式、glob、正規表現を組み合わせられます。定期ノートプリセットは日・週・月・四半期・年に対応します。
 
-初期ローカル実装中で、公開・タグ付け・マーケット掲載はまだ行われていません。
+設定とルールは `data.json` に保存されます。派生リンクグラフは永続化されません。
+
+## 制限
+
+- ファイル削除やリンクの自動書き換えは行いません。
+- 外部 URL をネットワーク経由で検査しません。
+- Bases の動的クエリは明示的接続として数えません。
+- Expected isolated ルールは候補表示だけに影響し、壊れたリンクを隠しません。
+- 自動テストは実際の Obsidian バージョンや端末での確認を置き換えません。
+
+## プライバシーとセキュリティ
+
+処理はすべてローカルです。Link Integrity は Vault 内容をアップロードせず、アカウントを要求せず、ノートを変更せず、派生グラフを保存しません。
+
+## 開発
+
+Node.js 24.18.0 と npm 11.16.0 を使用し、`npm ci` の後に `npm run check` を実行します。
+
+安定した契約：[製品](../product.en.md)、[UX](../ux.en.md)、[アーキテクチャ](../architecture.en.md)、[テスト](../testing-strategy.en.md)、[リリース](../release.en.md)。対応する中国語ソースは同じフォルダーにあります。
+
+## サポート
+
+再現可能な不具合や具体的な提案は [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues) へ報告してください。非公開の Vault パス、ノート内容、診断例は投稿しないでください。
+
+## ライセンス
+
+[MIT](../../LICENSE) © ZhengYX

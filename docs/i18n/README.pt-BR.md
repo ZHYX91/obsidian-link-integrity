@@ -1,25 +1,81 @@
 # Link Integrity
 
-[English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.de.md) · [Français](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.fr.md) · [Русский](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ru.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.pt-BR.md) · [日本語](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ko.md) · [Español](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.es.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.vi.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
 Link Integrity é um plugin de diagnóstico local e somente leitura para Obsidian, voltado a Broken links e Isolated files.
 
-## O que encontra
+## Capturas de tela
 
-Ele identifica referências internas inválidas, arquivos isolados, resultados de baixa confiança e, opcionalmente, arquivos cujo isolamento é esperado. Auto-links, URLs externas e consultas dinâmicas do Bases não criam arestas.
+Revise links quebrados e arquivos isolados em uma barra lateral compacta:
+
+![Barra lateral do Link Integrity](../assets/link-integrity-overview-en.png)
+
+Configure índice, regras de ignorar, tipos de arquivo e isolamento esperado nas configurações do Obsidian:
+
+![Configurações do Link Integrity](../assets/link-integrity-settings-en.png)
+
+## Recursos
+
+- Relata referências internas quebradas para arquivos, títulos e blocos em Markdown, incorporações, Frontmatter, Canvas e referências explícitas de arquivo em Bases.
+- Encontra arquivos sem conexão válida de entrada ou saída com outro arquivo existente no Vault; autolinks e URLs externas não criam conexões.
+- Marca com menor confiança arquivos isolados que contêm links de saída quebrados.
+- Exibe opcionalmente notas periódicas, modelos e arquivos como Expected isolated sem inventar arestas.
+- Filtra arquivos do Obsidian, famílias de imagens, áudio, vídeo, PDF e extensões de anexos configuradas.
+- Cria uma base completa quando necessário e depois aplica atualizações incrementais.
+- Abre cada diagnóstico na origem; toda análise e indexação permanecem locais.
+
+Resultados dinâmicos de Bases não são arestas explícitas. Se o arquivo for resolvido mas faltar o título ou bloco, a conexão de arquivo continua válida e o subcaminho é relatado separadamente.
+
+## Requisitos e compatibilidade
+
+- Obsidian 1.12.7 ou posterior.
+- Projetado para desktop e dispositivos móveis; cada host e dispositivo real permanece uma fronteira de aceitação distinta.
+- Diagnostica apenas o Vault atual e não verifica a Web externa.
 
 ## Instalação
 
-A primeira versão pública ainda não foi lançada. Em um Vault de desenvolvimento isolado, copie `main.js`, `manifest.json` e `styles.css` para `.obsidian/plugins/link-integrity/`. A atualização preserva `data.json`.
+A primeira versão pública aguarda aceitação final. Depois da publicação, instale pelo **Configurações → Plugins da comunidade → Explorar** ou baixe `link-integrity-<version>.zip` da [versão mais recente](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
-## Privacidade e dados
+Na instalação manual, coloque `main.js`, `manifest.json` e `styles.css` em `Vault/.obsidian/plugins/link-integrity/`. Em atualizações, substitua apenas esses três arquivos e preserve `data.json`, salvo se quiser redefinir as configurações.
 
-Tudo é processado localmente. O conteúdo do Vault não é enviado nem alterado; URLs externas não são verificadas e o grafo derivado não é persistido.
+## Uso
 
-## Compatibilidade
+1. Ative o Link Integrity nos plugins da comunidade.
+2. Abra a barra lateral pela faixa ou paleta de comandos e alterne entre **Broken links** e **Isolated files**.
+3. Selecione um diagnóstico para abrir a origem; os filtros mudam somente a visualização atual.
+4. Se a varredura inicial estiver desativada ou a base falhar, use **Criar índice** ou **Reconstruir índice** em Geral. Depois, atualizações incrementais mantêm os resultados atuais.
 
-Requer Obsidian 1.12.7 ou posterior, em desktop e dispositivos móveis.
+## Configurações
 
-## Status
+- **Geral**: idioma, varredura inicial, agrupamento e ações de índice. O idioma padrão é **Seguir o Obsidian**.
+- **Broken links**: categorias e regras nomeadas para ignorar, com visualização.
+- **Isolated files**: tipos padrão, análise opcional sem links de entrada, visibilidade Expected isolated e regras.
+- Regras de isolamento esperado combinam tipo, pasta exata ou recursiva, formato de data, glob e expressão regular; a predefinição periódica cobre dia, semana, mês, trimestre e ano.
 
-A implementação local inicial está em andamento; ainda não há publicação nem listagem no marketplace.
+Configurações e regras ficam em `data.json`; o grafo derivado não é persistido.
+
+## Limitações
+
+- Não exclui arquivos nem reescreve links automaticamente.
+- URLs externas não são consultadas pela rede.
+- Consultas dinâmicas do Bases não contam como conexões explícitas.
+- Regras Expected isolated afetam apenas a projeção de candidatos e nunca ocultam links quebrados.
+- Testes automatizados não substituem a aceitação em versões e dispositivos reais do Obsidian.
+
+## Privacidade e segurança
+
+Tudo é processado localmente. Link Integrity não envia conteúdo do Vault, não exige conta, não modifica notas e não persiste o grafo derivado.
+
+## Desenvolvimento
+
+Use Node.js 24.18.0 e npm 11.16.0. Execute `npm ci` e depois `npm run check`.
+
+Contratos estáveis: [produto](../product.en.md), [UX](../ux.en.md), [arquitetura](../architecture.en.md), [testes](../testing-strategy.en.md) e [lançamento](../release.en.md). As fontes chinesas correspondentes ficam na mesma pasta.
+
+## Suporte
+
+Use [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues) para erros reproduzíveis e solicitações concretas. Não publique caminhos do Vault, conteúdo de notas ou amostras privadas.
+
+## Licença
+
+[MIT](../../LICENSE) © ZhengYX

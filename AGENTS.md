@@ -60,7 +60,7 @@ infrastructure report proves Link Integrity product behavior.
 
 Simplified Chinese is the source language for stable product, UX, architecture, and testing
 documents. Pair stable `.zh-CN.md` documents with structurally matching `.en.md` translations.
-The root README is English and translations live under `docs/i18n/`.
+The root README is English and translations live under `docs/i18n/`. Because the Obsidian plugin catalog renders only the English root README without rewriting repository-relative URLs, root navigation and repository-document links use canonical GitHub `blob/main` URLs and root images use canonical `raw.githubusercontent.com` URLs. Translated READMEs use repository-relative navigation, document, image, and license targets. Release, Issues, Security, and other external resources remain absolute HTTPS URLs in every language. `npm run check:readme-i18n` enforces this split offline, including exact language navigation, section order, target existence, and repository-boundary checks.
 
 Durable rules belong only in the stable bilingual contracts. Short-lived implementation notes must
 not become an alternative authority. Root README navigation links directly to every stable pair;
