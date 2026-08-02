@@ -7,6 +7,10 @@ const release = readFileSync(".github/workflows/release.yml", "utf8");
 const publish = release.split("\n  publish:\n", 2)[1] ?? "";
 
 describe("workflow supply-chain contract", () => {
+  it("runs the canonical release gate including the quick benchmark", () => {
+    expect(release).toContain("run: npm run release:check");
+  });
+
   it("keeps every multiline shell block syntactically valid", () => {
     for (const [fileName, source] of [["ci.yml", ci], ["release.yml", release]] as const) {
       const blocks = extractRunBlocks(source);

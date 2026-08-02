@@ -109,7 +109,7 @@ jobs:
         run: npm ci
 
       - name: Run canonical release gates
-        run: npm run check
+        run: npm run release:check
 
       - name: Prove clean build and archive reproducibility
         shell: bash
