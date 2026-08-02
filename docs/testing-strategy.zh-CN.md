@@ -85,7 +85,9 @@ i18n 门禁检查完整 catalog、英文回退、插值、复数、语言自称�
 
 2026-08-02 的隔离宿主尝试通过 `obsidian-acceptance-kit` 绑定候选提交 `88fdb45` 与三项安装资产哈希，以全新 `--user-data-dir` 启动已安装的 Obsidian 1.12.7，并打开精确的随机命名临时 Vault。Link Integrity 加载前，Obsidian 弹出“信任该仓库作者并启用插件”安全提示；自动化没有接受或绕过该提示。本次宿主生命周期以 failed 结果记录，并归档为 run `b2d214ad-3c07-4f9b-b946-5940e8697c1b`。
 
-这证明了真实 1.12.7 可执行文件、隔离 profile、精确临时 Vault 和已安装候选字节，但不等于插件宿主验收。插件加载、侧栏计数、导航、设置行为、实时事件、1.13.x、Android 模拟器和物理设备行为仍未验证。
+同日的正式宿主 smoke 将运行时提交 `296c163` 部署到 `D:\OneDrive\Note\.obsidian\plugins\link-integrity`，并在已安装的 Obsidian 1.13.4 中加载。已安装 SHA-256 分别为：`main.js` 的 `350cad31686b2e1dd5676b0097a29666503398c2d11ad6d20fa2a69847dae3e6`、`manifest.json` 的 `f047eede08e3828b59380ea87dc68d39b67416a931f5cb82fd1215f7bfa894e9`、`styles.css` 的 `c0ff9ddd2a7087a7d71a5dbfcaaca218317c99afee48d490900482f2e205be94`。扫描完成后得到 2 处无效链接 occurrence 和 11,831 个孤立文件；侧栏及“常规 / 无效链接 / 孤立文件”三项设置界面均可见。ready 后继续等待 45 秒，连续三个 12 秒样本中的 renderer CPU 增量分别为 0.016 秒、0 秒和 0.016 秒；renderer 工作集稳定在约 1.08 GiB，最后 24 秒变化 -0.6 MiB。每个 12 秒样本仍有约 6.8-7.1 秒 CPU 来自 Electron browser 进程，与禁用 Link Integrity 时同一 Vault 的基线一致。
+
+这是真实桌面正式 Vault 中关于 Obsidian 1.13.4 插件加载、完整初扫、结果计数、设置渲染和启动稳态的 smoke 证据。本次没有编辑笔记正文，也没有执行结果导航或实时 create/modify/delete/rename 语义验收。1.12.7 的插件加载边界、Android 模拟器、物理设备行为以及上述实时交互路径仍需分别验证。
 
 ## 完成判定
 
