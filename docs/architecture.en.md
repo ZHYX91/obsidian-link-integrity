@@ -70,7 +70,9 @@ Consistency protection includes:
 - per-batch coalescing: repeated events for one path trigger one build in the current batch;
 - lookup and target reverse indexes: namespace or target-metadata changes revalidate the direct source, sources currently resolved to the target, and sources that may retarget through a lookup key.
 
-Create, delete, and rename events refresh the file registry and compare old and new lookup keys. Deleting a source removes its complete snapshot through the same replacement reducer. A global metadata-resolved event may conservatively rebuild every source.
+Create, delete, and rename events refresh the file registry and compare old and new lookup keys. Deleting a source removes its complete snapshot through the same replacement reducer. The Obsidian adapter translates per-file `resolve(file)` events into targeted source-and-referer revalidation; the host-wide `resolved` completion signal is not translated into an all-source invalidation because Obsidian fires it again after ordinary modifications.
+
+Sidebar result arrays are cached until index, settings, or graph semantics change. Progress/status updates reuse those arrays, the advanced no-incoming projection is skipped while disabled, and only the active tab builds sorted groups or trees. Rendering uses a fixed 200-result page so one view can never materialize the entire Vault as DOM.
 
 ## Persistence and recovery
 

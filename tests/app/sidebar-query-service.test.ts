@@ -116,6 +116,40 @@ describe("SidebarQueryService", () => {
     expect(snapshot.isolatedFiles.map(({ path }) => path)).toEqual(["Hidden-source.md"]);
     expect(index.getOutgoingNeighborCount("Hidden-source.md")).toBe(0);
   });
+
+  it("reuses an immutable query snapshot until the index or settings notify", () => {
+    const index = new LinkIndex([createFileRecord("A.md")]);
+    const settings = createDefaultSettings();
+    const query = new SidebarQueryService(() => index, () => settings);
+
+    const first = query.getSnapshot();
+    expect(query.getSnapshot()).toBe(first);
+
+    query.setProgress(1, 2);
+    const progress = query.getSnapshot();
+    expect(progress.status).toMatchObject({ state: "scanning", current: 1, total: 2 });
+    expect(progress.brokenLinks).toBe(first.brokenLinks);
+    expect(progress.isolatedFiles).toBe(first.isolatedFiles);
+
+    query.setStatus({ state: "ready", current: 0, total: 0, errorMessage: null });
+    const ready = query.getSnapshot();
+    expect(ready.status.state).toBe("ready");
+    expect(ready.brokenLinks).toBe(first.brokenLinks);
+    expect(ready.isolatedFiles).toBe(first.isolatedFiles);
+
+    query.notify();
+    const refreshed = query.getSnapshot();
+    expect(refreshed.brokenLinks).not.toBe(first.brokenLinks);
+    expect(refreshed.isolatedFiles).not.toBe(first.isolatedFiles);
+  });
+
+  it("does not compute or expose the advanced no-incoming projection by default", () => {
+    const index = new LinkIndex([createFileRecord("A.md")]);
+    const settings = createDefaultSettings();
+    const query = new SidebarQueryService(() => index, () => settings);
+
+    expect(query.getSnapshot().noIncomingFiles).toEqual([]);
+  });
 });
 
 function resolved(sourcePath: string, targetPath: string, id: string): LinkOccurrence {

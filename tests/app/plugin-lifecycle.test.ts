@@ -2,8 +2,9 @@ import { TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
 import LinkIntegrityPlugin from "../../src/app/plugin";
+import { createInitialSidebarState } from "../../src/app/sidebar-view";
 import { createDefaultSettings } from "../../src/shared/settings";
-import type { IndexStatus } from "../../src/ui/sidebar";
+import type { IndexStatus, SidebarViewState } from "../../src/ui/sidebar";
 
 describe("plugin index lifecycle", () => {
   it("stays unscanned and event-inactive until an explicit first refresh", async () => {
@@ -46,6 +47,8 @@ describe("plugin index lifecycle", () => {
     expect(layoutReady).not.toBeNull();
     (layoutReady as (() => void) | null)?.();
     await Promise.resolve();
+    expect(metadataEvents.listenerCount("resolved")).toBe(0);
+    expect(metadataEvents.listenerCount("resolve")).toBe(1);
 
     const runtime = plugin as unknown as PluginRuntimeInspection;
     expect(runtime.query.getSnapshot().status.state).toBe("idle");
@@ -63,6 +66,27 @@ describe("plugin index lifecycle", () => {
     expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["A.md"]);
     expect(snapshotBuildCount).toBe(1);
 
+    const baselineBuildCount = snapshotBuildCount;
+    metadataEvents.emit("resolved");
+    await Promise.resolve();
+    expect(snapshotBuildCount).toBe(baselineBuildCount);
+
+    metadataEvents.emit("resolve", file);
+    await runtime.coordinator.whenIdle();
+    expect(snapshotBuildCount).toBeGreaterThan(baselineBuildCount);
+
+    let queryNotifications = 0;
+    const unsubscribe = runtime.query.subscribe(() => {
+      queryNotifications += 1;
+    });
+    const previousState = createInitialSidebarState(defaults);
+    runtime.persistViewState({
+      ...previousState,
+      activeTab: "isolated-files",
+    }, previousState);
+    expect(queryNotifications).toBe(0);
+    unsubscribe();
+
     vaultEvents.emit("modify", file);
     await runtime.coordinator.whenIdle();
     expect(snapshotBuildCount).toBeGreaterThan(1);
@@ -73,6 +97,7 @@ describe("plugin index lifecycle", () => {
 interface PluginRuntimeInspection {
   readonly query: {
     readonly getSnapshot: () => { readonly status: IndexStatus };
+    readonly subscribe: (listener: () => void) => () => void;
   };
   readonly coordinator: {
     readonly index: { readonly files: readonly { readonly path: string }[] };
@@ -80,6 +105,10 @@ interface PluginRuntimeInspection {
     readonly enqueue: (event: { readonly type: "modify"; readonly path: string }) => void;
     readonly whenIdle: () => Promise<void>;
   };
+  readonly persistViewState: (
+    state: SidebarViewState,
+    previousState: SidebarViewState,
+  ) => void;
 }
 
 class TestEvents {
@@ -94,6 +123,10 @@ class TestEvents {
 
   public emit(name: string, ...args: unknown[]): void {
     for (const callback of this.listeners.get(name) ?? []) callback(...args);
+  }
+
+  public listenerCount(name: string): number {
+    return this.listeners.get(name)?.length ?? 0;
   }
 }
 

@@ -21,6 +21,8 @@ The sidebar header shows scan status and provides refresh and settings actions. 
 
 Scanning progress, stale results, and a failed rebuild that still shows the last successful result must be explicit. A full-rebuild failure must never replace the last-known-good result with an empty list.
 
+Result DOM is bounded to 200 occurrences or files per page. Previous/next controls preserve access to the complete filtered and sorted projection; badges remain full-result counts, the range label identifies the current page, and changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
+
 ### 2.1 Broken links tab
 
 Results are grouped by target by default, with source grouping and an occurrence list as alternatives. Each item shows at least its source, original reference, failure kind, and the best available location hint.

@@ -20,6 +20,7 @@ export {
   buildIsolatedTree,
   createSidebarViewModel,
   groupBrokenLinks,
+  SIDEBAR_RESULT_BATCH_SIZE,
   type BrokenGroupViewModel,
   type IsolatedTreeNode,
   type SidebarViewModel,

@@ -7,6 +7,8 @@ export const EN_MESSAGES = {
   "common.settings": "Settings",
   "common.search": "Search",
   "common.more": "More actions",
+  "common.previous": "Previous",
+  "common.next": "Next",
   "common.retry": "Retry",
   "common.undo": "Undo",
   "common.expand": "Expand",
@@ -36,6 +38,8 @@ export const EN_MESSAGES = {
   "sidebar.tab.isolated": "Isolated files",
   "sidebar.search.placeholder": "Filter current results",
   "sidebar.filteredSummary": "Showing {visible} / {total}",
+  "sidebar.pageSummary": "Showing {start}–{end} / {total}",
+  "sidebar.pagination": "Result pages",
   "sidebar.broken.occurrences": {
     one: "{count} broken link",
     other: "{count} broken links",

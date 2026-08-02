@@ -10,11 +10,12 @@ import type {
   SidebarNavigationPort,
   SidebarTabId,
 } from "./types";
-import type {
-  BrokenGroupViewModel,
-  IsolatedTreeNode,
-  SidebarViewModel,
-  SidebarViewState,
+import {
+  SIDEBAR_RESULT_BATCH_SIZE,
+  type BrokenGroupViewModel,
+  type IsolatedTreeNode,
+  type SidebarViewModel,
+  type SidebarViewState,
 } from "./view-model";
 
 export interface SidebarRenderOptions {
@@ -173,7 +174,12 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
   search.placeholder = t("sidebar.search.placeholder");
   search.setAttribute("aria-label", t("common.search"));
   search.addEventListener("input", () => {
-    options.onStateChange({ ...options.state, search: search.value });
+    options.onStateChange({
+      ...options.state,
+      search: search.value,
+      brokenResultOffset: 0,
+      isolatedResultOffset: 0,
+    });
   });
   toolbar.append(search);
 
@@ -183,13 +189,21 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         container.ownerDocument,
         t("sidebar.broken.view.group"),
         options.state.brokenView === "group",
-        () => options.onStateChange({ ...options.state, brokenView: "group" }),
+        () => options.onStateChange({
+          ...options.state,
+          brokenView: "group",
+          brokenResultOffset: 0,
+        }),
       ),
       toggleButton(
         container.ownerDocument,
         t("sidebar.broken.view.list"),
         options.state.brokenView === "list",
-        () => options.onStateChange({ ...options.state, brokenView: "list" }),
+        () => options.onStateChange({
+          ...options.state,
+          brokenView: "list",
+          brokenResultOffset: 0,
+        }),
       ),
     );
     if (options.state.brokenView === "group") {
@@ -198,7 +212,11 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         ["source", t("sidebar.broken.group.source")],
       ], options.state.brokenGrouping, (value) => {
         if (value === "target" || value === "source") {
-          options.onStateChange({ ...options.state, brokenGrouping: value });
+          options.onStateChange({
+            ...options.state,
+            brokenGrouping: value,
+            brokenResultOffset: 0,
+          });
         }
       }, t("settings.broken.defaultGrouping")));
     }
@@ -207,7 +225,11 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
       ["count", t("settings.sort.count")],
     ], options.state.brokenSort, (value) => {
       if (value === "path" || value === "count") {
-        options.onStateChange({ ...options.state, brokenSort: value });
+        options.onStateChange({
+          ...options.state,
+          brokenSort: value,
+          brokenResultOffset: 0,
+        });
       }
     }, t("settings.broken.defaultSort")));
   } else {
@@ -216,13 +238,21 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         container.ownerDocument,
         t("sidebar.isolated.view.list"),
         options.state.isolatedView === "list",
-        () => options.onStateChange({ ...options.state, isolatedView: "list" }),
+        () => options.onStateChange({
+          ...options.state,
+          isolatedView: "list",
+          isolatedResultOffset: 0,
+        }),
       ),
       toggleButton(
         container.ownerDocument,
         t("sidebar.isolated.view.tree"),
         options.state.isolatedView === "tree",
-        () => options.onStateChange({ ...options.state, isolatedView: "tree" }),
+        () => options.onStateChange({
+          ...options.state,
+          isolatedView: "tree",
+          isolatedResultOffset: 0,
+        }),
       ),
     );
     if (options.allowNoIncomingFilter) {
@@ -231,7 +261,11 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         ["no-incoming", t("sidebar.isolated.noIncoming")],
       ], options.state.isolatedMode, (value) => {
         if (value === "isolated" || value === "no-incoming") {
-          options.onStateChange({ ...options.state, isolatedMode: value });
+          options.onStateChange({
+            ...options.state,
+            isolatedMode: value,
+            isolatedResultOffset: 0,
+          });
         }
       }, t("settings.isolated.advancedMode")));
     }
@@ -246,7 +280,13 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         value === "name" ||
         value === "modified" ||
         value === "broken-count"
-      ) options.onStateChange({ ...options.state, isolatedSort: value });
+      ) {
+        options.onStateChange({
+          ...options.state,
+          isolatedSort: value,
+          isolatedResultOffset: 0,
+        });
+      }
     }, t("settings.isolated.defaultSort")));
   }
   container.append(toolbar);
@@ -261,11 +301,12 @@ function renderBrokenResults(container: HTMLElement, options: SidebarRenderOptio
       t("sidebar.broken.targets", { count: options.model.broken.uniqueTargetCount })}`,
     "link-integrity-result-summary",
   );
-  if (options.model.broken.visibleCount !== options.model.broken.badgeCount) {
-    summary.append(` · ${t("sidebar.filteredSummary", {
-      visible: options.model.broken.visibleCount,
-      total: options.model.broken.badgeCount,
-    })}`);
+  if (options.model.broken.renderedCount !== options.model.broken.badgeCount) {
+    summary.append(` · ${formatResultRange(
+      options.model.broken,
+      options.model.broken.badgeCount,
+      options,
+    )}`);
   }
   container.append(summary);
 
@@ -282,12 +323,13 @@ function renderBrokenResults(container: HTMLElement, options: SidebarRenderOptio
     list.className = "link-integrity-broken-groups";
     for (const group of options.model.broken.groups) list.append(renderBrokenGroup(group, options));
     container.append(list);
-    return;
+  } else {
+    const list = container.ownerDocument.createElement("ul");
+    list.className = "link-integrity-result-list";
+    for (const item of options.model.broken.items) list.append(renderBrokenItem(item, options));
+    container.append(list);
   }
-  const list = container.ownerDocument.createElement("ul");
-  list.className = "link-integrity-result-list";
-  for (const item of options.model.broken.items) list.append(renderBrokenItem(item, options));
-  container.append(list);
+  renderPagination(container, options, "broken-links");
 }
 
 function renderBrokenGroup(
@@ -300,7 +342,7 @@ function renderBrokenGroup(
   const summary = documentFor(options).createElement("summary");
   summary.append(
     createText(documentFor(options), "span", group.label),
-    createText(documentFor(options), "span", String(group.items.length), "link-integrity-count"),
+    createText(documentFor(options), "span", String(group.totalCount), "link-integrity-count"),
   );
   if (group.reason !== null) {
     summary.append(createText(
@@ -376,6 +418,7 @@ function renderIsolatedResults(container: HTMLElement, options: SidebarRenderOpt
   expectedCheckbox.addEventListener("change", () => options.onStateChange({
     ...options.state,
     showExpectedIsolated: expectedCheckbox.checked,
+    isolatedResultOffset: 0,
   }));
   expectedToggle.append(
     expectedCheckbox,
@@ -413,6 +456,7 @@ function renderIsolatedResults(container: HTMLElement, options: SidebarRenderOpt
     onChange: (selectedFormatFamilyIds) => options.onStateChange({
       ...options.state,
       selectedFormatFamilyIds,
+      isolatedResultOffset: 0,
     }),
   });
   container.append(typeFilter);
@@ -420,12 +464,13 @@ function renderIsolatedResults(container: HTMLElement, options: SidebarRenderOpt
   const summary = createText(
     container.ownerDocument,
     "p",
-    t("sidebar.filteredSummary", {
-      visible: options.model.isolated.visibleCount,
-      total: options.state.showExpectedIsolated
+    formatResultRange(
+      options.model.isolated,
+      options.state.showExpectedIsolated
         ? options.model.isolated.configuredScopeCount
         : options.model.isolated.configuredScopeCount - options.model.isolated.expectedCount,
-    }),
+      options,
+    ),
     "link-integrity-result-summary",
   );
   container.append(summary);
@@ -443,12 +488,70 @@ function renderIsolatedResults(container: HTMLElement, options: SidebarRenderOpt
     tree.setAttribute("role", "tree");
     appendTreeChildren(tree, options.model.isolated.tree, options);
     container.append(tree);
-    return;
+  } else {
+    const list = container.ownerDocument.createElement("ul");
+    list.className = "link-integrity-result-list";
+    for (const item of options.model.isolated.items) list.append(renderIsolatedItem(item, options));
+    container.append(list);
   }
-  const list = container.ownerDocument.createElement("ul");
-  list.className = "link-integrity-result-list";
-  for (const item of options.model.isolated.items) list.append(renderIsolatedItem(item, options));
-  container.append(list);
+  renderPagination(container, options, "isolated-files");
+}
+
+function formatResultRange(
+  result: { readonly pageStart: number; readonly renderedCount: number },
+  total: number,
+  options: SidebarRenderOptions,
+): string {
+  if (result.renderedCount === 0) {
+    return options.translator.t("sidebar.filteredSummary", { visible: 0, total });
+  }
+  return options.translator.t("sidebar.pageSummary", {
+    start: result.pageStart + 1,
+    end: result.pageStart + result.renderedCount,
+    total,
+  });
+}
+
+function renderPagination(
+  container: HTMLElement,
+  options: SidebarRenderOptions,
+  tabId: SidebarTabId,
+): void {
+  const result = tabId === "broken-links" ? options.model.broken : options.model.isolated;
+  if (result.visibleCount <= SIDEBAR_RESULT_BATCH_SIZE && result.pageStart === 0) return;
+  const pagination = container.ownerDocument.createElement("nav");
+  pagination.className = "link-integrity-pagination";
+  pagination.setAttribute("aria-label", options.translator.t("sidebar.pagination"));
+  const previous = createActionButton(
+    container.ownerDocument,
+    options.translator.t("common.previous"),
+    () => options.onStateChange(tabId === "broken-links"
+      ? {
+        ...options.state,
+        brokenResultOffset: Math.max(0, result.pageStart - SIDEBAR_RESULT_BATCH_SIZE),
+      }
+      : {
+        ...options.state,
+        isolatedResultOffset: Math.max(0, result.pageStart - SIDEBAR_RESULT_BATCH_SIZE),
+      }),
+  );
+  previous.disabled = result.pageStart === 0;
+  const next = createActionButton(
+    container.ownerDocument,
+    options.translator.t("common.next"),
+    () => options.onStateChange(tabId === "broken-links"
+      ? {
+        ...options.state,
+        brokenResultOffset: result.pageStart + SIDEBAR_RESULT_BATCH_SIZE,
+      }
+      : {
+        ...options.state,
+        isolatedResultOffset: result.pageStart + SIDEBAR_RESULT_BATCH_SIZE,
+      }),
+  );
+  next.disabled = result.pageStart + result.renderedCount >= result.visibleCount;
+  pagination.append(previous, next);
+  container.append(pagination);
 }
 
 function appendTreeChildren(

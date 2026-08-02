@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildIsolatedTree,
   createSidebarViewModel,
+  SIDEBAR_RESULT_BATCH_SIZE,
   type SidebarQuerySnapshot,
   type SidebarViewState,
 } from "../../src/ui/sidebar";
@@ -17,7 +18,10 @@ describe("sidebar view model", () => {
   });
 
   it("excludes expected isolation from the main badge and list by default", () => {
-    const model = createSidebarViewModel(snapshot(), state());
+    const model = createSidebarViewModel(snapshot(), {
+      ...state(),
+      activeTab: "isolated-files",
+    });
     expect(model.isolated.badgeCount).toBe(2);
     expect(model.isolated.expectedCount).toBe(1);
     expect(model.isolated.items.map(({ path }) => path)).toEqual([
@@ -29,6 +33,7 @@ describe("sidebar view model", () => {
   it("shows expected results only through the independent advanced toggle", () => {
     const model = createSidebarViewModel(snapshot(), {
       ...state(),
+      activeTab: "isolated-files",
       showExpectedIsolated: true,
     });
     expect(model.isolated.items.map(({ path }) => path)).toEqual([
@@ -58,9 +63,49 @@ describe("sidebar view model", () => {
       isolatedFiles: [webm],
     }, {
       ...state(),
+      activeTab: "isolated-files",
       selectedFormatFamilyIds: new Set(["webm-audio"]),
     });
     expect(model.isolated.items.map(({ path }) => path)).toEqual(["clip.webm"]);
+  });
+
+  it("caps active-tab materialization and skips inactive result structures", () => {
+    const isolatedFiles = Array.from({ length: SIDEBAR_RESULT_BATCH_SIZE + 25 }, (_, index) =>
+      isolated(`Loose-${String(index).padStart(3, "0")}.md`, "unexpected", 0));
+    const base = snapshot();
+    const isolatedModel = createSidebarViewModel({
+      ...base,
+      isolatedFiles,
+    }, {
+      ...state(),
+      activeTab: "isolated-files",
+    });
+
+    expect(isolatedModel.isolated.visibleCount).toBe(SIDEBAR_RESULT_BATCH_SIZE + 25);
+    expect(isolatedModel.isolated.renderedCount).toBe(SIDEBAR_RESULT_BATCH_SIZE);
+    expect(isolatedModel.isolated.items).toHaveLength(SIDEBAR_RESULT_BATCH_SIZE);
+    expect(isolatedModel.broken.items).toEqual([]);
+    expect(isolatedModel.broken.groups).toEqual([]);
+
+    const brokenModel = createSidebarViewModel({
+      ...base,
+      isolatedFiles,
+    }, state());
+    expect(brokenModel.isolated.badgeCount).toBe(SIDEBAR_RESULT_BATCH_SIZE + 25);
+    expect(brokenModel.isolated.items).toEqual([]);
+    expect(brokenModel.isolated.tree.files).toEqual([]);
+
+    const finalPage = createSidebarViewModel({
+      ...base,
+      isolatedFiles,
+    }, {
+      ...state(),
+      activeTab: "isolated-files",
+      isolatedResultOffset: Number.MAX_SAFE_INTEGER,
+    });
+    expect(finalPage.isolated.pageStart).toBe(SIDEBAR_RESULT_BATCH_SIZE);
+    expect(finalPage.isolated.items).toHaveLength(25);
+    expect(finalPage.isolated.items.at(-1)?.path).toBe("Loose-224.md");
   });
 });
 
@@ -76,6 +121,8 @@ function state(): SidebarViewState {
     isolatedMode: "isolated",
     showExpectedIsolated: false,
     selectedFormatFamilyIds: new Set(["markdown"]),
+    brokenResultOffset: 0,
+    isolatedResultOffset: 0,
   };
 }
 

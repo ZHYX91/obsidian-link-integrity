@@ -5,6 +5,7 @@ import { createFileTypeCategoryOptions } from "../../src/ui/file-type-options";
 import {
   createSidebarViewModel,
   renderSidebar,
+  SIDEBAR_RESULT_BATCH_SIZE,
   type SidebarQuerySnapshot,
   type SidebarViewState,
 } from "../../src/ui/sidebar";
@@ -88,7 +89,7 @@ describe("sidebar renderer", () => {
       allowNoIncomingFilter: true,
       onStateChange: vi.fn(),
     });
-    expect(container.textContent).toContain("Showing 2 / 2");
+    expect(container.textContent).toContain("Showing 1–2 / 2");
     expect(container.textContent).toContain("Outgoing only.md");
   });
 
@@ -224,6 +225,133 @@ describe("sidebar renderer", () => {
     expect(document.activeElement?.textContent).toContain("Isolated files");
     container.remove();
   });
+
+  it("renders large result sets in explicit user-controlled batches", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = { ...viewState(), brokenView: "list" as const };
+    const location = { line: 0, column: 0, property: null, canvasNodeId: null };
+    const brokenLinks = Array.from(
+      { length: SIDEBAR_RESULT_BATCH_SIZE + 25 },
+      (_, index) => ({
+        id: `broken-${index}`,
+        sourcePath: `Source-${String(index).padStart(3, "0")}.md`,
+        targetText: `Missing-${index}`,
+        resolvedTargetPath: null,
+        rawText: `[[Missing-${index}]]`,
+        context: `Missing-${index}`,
+        reason: "missing-file" as const,
+        location,
+      }),
+    );
+    const onStateChange = vi.fn();
+    const groupedState = { ...state, brokenView: "group" as const };
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...querySnapshot(), brokenLinks }, groupedState),
+      state: groupedState,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false,
+      onStateChange: vi.fn(),
+    });
+    expect(container.querySelectorAll(".link-integrity-result-row"))
+      .toHaveLength(SIDEBAR_RESULT_BATCH_SIZE);
+    expect(container.querySelectorAll(".link-integrity-broken-group").length)
+      .toBeLessThanOrEqual(SIDEBAR_RESULT_BATCH_SIZE);
+
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...querySnapshot(), brokenLinks }, state),
+      state,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false,
+      onStateChange,
+    });
+
+    expect(container.querySelectorAll(".link-integrity-result-row"))
+      .toHaveLength(SIDEBAR_RESULT_BATCH_SIZE);
+    expect(container.textContent).toContain(
+      `Showing 1–${SIDEBAR_RESULT_BATCH_SIZE} / ${SIDEBAR_RESULT_BATCH_SIZE + 25}`,
+    );
+    const pageButtons = container.querySelectorAll<HTMLButtonElement>(
+      ".link-integrity-pagination button",
+    );
+    expect(pageButtons[0]?.textContent).toBe("Previous");
+    expect(pageButtons[0]?.disabled).toBe(true);
+    expect(pageButtons[1]?.textContent).toBe("Next");
+    pageButtons[1]?.click();
+    expect(onStateChange).toHaveBeenCalledWith(expect.objectContaining({
+      brokenResultOffset: SIDEBAR_RESULT_BATCH_SIZE,
+    }));
+
+    const finalState = {
+      ...state,
+      brokenResultOffset: SIDEBAR_RESULT_BATCH_SIZE,
+    };
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...querySnapshot(), brokenLinks }, finalState),
+      state: finalState,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false,
+      onStateChange: vi.fn(),
+    });
+    expect(container.querySelectorAll(".link-integrity-result-row")).toHaveLength(25);
+    expect(container.textContent).toContain(
+      `Showing ${SIDEBAR_RESULT_BATCH_SIZE + 1}–${SIDEBAR_RESULT_BATCH_SIZE + 25} / ${
+        SIDEBAR_RESULT_BATCH_SIZE + 25
+      }`,
+    );
+    const finalButtons = container.querySelectorAll<HTMLButtonElement>(
+      ".link-integrity-pagination button",
+    );
+    expect(finalButtons[0]?.disabled).toBe(false);
+    expect(finalButtons[1]?.disabled).toBe(true);
+  });
+
+  it("keeps the isolated folder tree within the same fixed page bound", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = {
+      ...viewState(),
+      activeTab: "isolated-files" as const,
+      isolatedView: "tree" as const,
+    };
+    const isolatedFiles = Array.from(
+      { length: SIDEBAR_RESULT_BATCH_SIZE + 25 },
+      (_, index) => ({
+        path: `Folder-${String(index).padStart(3, "0")}/Loose.md`,
+        formatFamilyId: "markdown",
+        modifiedAt: index,
+        brokenOutgoingCount: 0,
+        incomingCount: 0,
+        outgoingCount: 0,
+        expectation: { kind: "unexpected" as const, ruleIds: [] },
+      }),
+    );
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...querySnapshot(), isolatedFiles }, state),
+      state,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false,
+      onStateChange: vi.fn(),
+    });
+
+    expect(container.querySelectorAll(".link-integrity-result-row"))
+      .toHaveLength(SIDEBAR_RESULT_BATCH_SIZE);
+    expect(container.querySelector(".link-integrity-isolated-tree")).not.toBeNull();
+    expect(container.querySelector<HTMLButtonElement>(".link-integrity-pagination button:last-child")
+      ?.disabled).toBe(false);
+  });
 });
 
 function navigation() {
@@ -247,6 +375,8 @@ function viewState(): SidebarViewState {
     isolatedMode: "isolated",
     showExpectedIsolated: false,
     selectedFormatFamilyIds: new Set(["markdown"]),
+    brokenResultOffset: 0,
+    isolatedResultOffset: 0,
   };
 }
 

@@ -203,6 +203,13 @@
   padding: 0;
 }
 
+.link-integrity-pagination {
+  display: flex;
+  gap: var(--size-2-2);
+  justify-content: space-between;
+  margin-block-start: var(--size-4-2);
+}
+
 .link-integrity-broken-group,
 .link-integrity-temporary-filter,
 .link-integrity-file-type-category {

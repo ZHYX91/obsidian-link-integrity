@@ -63,7 +63,7 @@ Failure tests should assert more than an exception: they must verify whether a t
 
 ## UI, settings, and localization tests
 
-Automated UI tests should cover the two business tabs, three settings tabs, search, sorting, list/tree or grouped views, temporary format filters, advanced expected-isolation display, and low-confidence markers.
+Automated UI tests should cover the two business tabs, three settings tabs, search, sorting, list/tree or grouped views, temporary format filters, advanced expected-isolation display, low-confidence markers, and fixed 200-result pagination with reachable first and final pages.
 
 Settings tests cover schema normalization, migration, future-schema write protection, serialized coalescing saves, retryable failures, and a single definition source shared by the 1.12 imperative and 1.13 declarative settings implementations. Keyboard tests cover tablist roles, roving tabindex, arrow keys, Home/End, focus retention, and RTL. DOM tests cannot replace real Obsidian style and focus acceptance.
 
@@ -73,7 +73,7 @@ The i18n gate checks complete catalogs, English fallback, interpolation, plurals
 
 Synthetic benchmarks record file count, occurrence count, source-kind distribution, environment, and elapsed time. A quick gate may use 10k files; 50k and, where necessary, 100k must be explicitly executed as separate scales and must not be reported if a script argument silently falls back to a smaller run.
 
-Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, global metadata-resolved work, isolation queries, and rule previews. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
+Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, bursts of per-file metadata resolution, isolation queries, rule previews, and bounded sidebar DOM. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
 
 The local synthetic 10k and explicit 50k modes have been run for the current implementation. The latest explicit 50k run built the graph and projected isolated files in 733.3 ms (1.121 s for the complete guarded benchmark test) on the recorded local runtime. A 100k claim remains unverified and must not be inferred from the 50k result.
 

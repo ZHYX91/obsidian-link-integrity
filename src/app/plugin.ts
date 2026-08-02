@@ -181,10 +181,9 @@ export default class LinkIntegrityPlugin extends Plugin {
   ): void {
     this.settings = normalizeSettings(settings);
     if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
-    this.applyGraphContributionRules();
+    if (impact === "full-rebuild") this.applyGraphContributionRules();
     this.refreshEntrypoints();
     this.query.notify();
-    this.requestSidebarRender();
     if (impact === "full-rebuild" && this.runtimeStarted) {
       void this.rebuild().catch((error: unknown) => this.reportError(error));
     }
@@ -211,7 +210,10 @@ export default class LinkIntegrityPlugin extends Plugin {
       await this.coordinator.rebuild();
       this.baselineAvailable = true;
       this.applyGraphContributionRules();
-      this.query.setStatus({ state: "ready", current: 0, total: 0, errorMessage: null });
+      this.query.setStatus(
+        { state: "ready", current: 0, total: 0, errorMessage: null },
+        true,
+      );
     } catch (error) {
       if (error instanceof RebuildCancelledError) return;
       const state: IndexStatus["state"] = this.coordinator.state === "stale"
@@ -263,11 +265,6 @@ export default class LinkIntegrityPlugin extends Plugin {
     }));
     this.registerEvent(this.app.metadataCache.on("resolve", (file) => {
       this.enqueue({ type: "metadata-resolved", path: file.path });
-    }));
-    this.registerEvent(this.app.metadataCache.on("resolved", () => {
-      if (this.coordinator.state !== "ready") {
-        this.enqueue({ type: "metadata-resolved", path: null });
-      }
     }));
   }
 
@@ -483,7 +480,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       state.isolatedView !== previousState.isolatedView ||
       state.isolatedSort !== previousState.isolatedSort;
     if (!changed) return;
-    this.updateSettings({
+    this.settings = normalizeSettings({
       ...this.settings,
       ui: {
         activeSidebarTab: state.activeTab !== previousState.activeTab
@@ -506,12 +503,7 @@ export default class LinkIntegrityPlugin extends Plugin {
           : this.settings.ui.isolatedSort,
       },
     });
-  }
-
-  private requestSidebarRender(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE)) {
-      if (leaf.view instanceof LinkIntegritySidebarView) leaf.view.requestRender();
-    }
+    if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
   }
 
   private applyGraphContributionRules(): void {

@@ -70,7 +70,9 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 - 同批 coalescing：同一路径的重复事件只触发一次当前批构建；
 - lookup 和 target 反向索引：命名空间或目标元数据变化时，同时重验证直接来源、解析到该目标的来源以及可能按 lookup key 重新定向的来源。
 
-create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。全局 metadata-resolved 事件可以保守地重建所有来源。
+create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。Obsidian adapter 将逐文件 `resolve(file)` 转为来源及引用者的定向重验证；宿主级 `resolved` 完成信号不会再转成全来源失效，因为 Obsidian 在普通修改后也会再次触发它。
+
+侧栏结果数组只在索引、设置或图语义改变时失效；进度和普通状态更新复用现有数组。高级无入链投影未启用时不计算，只有当前活动页签会构建排序后的分组或目录树。渲染采用固定 200 条分页，单个视图不会把整个 Vault 实体化为 DOM。
 
 ## 持久化与恢复
 

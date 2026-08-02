@@ -32,7 +32,7 @@ export class LinkIntegritySidebarView extends ItemView {
   private lastSettings: LinkIntegritySettings;
   private renderCleanup: (() => void) | null = null;
   private unsubscribe: (() => void) | null = null;
-  private open = false;
+  private isOpen = false;
 
   public constructor(
     leaf: WorkspaceLeaf,
@@ -57,13 +57,13 @@ export class LinkIntegritySidebarView extends ItemView {
   }
 
   public override async onOpen(): Promise<void> {
-    this.open = true;
+    this.isOpen = true;
     this.unsubscribe = this.options.query.subscribe(() => this.render());
     this.render();
   }
 
   public override async onClose(): Promise<void> {
-    this.open = false;
+    this.isOpen = false;
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.renderCleanup?.();
@@ -76,7 +76,7 @@ export class LinkIntegritySidebarView extends ItemView {
   }
 
   private render(): void {
-    if (!this.open) return;
+    if (!this.isOpen) return;
     this.renderCleanup?.();
     const settings = this.options.getSettings();
     this.state = reconcileSidebarState(this.state, this.lastSettings, settings);
@@ -116,6 +116,8 @@ export function createInitialSidebarState(settings: LinkIntegritySettings): Side
     isolatedMode: "isolated",
     showExpectedIsolated: settings.isolatedFiles.showExpectedIsolatedFiles,
     selectedFormatFamilyIds: new Set(settings.isolatedFiles.candidateFormatFamilyIds),
+    brokenResultOffset: 0,
+    isolatedResultOffset: 0,
   };
 }
 

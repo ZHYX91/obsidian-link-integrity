@@ -35,6 +35,8 @@ export class ItemView {
   contentEl = document.createElement("div");
 
   constructor(readonly leaf: unknown) {}
+
+  open(): void {}
 }
 
 export class MarkdownView {

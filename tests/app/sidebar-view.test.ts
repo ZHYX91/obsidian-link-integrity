@@ -1,12 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LinkIntegritySidebarView,
   createInitialSidebarState,
   reconcileSidebarState,
 } from "../../src/app/sidebar-view";
 import { createDefaultSettings, normalizeSettings } from "../../src/shared/settings";
 
 describe("sidebar host state composition", () => {
+  it("preserves the host ItemView.open lifecycle method", () => {
+    const settings = createDefaultSettings();
+    const view = new LinkIntegritySidebarView({} as never, {
+      query: {
+        getSnapshot: () => ({}) as never,
+        subscribe: () => () => undefined,
+      },
+      navigation: {} as never,
+      getSettings: () => settings,
+      onViewStateChange: () => undefined,
+      onActionError: () => undefined,
+    });
+
+    expect(typeof (view as unknown as { open: unknown }).open).toBe("function");
+  });
+
   it("uses product defaults until a concrete UI preference exists", () => {
     const defaults = createDefaultSettings();
     const settings = normalizeSettings({

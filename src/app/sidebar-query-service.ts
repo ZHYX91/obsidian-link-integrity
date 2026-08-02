@@ -17,6 +17,7 @@ import type {
 
 export class SidebarQueryService implements SidebarQueryPort {
   private readonly listeners = new Set<() => void>();
+  private cachedSnapshot: SidebarQuerySnapshot | null = null;
   private status: IndexStatus = {
     state: "idle",
     current: 0,
@@ -35,6 +36,7 @@ export class SidebarQueryService implements SidebarQueryPort {
   };
 
   public readonly getSnapshot = (): SidebarQuerySnapshot => {
+    if (this.cachedSnapshot !== null) return this.cachedSnapshot;
     const index = this.getIndex();
     const settings = this.getSettings();
     const expectedRules = [
@@ -65,13 +67,15 @@ export class SidebarQueryService implements SidebarQueryPort {
       includeExpected: true,
       mode: "isolated",
     });
-    const noIncoming = createIsolatedFileProjection(index, {
-      candidateScope,
-      expectedRules,
-      includeExpected: true,
-      mode: "no-incoming",
-    });
-    return {
+    const noIncoming = settings.isolatedFiles.allowNoIncomingFilter
+      ? createIsolatedFileProjection(index, {
+        candidateScope,
+        expectedRules,
+        includeExpected: true,
+        mode: "no-incoming",
+      })
+      : null;
+    this.cachedSnapshot = {
       status: this.status,
       brokenLinks: queryBrokenLinks(index)
         .filter((diagnostic) => diagnosticEnabled(diagnostic, settings))
@@ -84,21 +88,34 @@ export class SidebarQueryService implements SidebarQueryPort {
           }))
         .map(toBrokenResult),
       isolatedFiles: isolated.items.map(toIsolatedResult),
-      noIncomingFiles: noIncoming.items.map(toIsolatedResult),
+      noIncomingFiles: noIncoming?.items.map(toIsolatedResult) ?? [],
     };
+    return this.cachedSnapshot;
   };
 
-  public setStatus(status: IndexStatus): void {
+  public setStatus(status: IndexStatus, invalidateResults = false): void {
     this.status = status;
-    this.notify();
+    if (invalidateResults) this.cachedSnapshot = null;
+    else if (this.cachedSnapshot !== null) {
+      this.cachedSnapshot = { ...this.cachedSnapshot, status };
+    }
+    this.emit();
   }
 
   public setProgress(current: number, total: number): void {
     this.status = { state: "scanning", current, total, errorMessage: null };
-    this.notify();
+    if (this.cachedSnapshot !== null) {
+      this.cachedSnapshot = { ...this.cachedSnapshot, status: this.status };
+    }
+    this.emit();
   }
 
   public notify(): void {
+    this.cachedSnapshot = null;
+    this.emit();
+  }
+
+  private emit(): void {
     for (const listener of this.listeners) listener();
   }
 }

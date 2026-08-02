@@ -12,6 +12,8 @@ import type {
   SidebarTabId,
 } from "./types";
 
+export const SIDEBAR_RESULT_BATCH_SIZE = 200;
+
 export interface SidebarViewState {
   readonly activeTab: SidebarTabId;
   readonly search: string;
@@ -23,12 +25,15 @@ export interface SidebarViewState {
   readonly isolatedMode: IsolatedQueryMode;
   readonly showExpectedIsolated: boolean;
   readonly selectedFormatFamilyIds: ReadonlySet<string>;
+  readonly brokenResultOffset: number;
+  readonly isolatedResultOffset: number;
 }
 
 export interface BrokenGroupViewModel {
   readonly key: string;
   readonly label: string;
   readonly reason: BrokenLinkResult["reason"] | null;
+  readonly totalCount: number;
   readonly items: readonly BrokenLinkResult[];
 }
 
@@ -47,6 +52,8 @@ export interface SidebarViewModel {
     readonly badgeCount: number;
     readonly uniqueTargetCount: number;
     readonly visibleCount: number;
+    readonly renderedCount: number;
+    readonly pageStart: number;
     readonly view: BrokenViewMode;
     readonly grouping: BrokenGrouping;
     readonly items: readonly BrokenLinkResult[];
@@ -57,6 +64,8 @@ export interface SidebarViewModel {
     readonly expectedCount: number;
     readonly configuredScopeCount: number;
     readonly visibleCount: number;
+    readonly renderedCount: number;
+    readonly pageStart: number;
     readonly view: IsolatedViewMode;
     readonly mode: IsolatedQueryMode;
     readonly items: readonly IsolatedFileResult[];
@@ -69,9 +78,19 @@ export function createSidebarViewModel(
   state: SidebarViewState,
 ): SidebarViewModel {
   const normalizedSearch = state.search.trim().toLocaleLowerCase();
-  const brokenItems = sortBrokenLinks(
-    snapshot.brokenLinks.filter((result) => brokenMatches(result, normalizedSearch)),
-    state.brokenSort,
+  const visibleBrokenItems = state.activeTab === "broken-links"
+    ? sortBrokenLinks(
+      snapshot.brokenLinks.filter((result) => brokenMatches(result, normalizedSearch)),
+      state.brokenSort,
+    )
+    : [];
+  const brokenPageStart = normalizePageStart(
+    state.brokenResultOffset,
+    visibleBrokenItems.length,
+  );
+  const brokenItems = visibleBrokenItems.slice(
+    brokenPageStart,
+    brokenPageStart + SIDEBAR_RESULT_BATCH_SIZE,
   );
   const sourceIsolatedItems = state.isolatedMode === "isolated"
     ? snapshot.isolatedFiles
@@ -80,13 +99,23 @@ export function createSidebarViewModel(
     .filter(({ expectation }) => expectation.kind === "unexpected");
   const expectedIsolatedItems = sourceIsolatedItems
     .filter(({ expectation }) => expectation.kind === "expected");
-  const isolatedItems = sortIsolatedFiles(
-    sourceIsolatedItems.filter((result) =>
-      (result.expectation.kind === "unexpected" || state.showExpectedIsolated) &&
-      (result.formatFamilyIds ?? [result.formatFamilyId])
-        .some((familyId) => state.selectedFormatFamilyIds.has(familyId)) &&
-      pathMatches(result.path, normalizedSearch)),
-    state.isolatedSort,
+  const visibleIsolatedItems = state.activeTab === "isolated-files"
+    ? sortIsolatedFiles(
+      sourceIsolatedItems.filter((result) =>
+        (result.expectation.kind === "unexpected" || state.showExpectedIsolated) &&
+        (result.formatFamilyIds ?? [result.formatFamilyId])
+          .some((familyId) => state.selectedFormatFamilyIds.has(familyId)) &&
+        pathMatches(result.path, normalizedSearch)),
+      state.isolatedSort,
+    )
+    : [];
+  const isolatedPageStart = normalizePageStart(
+    state.isolatedResultOffset,
+    visibleIsolatedItems.length,
+  );
+  const isolatedItems = visibleIsolatedItems.slice(
+    isolatedPageStart,
+    isolatedPageStart + SIDEBAR_RESULT_BATCH_SIZE,
   );
 
   return {
@@ -96,18 +125,27 @@ export function createSidebarViewModel(
     broken: {
       badgeCount: snapshot.brokenLinks.length,
       uniqueTargetCount: new Set(snapshot.brokenLinks.map(targetGroupKey)).size,
-      visibleCount: brokenItems.length,
+      visibleCount: visibleBrokenItems.length,
+      renderedCount: brokenItems.length,
+      pageStart: brokenPageStart,
       view: state.brokenView,
       grouping: state.brokenGrouping,
       items: brokenItems,
-      groups: groupBrokenLinks(brokenItems, state.brokenGrouping, state.brokenSort),
+      groups: groupBrokenLinks(
+        brokenItems,
+        state.brokenGrouping,
+        state.brokenSort,
+        visibleBrokenItems,
+      ),
     },
     isolated: {
       badgeCount: snapshot.isolatedFiles
         .filter(({ expectation }) => expectation.kind === "unexpected").length,
       expectedCount: expectedIsolatedItems.length,
       configuredScopeCount: unexpectedIsolatedItems.length + expectedIsolatedItems.length,
-      visibleCount: isolatedItems.length,
+      visibleCount: visibleIsolatedItems.length,
+      renderedCount: isolatedItems.length,
+      pageStart: isolatedPageStart,
       view: state.isolatedView,
       mode: state.isolatedMode,
       items: isolatedItems,
@@ -116,11 +154,27 @@ export function createSidebarViewModel(
   };
 }
 
+function normalizePageStart(offset: number, resultCount: number): number {
+  if (resultCount === 0) return 0;
+  const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+  const requestedPageStart = Math.floor(safeOffset / SIDEBAR_RESULT_BATCH_SIZE) *
+    SIDEBAR_RESULT_BATCH_SIZE;
+  const lastPageStart = Math.floor((resultCount - 1) / SIDEBAR_RESULT_BATCH_SIZE) *
+    SIDEBAR_RESULT_BATCH_SIZE;
+  return Math.min(requestedPageStart, lastPageStart);
+}
+
 export function groupBrokenLinks(
   items: readonly BrokenLinkResult[],
   grouping: BrokenGrouping,
   sort: BrokenSort,
+  allVisibleItems: readonly BrokenLinkResult[] = items,
 ): readonly BrokenGroupViewModel[] {
+  const totalCounts = new Map<string, number>();
+  for (const item of allVisibleItems) {
+    const key = grouping === "target" ? targetGroupKey(item) : item.sourcePath;
+    totalCounts.set(key, (totalCounts.get(key) ?? 0) + 1);
+  }
   const groups = new Map<string, BrokenLinkResult[]>();
   for (const item of items) {
     const key = grouping === "target" ? targetGroupKey(item) : item.sourcePath;
@@ -135,10 +189,11 @@ export function groupBrokenLinks(
       reason === groupItems[0]?.reason)
       ? groupItems[0]?.reason ?? null
       : null,
+    totalCount: totalCounts.get(key) ?? groupItems.length,
     items: sortBrokenLinks(groupItems, "path"),
   }));
   return result.sort((left, right) => sort === "count"
-    ? right.items.length - left.items.length || left.label.localeCompare(right.label)
+    ? right.totalCount - left.totalCount || left.label.localeCompare(right.label)
     : left.label.localeCompare(right.label));
 }
 
