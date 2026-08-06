@@ -12,11 +12,13 @@ import {
 
 import { ObsidianLinkIndexPort } from "../adapters/obsidian";
 import {
+  ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY,
   classifyFileExtension,
   getExpectedRuleStats,
   LinkIndex,
   type ExpectedIsolationRule,
   type ExpectedRuleStats,
+  type GraphContributionPolicy,
 } from "../core";
 import {
   LinkIndexCoordinator,
@@ -91,6 +93,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       concurrency: 4,
       onProgress: (current, total) => this.query.setProgress(current, total),
     });
+    this.updateGraphContributionPolicy();
     this.query = new SidebarQueryService(
       () => this.coordinator.index,
       () => this.settings,
@@ -183,7 +186,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   ): void {
     this.settings = normalizeSettings(settings);
     if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
-    if (impact === "full-rebuild") this.applyGraphContributionRules();
+    if (impact === "full-rebuild") this.updateGraphContributionPolicy();
     this.refreshEntrypoints();
     this.query.notify();
     if (impact === "full-rebuild" && this.runtimeStarted) {
@@ -214,7 +217,6 @@ export default class LinkIntegrityPlugin extends Plugin {
       await rebuild;
       this.baselineAvailable = true;
       this.flushPendingSourceEvents();
-      this.applyGraphContributionRules();
       this.query.setStatus(
         { state: "ready", current: 0, total: 0, errorMessage: null },
         true,
@@ -337,10 +339,6 @@ export default class LinkIntegrityPlugin extends Plugin {
           return;
         }
         this.notificationPending = false;
-        // The index retains its contribution scope and applies it to replaced
-        // snapshots. A full graph pass is only needed when active graph-ignore
-        // rules may change the excluded occurrence set.
-        if (this.hasGraphContributionRules()) this.applyGraphContributionRules();
         this.query.notify();
       })
       .catch((error: unknown) => {
@@ -353,11 +351,6 @@ export default class LinkIntegrityPlugin extends Plugin {
         });
         this.reportError(error);
       });
-  }
-
-  private hasGraphContributionRules(): boolean {
-    return this.settings.ignoreRules.some((rule) =>
-      rule.enabled && rule.scope === "exclude-graph-contribution");
   }
 
   private refreshEntrypoints(): void {
@@ -584,24 +577,24 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
   }
 
-  private applyGraphContributionRules(): void {
+  private updateGraphContributionPolicy(): void {
     if (this.coordinator === undefined) return;
     const service = new IgnoreService(this.settings.ignoreRules);
-    const excludedOccurrenceIds = new Set<string>();
-    for (const occurrence of this.coordinator.index.occurrences) {
-      const sourceFile = this.coordinator.index.getFile(occurrence.sourcePath);
-      const classification = sourceFile === null
-        ? null
-        : classifyFileExtension(sourceFile.path);
-      if (service.shouldExcludeGraphContribution({
-        sourcePath: occurrence.sourcePath,
-        targetPath: occurrence.targetPath,
-        occurrenceId: occurrence.id,
-        formatFamilyIds: classification?.familyIds,
-        extension: sourceFile?.extension ?? null,
-      })) excludedOccurrenceIds.add(occurrence.id);
-    }
-    this.coordinator.index.setContributionScope({ excludedOccurrenceIds });
+    const policy: GraphContributionPolicy = service.getGraphContributionRules().length === 0
+      ? ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY
+      : {
+        allows: ({ occurrence, sourceFile }) => {
+          const classification = classifyFileExtension(sourceFile.path);
+          return !service.shouldExcludeGraphContribution({
+            sourcePath: occurrence.sourcePath,
+            targetPath: occurrence.targetPath,
+            occurrenceId: occurrence.id,
+            formatFamilyIds: classification.familyIds,
+            extension: sourceFile.extension,
+          });
+        },
+      };
+    this.coordinator.setGraphContributionPolicy(policy);
   }
 
   private getIgnorePreviewContexts(rule: IgnoreRule): readonly IgnoreEvaluationContext[] {

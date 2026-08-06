@@ -47,7 +47,7 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 边按来源、目标和 occurrence 类型计数，因此删除一个重复引用不会误删同一对文件之间的其他贡献。孤立投影检查不同文件之间的有效入邻居和出邻居均为零；无入链投影仅检查入邻居为零。
 
-候选、诊断和贡献范围分别应用于查询、可见性和图。普通筛选不触碰图。高级贡献排除通过单独的 `GraphContributionScope` 重建图状态，并由产品层负责风险警告。
+候选、诊断和贡献范围分别应用于查询、可见性和图。普通筛选不触碰图。高级贡献排除由产品层注入独立的 `GraphContributionPolicy`：规则设置变化可以重新求值整张图，普通来源快照替换只对该来源的旧、新 occurrence 求值并局部维护边。显式集合型排除仍由 `GraphContributionScope` 表达，产品层负责提示高级规则可能产生的风险。
 
 预期孤立规则在查询层运行。它们只给已经孤立的候选分类，不写入 `LinkIndex` 边集合，因此不会产生日期邻接伪边。
 
@@ -72,7 +72,7 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 - 有界安静窗 coalescing：同一路径重复出现的 Vault 与 Metadata Cache 回调只触发一次构建，同时连续事件流也不能无限推迟更新；
 - lookup 和 target 反向索引：命名空间或目标元数据变化时，同时重验证直接来源、解析到该目标的来源以及可能按 lookup key 重新定向的来源。
 
-create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。Vault modify 与 Metadata Cache changed 回调经过有界安静窗后重验证来源及其引用者。宿主级 `resolved` 完成信号只作为初始就绪边界，不会转成全来源失效，因为 Obsidian 在普通修改后也会再次触发它。快照和贡献范围替换会先做语义 no-op 检查，再决定是否改变图状态。
+create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。Vault modify 与 Metadata Cache changed 回调经过有界安静窗后重验证来源及其引用者。宿主级 `resolved` 完成信号只作为初始就绪边界，不会转成全来源失效，因为 Obsidian 在普通修改后也会再次触发它。快照和贡献范围替换会先做语义 no-op 检查；普通快照替换沿当前贡献 policy 局部更新，只有 policy 或显式贡献范围变化才重新求值整张图。全量 staging 继承协调器当前的 policy，并在发布前再次同步规则变化。
 
 侧栏结果数组只在索引、设置或图语义改变时失效；进度和普通状态更新复用现有数组。高级无入链投影未启用时不计算，只有当前活动页签会构建排序后的分组或目录树。渲染采用固定 200 条分页，单个视图不会把整个 Vault 实体化为 DOM。
 
@@ -84,6 +84,6 @@ create、delete 和 rename 会重新取得文件 registry，并比较新旧 look
 
 ## 当前实现边界
 
-自动测试已经覆盖核心图不变量、快照替换、同名目标重验证、随机事件差分、last-known-good、事件重放、生命周期取消和查询语义。实际解析准确性最终仍依赖运行中的 Obsidian API 和真实文件缓存。
+自动测试已经覆盖核心图不变量、快照替换、graph-contribution policy 与物化排除集合等价、同步 reducer batch 预验证、同名目标重验证、随机事件差分、last-known-good、事件重放、生命周期取消和查询语义。专项 10k/50k benchmark 还约束普通单来源更新只求值该来源的旧、新 occurrence。实际解析准确性最终仍依赖运行中的 Obsidian API 和真实文件缓存。
 
 当前没有派生图持久化、外部 URL 网络检查、自动删除或批量修复。正式 Vault smoke 已记录 Obsidian 1.13.4 中本次观察到的启动、侧栏和设置行为，但架构测试与该次 smoke 仍不能证明完整的 Obsidian 1.12.7/当前 1.13.x 矩阵、实时事件路径、Android 模拟器或物理设备行为；这些边界必须分别验收。

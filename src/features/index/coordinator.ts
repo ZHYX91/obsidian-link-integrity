@@ -1,4 +1,5 @@
 import { LinkIndex } from "../../core/link-index";
+import type { GraphContributionPolicy } from "../../core/scopes";
 import { AtomicLinkIndexStore } from "./atomic-store";
 import {
   FullRebuildController,
@@ -57,6 +58,10 @@ export class LinkIndexCoordinator {
     return this.errorValue;
   }
 
+  public setGraphContributionPolicy(policy: GraphContributionPolicy): void {
+    this.store.current.setGraphContributionPolicy(policy);
+  }
+
   public start(): void {
     if (this.active) return;
     this.active = true;
@@ -100,6 +105,7 @@ export class LinkIndexCoordinator {
       this.assertCurrentLifecycle(epoch);
       await this.replayBufferedEvents(staging);
       this.assertCurrentLifecycle(epoch);
+      staging.setGraphContributionPolicy(this.store.current.graphContributionPolicy);
       const result = this.rebuildController.publish(staging);
       this.stateValue = "ready";
       return result;

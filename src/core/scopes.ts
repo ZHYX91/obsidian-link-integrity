@@ -23,7 +23,19 @@ export interface GraphContributionScope {
   readonly excludedOccurrenceIds?: ReadonlySet<string>;
 }
 
+export interface GraphContributionPolicyContext {
+  readonly occurrence: LinkOccurrence;
+  readonly sourceFile: Pick<FileRecord, "path" | "extension">;
+}
+
+export interface GraphContributionPolicy {
+  allows(context: GraphContributionPolicyContext): boolean;
+}
+
 export const EMPTY_GRAPH_CONTRIBUTION_SCOPE: GraphContributionScope = Object.freeze({});
+export const ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY: GraphContributionPolicy = Object.freeze({
+  allows: () => true,
+});
 
 export function isCandidateFile(file: FileRecord, scope: CandidateScope): boolean {
   if (scope.excludedPaths?.has(file.path) === true) return false;

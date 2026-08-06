@@ -7,6 +7,7 @@ import {
   type FileRecord,
   type SourceSnapshot,
 } from "../../../src/core/model";
+import type { GraphContributionPolicy } from "../../../src/core/scopes";
 import { AtomicLinkIndexStore } from "../../../src/features/index/atomic-store";
 import { LinkIndexCoordinator } from "../../../src/features/index/coordinator";
 import { FullRebuildController } from "../../../src/features/index/full-rebuild";
@@ -198,6 +199,38 @@ describe("incremental indexing", () => {
     expect(vault.listFilesCallCount).toBe(0);
   });
 
+  it("prevalidates a reducer batch before publishing any source", async () => {
+    const vault = new VirtualVault({
+      "A.md": ["Target"],
+      "B.md": ["Target"],
+      "Target.md": [],
+    });
+    const lastKnownGood = await buildOracle(vault);
+    const before = lastKnownGood.toCanonicalState();
+    const store = new AtomicLinkIndexStore(lastKnownGood);
+    const baseBuild = vault.buildSourceSnapshot;
+    vault.setLinks("A.md", ["Target"]);
+    vault.setLinks("B.md", ["Target"]);
+    vault.buildSourceSnapshot = async (path) => {
+      if (path === "A.md" || path === "B.md") {
+        return snapshot(path, [
+          occurrence("cross-source-collision", path, { targetPath: "Target.md" }),
+        ]);
+      }
+      return baseBuild(path);
+    };
+    const controller = new IncrementalIndexController(vault, store);
+    controller.start();
+    controller.enqueue({ type: "modify", path: "A.md" });
+    controller.enqueue({ type: "modify", path: "B.md" });
+
+    await expect(controller.whenIdle()).rejects.toThrow(
+      "Occurrence ID is already used by A.md: cross-source-collision",
+    );
+    expect(store.current).toBe(lastKnownGood);
+    expect(store.current.toCanonicalState()).toEqual(before);
+  });
+
   it("matches a clean full rebuild after deterministic random event sequences", async () => {
     const vault = new VirtualVault({
       "A.md": ["B"],
@@ -220,6 +253,41 @@ describe("incremental indexing", () => {
 });
 
 describe("index coordinator", () => {
+  it("keeps graph contribution policy across rebuild and incremental updates", async () => {
+    const vault = new VirtualVault({
+      "Source.md": ["Target"],
+      "Target.md": [],
+      "Other.md": [],
+    });
+    let evaluationCount = 0;
+    const policy: GraphContributionPolicy = {
+      allows: ({ occurrence: item }) => {
+        evaluationCount += 1;
+        return item.targetPath !== "Target.md";
+      },
+    };
+    const coordinator = new LinkIndexCoordinator(vault);
+    coordinator.setGraphContributionPolicy(policy);
+    coordinator.start();
+
+    await coordinator.rebuild();
+    expect(coordinator.index.getOutgoingNeighborCount("Source.md")).toBe(0);
+    expect(coordinator.index.toCanonicalState()).toEqual(
+      (await buildOracle(vault, policy)).toCanonicalState(),
+    );
+
+    evaluationCount = 0;
+    vault.setLinks("Source.md", ["Other"]);
+    coordinator.enqueue({ type: "modify", path: "Source.md" });
+    await coordinator.whenIdle();
+
+    expect(evaluationCount).toBe(2);
+    expect(coordinator.index.getOutgoingEdges("Source.md")[0]?.targetPath).toBe("Other.md");
+    expect(coordinator.index.toCanonicalState()).toEqual(
+      (await buildOracle(vault, policy)).toCanonicalState(),
+    );
+  });
+
   it("recovers its lifecycle when draining pre-rebuild incremental work fails", async () => {
     const vault = new VirtualVault({ "A.md": [] });
     const baseBuild = vault.buildSourceSnapshot;
@@ -451,8 +519,13 @@ class VirtualVault implements LinkIndexPort {
   }
 }
 
-async function buildOracle(vault: LinkIndexPort): Promise<LinkIndex> {
-  const store = new AtomicLinkIndexStore();
+async function buildOracle(
+  vault: LinkIndexPort,
+  contributionPolicy?: GraphContributionPolicy,
+): Promise<LinkIndex> {
+  const store = new AtomicLinkIndexStore(new LinkIndex([], contributionPolicy === undefined
+    ? {}
+    : { contributionPolicy }));
   await new FullRebuildController(vault, store, { concurrency: 3 }).rebuild();
   return store.current;
 }

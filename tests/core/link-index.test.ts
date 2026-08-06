@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { LinkIndex } from "../../src/core/link-index";
 import { createFileRecord } from "../../src/core/model";
+import type { GraphContributionPolicyContext } from "../../src/core/scopes";
 import { occurrence, snapshot } from "./test-helpers";
 
 describe("LinkIndex", () => {
@@ -138,6 +139,97 @@ describe("LinkIndex", () => {
     });
 
     expect(rebuildGraphState).not.toHaveBeenCalled();
+  });
+
+  it("keeps policy-based graph contribution equal to materialized exclusions", () => {
+    const files = [
+      createFileRecord("Source.md"),
+      createFileRecord("First.md"),
+      createFileRecord("Second.md"),
+    ];
+    const policyIndex = new LinkIndex(files, {
+      contributionPolicy: {
+        allows: ({ occurrence: item }) => !item.id.startsWith("excluded"),
+      },
+    });
+    const materializedIndex = new LinkIndex(files);
+    const replacements = [
+      snapshot("Source.md", [
+        occurrence("excluded-old", "Source.md", { targetPath: "First.md" }),
+        occurrence("included-old", "Source.md", { targetPath: "Second.md" }),
+      ]),
+      snapshot("Source.md", [
+        occurrence("excluded-new", "Source.md", { targetPath: "Second.md" }),
+        occurrence("included-new", "Source.md", { targetPath: "First.md" }),
+      ]),
+    ];
+
+    for (const replacement of replacements) {
+      policyIndex.replaceSourceSnapshot("Source.md", replacement);
+      materializedIndex.replaceSourceSnapshot("Source.md", replacement);
+      materializedIndex.setContributionScope({
+        excludedOccurrenceIds: new Set(
+          replacement.occurrences
+            .filter(({ id }) => id.startsWith("excluded"))
+            .map(({ id }) => id),
+        ),
+      });
+      expect(policyIndex.toCanonicalState()).toEqual(materializedIndex.toCanonicalState());
+    }
+  });
+
+  it("evaluates only old and new source occurrences during policy-aware replacement", () => {
+    const allows = vi.fn((context: GraphContributionPolicyContext) =>
+      !context.occurrence.id.startsWith("excluded"));
+    const index = new LinkIndex([
+      createFileRecord("Source.md"),
+      createFileRecord("Target.md"),
+    ], { contributionPolicy: { allows } });
+    index.replaceSourceSnapshot("Source.md", snapshot("Source.md", [
+      occurrence("included-old", "Source.md", { targetPath: "Target.md" }),
+      occurrence("excluded-old", "Source.md", { targetPath: "Target.md" }),
+    ]));
+    allows.mockClear();
+    const rebuildGraphState = vi.spyOn(
+      index as unknown as { rebuildGraphState(): void },
+      "rebuildGraphState",
+    );
+
+    index.replaceSourceSnapshot("Source.md", snapshot("Source.md", [
+      occurrence("included-new", "Source.md", { targetPath: "Target.md" }),
+      occurrence("excluded-new", "Source.md", { targetPath: "Target.md" }),
+    ]));
+
+    expect(allows).toHaveBeenCalledTimes(4);
+    expect(allows.mock.calls.map(([context]) => context.occurrence.id)).toEqual([
+      "included-old",
+      "excluded-old",
+      "included-new",
+      "excluded-new",
+    ]);
+    expect(rebuildGraphState).not.toHaveBeenCalled();
+    expect(index.getOutgoingContributionCount("Source.md")).toBe(1);
+  });
+
+  it("re-evaluates source metadata used by the contribution policy", () => {
+    const source = createFileRecord("Source.md");
+    const index = new LinkIndex([
+      source,
+      createFileRecord("Target.md"),
+    ], {
+      contributionPolicy: {
+        allows: ({ sourceFile }) => sourceFile.extension === "md",
+      },
+    });
+    index.replaceSourceSnapshot("Source.md", snapshot("Source.md", [
+      occurrence("edge", "Source.md", { targetPath: "Target.md" }),
+    ]));
+
+    index.replaceFileRecord("Source.md", { ...source, extension: "txt" });
+    expect(index.getOutgoingNeighborCount("Source.md")).toBe(0);
+
+    index.replaceFileRecord("Source.md", source);
+    expect(index.getOutgoingNeighborCount("Source.md")).toBe(1);
   });
 
   it("keeps the stored snapshot identity when normalized semantics are unchanged", () => {

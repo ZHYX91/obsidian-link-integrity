@@ -157,15 +157,19 @@ export class IncrementalIndexController {
     }
     const builds = await this.buildSnapshots(Array.from(affectedPaths), availableSourcePaths);
     if (!this.isCurrentEpoch(epoch)) return;
+    const currentBuilds = builds.filter((build) =>
+      this.getRevision(build.sourcePath) === build.revision);
+    index.validateSourceSnapshotReplacements(currentBuilds, availableSourcePaths);
     // Defer registry mutation until every source build succeeds. This keeps a
-    // failed namespace or parse update from partially replacing the last-known-good index.
+    // failed namespace, parse, or reducer validation from partially replacing
+    // the last-known-good index.
     if (nextFiles !== null) index.replaceFiles(nextFiles);
     else {
       for (const update of fileRecordUpdates) {
         index.replaceFileRecord(update.path, update.file);
       }
     }
-    for (const build of builds) this.publishIfCurrent(build);
+    for (const build of currentBuilds) this.publishIfCurrent(build);
   }
 
   private publishIfCurrent(build: SnapshotBuild): void {

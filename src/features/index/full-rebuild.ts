@@ -1,5 +1,6 @@
 import { LinkIndex } from "../../core/link-index";
 import type { FileRecord } from "../../core/model";
+import type { GraphContributionPolicy } from "../../core/scopes";
 import { AtomicLinkIndexStore } from "./atomic-store";
 import type { LinkIndexPort } from "./ports";
 
@@ -34,9 +35,11 @@ export class FullRebuildController {
     this.yieldControl = options.yieldControl ?? defaultYieldControl;
   }
 
-  public async buildStaging(): Promise<LinkIndex> {
+  public async buildStaging(
+    contributionPolicy: GraphContributionPolicy = this.store.current.graphContributionPolicy,
+  ): Promise<LinkIndex> {
     const files = await this.port.listFiles();
-    const staging = new LinkIndex(files);
+    const staging = new LinkIndex(files, { contributionPolicy });
     await this.populate(staging, files);
     return staging;
   }
