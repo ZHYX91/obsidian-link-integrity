@@ -110,7 +110,7 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       },
       getExpectedRulePreview: (ruleId) =>
         this.expectedPreviews.get(ruleId) ?? { state: "idle", stats: null },
-      requestExpectedRulePreview: (rule) => this.refreshExpectedPreview(rule),
+      requestExpectedRulePreview: (rule, publish) => this.refreshExpectedPreview(rule, publish),
       getIgnoreRulePreview: (ruleId) => this.ignorePreviews.get(ruleId) ?? null,
       requestIgnoreRulePreview: (rule) => this.refreshIgnorePreview(rule),
       getSaveStatus: () => this.owner.getSettingsSaveStatus(),
@@ -144,17 +144,25 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
     update?.call(this);
   }
 
-  private refreshExpectedPreview(rule: ExpectedIsolationRule): void {
+  private refreshExpectedPreview(
+    rule: ExpectedIsolationRule,
+    publish?: (state: ExpectedRulePreviewState) => void,
+  ): void {
     void this.expectedPreviewRequests.request(
       rule.id,
       () => Promise.resolve(this.owner.previewExpectedRule(rule)),
       (state) => {
-        this.expectedPreviews.set(rule.id, state.state === "ready"
+        const previewState: ExpectedRulePreviewState = state.state === "ready"
           ? { state: "ready", stats: state.value }
           : state.state === "failed"
             ? { state: "failed", stats: null }
-            : { state: "loading", stats: null });
-        this.refreshSurface();
+            : { state: "loading", stats: null };
+        if (publish === undefined) {
+          this.expectedPreviews.set(rule.id, previewState);
+          this.refreshSurface();
+        } else {
+          publish(previewState);
+        }
       },
     );
   }

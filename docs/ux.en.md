@@ -23,6 +23,8 @@ The ready state consumes no permanent status row. Progress appears only while sc
 
 Result DOM is bounded to 200 occurrences or files per page. Previous/next controls preserve access to the complete filtered and sorted projection; badges remain full-result counts, the range label identifies the current page, and changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
+Toolbar hierarchy follows interaction frequency: search receives the primary available width, list/tree or grouped/list is the primary view switch, and sorting is a compact select with a visible Sort label. A narrow sidebar may wrap controls and increase touch height, but it does not stretch sorting into a full-row button with the same weight as the view switch. Options state the ordering explicitly, such as by path, file name, or modified time.
+
 ### 2.1 Broken links tab
 
 Results are grouped by target by default, with source grouping and an occurrence list as alternatives. Each item shows at least its source, original reference, failure kind, and the best available location hint.
@@ -92,6 +94,8 @@ A language change updates plugin UI immediately. Follow Obsidian retains the sta
 ## 5. Rule editing and previews
 
 Ignore and expected-isolation rules are previewed before saving. A preview contains a match count and bounded samples and is tied to the current draft and index revision; an older asynchronous result must not overwrite a newer edit.
+
+Saved expected-isolation rules default to compact summary cards with enablement, name, scope summary, and an edit entry instead of exposing the complete rule engine inline. The add entry first offers periodic-notes, folder, naming-pattern, and advanced-custom intents; periodic notes moves to the dedicated preset, while the others open a modal draft editor. The editor automatically debounces previews for the draft and commits settings only on Save; Cancel, Escape, or dismissing the backdrop discards the draft. Rule deletion lives inside the editor and is not presented as a peer primary action beside preview controls.
 
 An expected-isolation rule has a name, enabled state, and combined conditions:
 

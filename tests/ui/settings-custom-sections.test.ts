@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ExpectedIsolationRule } from "../../src/core/expected-isolation-rules";
 import { createTranslator } from "../../src/shared/i18n";
@@ -8,13 +8,21 @@ import { renderCustomSetting } from "../../src/ui/settings/custom-sections";
 import type { SettingsUiContext } from "../../src/ui/settings";
 
 describe("custom settings sections", () => {
-  it("renders expected rule conditions and match samples, then edits immutably", () => {
+  afterEach(() => {
+    document.querySelectorAll(".link-integrity-rule-modal").forEach((element) => element.remove());
+    vi.useRealTimers();
+  });
+
+  it("renders compact expected-rule summaries and commits only a saved draft", () => {
+    vi.useFakeTimers();
     const rule = expectedRule();
     const settings = withExpectedRule(createDefaultSettings(), rule);
     const onSettingsChange = vi.fn();
+    const requestExpectedRulePreview = vi.fn();
     const container = document.createElement("div");
-    renderCustomSetting(container, "expected-isolation-rules", context(settings, {
+    const cleanup = renderCustomSetting(container, "expected-isolation-rules", context(settings, {
       onSettingsChange,
+      requestExpectedRulePreview,
       getExpectedRulePreview: () => ({
         state: "ready",
         stats: {
@@ -26,20 +34,35 @@ describe("custom settings sections", () => {
         },
       }),
     }));
-    expect(container.textContent).toContain("File type, folder, and naming conditions use AND");
-    expect(container.textContent).toContain("Daily/2026-08-01.md");
+    expect(container.textContent).toContain("Rules only classify isolated files");
+    expect(container.textContent).toContain("Daily · Include subfolders · Markdown");
+    expect(container.textContent).toContain("Matches 2 items");
     const summaryCheckbox = container.querySelector<HTMLInputElement>(
-      ".link-integrity-settings-rule > summary input[type=checkbox]",
+      ".link-integrity-expected-rule-card > input[type=checkbox]",
     );
     expect(summaryCheckbox?.getAttribute("aria-label")).toBe("Daily notes");
-    const name = Array.from(container.querySelectorAll("label"))
+    const edit = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Edit");
+    edit?.click();
+    const dialog = document.querySelector<HTMLElement>('.link-integrity-rule-modal [role="dialog"]');
+    expect(dialog).not.toBeNull();
+    const name = Array.from(dialog?.querySelectorAll("label") ?? [])
       .find(({ textContent }) => textContent?.includes("Rule name"))
       ?.querySelector<HTMLInputElement>('input[type="text"]');
     expect(name).not.toBeNull();
     if (name !== null && name !== undefined) {
       name.value = "Journal notes";
-      name.dispatchEvent(new Event("change", { bubbles: true }));
+      name.dispatchEvent(new Event("input", { bubbles: true }));
     }
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(250);
+    expect(requestExpectedRulePreview).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Journal notes" }),
+      expect.any(Function),
+    );
+    Array.from(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [])
+      .find(({ textContent }) => textContent === "Save")
+      ?.click();
     expect(onSettingsChange).toHaveBeenCalledWith(
       expect.objectContaining({
         isolatedFiles: expect.objectContaining({
@@ -48,6 +71,80 @@ describe("custom settings sections", () => {
       }),
       "query-only",
     );
+    expect(document.querySelector(".link-integrity-rule-modal")).toBeNull();
+    cleanup();
+  });
+
+  it("chooses a friendly rule template and keeps it as a draft until save", () => {
+    const settings = createDefaultSettings();
+    const onSettingsChange = vi.fn();
+    const container = document.createElement("div");
+    const cleanup = renderCustomSetting(container, "expected-isolation-rules", context(settings, {
+      onSettingsChange,
+    }));
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Add expected-isolation rule")
+      ?.click();
+    const picker = document.querySelector<HTMLElement>(".link-integrity-rule-template-picker");
+    expect(picker?.textContent).toContain("Periodic notes preset");
+    expect(picker?.textContent).toContain("Folder");
+    expect(picker?.textContent).toContain("Naming patterns");
+    expect(picker?.textContent).toContain("Advanced");
+    Array.from(picker?.querySelectorAll<HTMLButtonElement>("button") ?? [])
+      .find(({ textContent }) => textContent === "Folder")
+      ?.click();
+    const dialog = document.querySelector<HTMLElement>('.link-integrity-rule-modal [role="dialog"]');
+    const folder = Array.from(dialog?.querySelectorAll("label") ?? [])
+      .find(({ textContent }) => textContent?.startsWith("Folder"))
+      ?.querySelector<HTMLInputElement>('input[type="text"]');
+    expect(folder).not.toBeNull();
+    if (folder !== null && folder !== undefined) {
+      folder.value = "Templates";
+      folder.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    const save = Array.from(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [])
+      .find(({ textContent }) => textContent === "Save");
+    expect(save?.disabled).toBe(false);
+    save?.click();
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isolatedFiles: expect.objectContaining({
+          expectedRules: [expect.objectContaining({
+            name: "Folder",
+            folder: { path: "Templates", mode: "recursive" },
+          })],
+        }),
+      }),
+      "query-only",
+    );
+    cleanup();
+  });
+
+  it("discards an edited rule draft when the modal is cancelled with Escape", () => {
+    const rule = expectedRule();
+    const onSettingsChange = vi.fn();
+    const container = document.createElement("div");
+    const cleanup = renderCustomSetting(
+      container,
+      "expected-isolation-rules",
+      context(withExpectedRule(createDefaultSettings(), rule), { onSettingsChange }),
+    );
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Edit")
+      ?.click();
+    const dialog = document.querySelector<HTMLElement>('.link-integrity-rule-modal [role="dialog"]');
+    const name = Array.from(dialog?.querySelectorAll("label") ?? [])
+      .find(({ textContent }) => textContent?.includes("Rule name"))
+      ?.querySelector<HTMLInputElement>('input[type="text"]');
+    if (name !== null && name !== undefined) {
+      name.value = "Unsaved name";
+      name.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    dialog?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(document.querySelector(".link-integrity-rule-modal")).toBeNull();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    cleanup();
   });
 
   it("shows a separate high-risk warning and preview for graph contribution rules", () => {
@@ -110,22 +207,24 @@ describe("custom settings sections", () => {
     }
   });
 
-  it("keeps summary checkbox activation separate from details expansion", () => {
+  it("keeps card enablement separate from opening the draft editor", () => {
     const container = document.createElement("div");
+    const onSettingsChange = vi.fn();
     renderCustomSetting(
       container,
       "expected-isolation-rules",
-      context(withExpectedRule(createDefaultSettings(), expectedRule())),
+      context(withExpectedRule(createDefaultSettings(), expectedRule()), { onSettingsChange }),
     );
-    const details = container.querySelector<HTMLDetailsElement>(".link-integrity-settings-rule")!;
-    const checkbox = details.querySelector<HTMLInputElement>("summary input[type=checkbox]")!;
-    const target = checkbox.closest<HTMLLabelElement>(".link-integrity-checkbox-target")!;
-
-    expect(target.getAttribute("aria-label")).toBe("Daily notes");
-    target.click();
-    expect(details.open).toBe(false);
-    details.querySelector<HTMLElement>("summary")!.click();
-    expect(details.open).toBe(true);
+    const card = container.querySelector<HTMLElement>(".link-integrity-expected-rule-card")!;
+    const checkbox = card.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(onSettingsChange).toHaveBeenCalledOnce();
+    expect(document.querySelector(".link-integrity-rule-modal")).toBeNull();
+    Array.from(card.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Edit")
+      ?.click();
+    expect(document.querySelector('.link-integrity-rule-modal [role="dialog"]')).not.toBeNull();
   });
 });
 

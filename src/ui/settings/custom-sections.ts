@@ -3,6 +3,7 @@ import {
   type ExpectedIsolationRule,
   type ExpectedNamingPattern,
   type PeriodicNoteKind,
+  validateExpectedIsolationRule,
 } from "../../core/expected-isolation-rules";
 import {
   DEFAULT_ISOLATED_CANDIDATE_FAMILIES,
@@ -25,7 +26,13 @@ import {
   type FileTypeSelectionModel,
 } from "../file-type-selection";
 import { createFileTypeCategoryOptions } from "../file-type-options";
-import type { SettingsCustomSectionId, SettingsUiContext } from "./types";
+import type {
+  ExpectedRulePreviewState,
+  SettingsCustomSectionId,
+  SettingsUiContext,
+} from "./types";
+
+let expectedRuleDialogCounter = 0;
 
 export function renderCustomSetting(
   settingElement: HTMLElement,
@@ -34,6 +41,7 @@ export function renderCustomSetting(
 ): () => void {
   const body = settingElement.ownerDocument.createElement("div");
   body.className = "link-integrity-settings-custom-body";
+  body.dataset.sectionId = id;
   settingElement.append(body);
   const cleanup = id === "persistence-status"
     ? renderPersistenceStatus(body, context)
@@ -171,171 +179,392 @@ function renderCandidateTypes(
   return cleanup;
 }
 
-function renderExpectedRules(container: HTMLElement, context: SettingsUiContext): void {
+function renderExpectedRules(
+  container: HTMLElement,
+  context: SettingsUiContext,
+): () => void {
   const { t } = context.translator;
   const settings = currentSettings(context);
-  const help = textElement(container, "p", t("settings.expected.conditions"));
+  const help = textElement(container, "p", t("settings.expected.description"));
   help.className = "link-integrity-help-text";
   container.append(help);
 
+  let closeEditor: (() => void) | null = null;
+  const openEditor = (rule: ExpectedIsolationRule | null): void => {
+    closeEditor?.();
+    closeEditor = openExpectedRuleDialog(container, rule, context);
+  };
+  const list = container.ownerDocument.createElement("div");
+  list.className = "link-integrity-expected-rule-list";
   for (const rule of settings.isolatedFiles.expectedRules) {
-    container.append(renderExpectedRule(container.ownerDocument, rule, context));
+    list.append(renderExpectedRuleCard(container.ownerDocument, rule, context, () => openEditor(rule)));
   }
-  const add = button(container, t("settings.expected.addRule"), () => {
-    const next = currentSettings(context);
-    const rule = createExpectedRule(context.createId("expected-rule"));
-    commitIsolated(context, {
-      ...next.isolatedFiles,
-      expectedRules: [...next.isolatedFiles.expectedRules, rule],
-    }, "query-only");
-  });
+  container.append(list);
+  const add = button(container, t("settings.expected.addRule"), () => openEditor(null));
+  add.classList.add("mod-cta", "link-integrity-add-rule");
   add.disabled = context.writeProtected;
+  return () => closeEditor?.();
 }
 
-function renderExpectedRule(
+function renderExpectedRuleCard(
   document: Document,
   rule: ExpectedIsolationRule,
   context: SettingsUiContext,
+  onEdit: () => void,
 ): HTMLElement {
   const { t } = context.translator;
-  const details = document.createElement("details");
-  details.className = "link-integrity-settings-rule";
-  const summary = document.createElement("summary");
+  const card = document.createElement("article");
+  card.className = "link-integrity-expected-rule-card";
   const enabled = document.createElement("input");
   enabled.type = "checkbox";
   enabled.checked = rule.enabled;
   enabled.disabled = context.writeProtected;
   enabled.setAttribute("aria-label", rule.name || t("settings.expected.ruleName"));
-  enabled.addEventListener("click", (event) => event.stopPropagation());
   enabled.addEventListener("change", () => replaceExpectedRule(context, {
     ...rule,
     enabled: enabled.checked,
   }));
-  summary.append(
-    summaryCheckboxTarget(document, enabled, rule.name || t("settings.expected.ruleName")),
-    document.createTextNode(rule.name),
-  );
-  details.append(summary);
-
-  const name = labeledInput(details, t("settings.expected.ruleName"), rule.name);
-  name.input.disabled = context.writeProtected;
-  name.input.addEventListener("change", () => replaceExpectedRule(context, {
-    ...rule,
-    name: name.input.value,
-  }));
-
-  const categories = createFileTypeCategoryOptions(context.translator);
-  renderFileTypeSelection(details, {
-    categories,
-    selectedFormatIds: new Set(rule.fileTypeFamilyIds),
-    defaultFormatIds: new Set(["markdown"]),
-  }, {
-    selectAllLabel: t("common.selectAll"),
-    clearLabel: t("common.clear"),
-    restoreDefaultLabel: t("common.restoreDefault"),
-    selectedCountLabel: (selected, total) => t("fileType.selectedCount", { selected, total }),
-    onChange: (selected) => replaceExpectedRule(context, {
-      ...rule,
-      fileTypeFamilyIds: Array.from(selected).filter(isFormatFamilyId),
-    }),
-  });
-
-  const extensions = labeledInput(
-    details,
-    t("settings.expected.fileExtensions"),
-    rule.fileExtensions.join(", "),
-  );
-  extensions.input.disabled = context.writeProtected;
-  extensions.input.addEventListener("change", () => replaceExpectedRule(context, {
-    ...rule,
-    fileExtensions: splitExtensions(extensions.input.value),
-  }));
-
-  const folderRow = document.createElement("div");
-  folderRow.className = "link-integrity-rule-condition";
-  const folderInput = document.createElement("input");
-  folderInput.type = "text";
-  folderInput.value = rule.folder?.path ?? "";
-  folderInput.placeholder = t("settings.expected.folder");
-  folderInput.disabled = context.writeProtected;
-  const folderMode = select(document, [
-    ["exact", t("settings.expected.folderExact")],
-    ["recursive", t("settings.expected.folderRecursive")],
-  ], rule.folder?.mode ?? "recursive");
-  folderMode.disabled = context.writeProtected;
-  const updateFolder = (): void => replaceExpectedRule(context, {
-    ...rule,
-    folder: folderInput.value.trim().length === 0
-      ? null
-      : { path: folderInput.value, mode: folderMode.value === "exact" ? "exact" : "recursive" },
-  });
-  folderInput.addEventListener("change", updateFolder);
-  folderMode.addEventListener("change", updateFolder);
-  folderRow.append(folderInput, folderMode);
-  details.append(folderRow);
-
-  const patternHeading = textElement(details, "h4", t("settings.expected.namingPatterns"));
-  details.append(patternHeading);
-  for (const pattern of rule.namingPatterns) {
-    details.append(renderExpectedPattern(document, rule, pattern, context));
-  }
-  const addPattern = button(details, t("settings.expected.addPattern"), () => {
-    replaceExpectedRule(context, {
-      ...rule,
-      namingPatterns: [...rule.namingPatterns, {
-        id: context.createId("expected-pattern"),
-        kind: "glob",
-        pattern: "*",
-        flags: "iu",
-        target: "basename",
-      }],
-    });
-  });
-  addPattern.disabled = context.writeProtected;
-
+  const text = document.createElement("div");
+  text.className = "link-integrity-expected-rule-card-text";
+  const name = document.createElement("strong");
+  name.textContent = rule.name || t("settings.expected.ruleName");
+  const summary = document.createElement("small");
+  summary.textContent = describeExpectedRule(rule, context);
+  text.append(name, summary);
   const preview = context.getExpectedRulePreview?.(rule.id);
-  const previewElement = document.createElement("div");
-  previewElement.className = "link-integrity-settings-rule-preview";
-  if (preview?.state === "loading") {
-    previewElement.textContent = t("settings.expected.previewLoading");
-  } else if (preview?.state === "failed") {
-    previewElement.textContent = t("settings.expected.previewFailed");
-  } else if (preview?.stats !== null && preview?.stats !== undefined) {
-    previewElement.textContent = preview.stats.errors.length > 0
-      ? preview.stats.errors.join(" ")
-      : preview.stats.matchCount === 0
-      ? t("settings.expected.previewEmpty")
-      : t("settings.expected.preview", {
-        count: preview.stats.matchCount,
-        samples: preview.stats.samples.join(", "),
-      });
+  if (preview?.state === "ready" && preview.stats !== null) {
+    const count = document.createElement("small");
+    count.className = "link-integrity-expected-rule-card-count";
+    count.textContent = t("settings.ignore.matchCount", { count: preview.stats.matchCount });
+    text.append(count);
   }
-  details.append(previewElement);
-  if (context.requestExpectedRulePreview !== undefined) {
-    const refresh = button(details, t("settings.expected.refreshPreview"), () => runAction(
-      () => context.requestExpectedRulePreview?.(rule),
-      context,
-    ));
-    refresh.disabled = context.writeProtected;
-  }
-  const remove = button(details, t("common.delete"), () => {
-    const settings = currentSettings(context);
-    commitIsolated(context, {
-      ...settings.isolatedFiles,
-      expectedRules: settings.isolatedFiles.expectedRules
-        .filter(({ id }) => id !== rule.id),
-    }, "query-only");
-  });
-  remove.className = "mod-warning";
-  remove.disabled = context.writeProtected;
-  return details;
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.textContent = t("common.edit");
+  edit.disabled = context.writeProtected;
+  edit.addEventListener("click", onEdit);
+  card.append(enabled, text, edit);
+  return card;
 }
 
-function renderExpectedPattern(
+function describeExpectedRule(rule: ExpectedIsolationRule, context: SettingsUiContext): string {
+  const { t } = context.translator;
+  const parts: string[] = [];
+  if (rule.folder !== null) {
+    parts.push(rule.folder.path, t(rule.folder.mode === "exact"
+      ? "settings.expected.folderExact"
+      : "settings.expected.folderRecursive"));
+  }
+  if (rule.fileTypeFamilyIds.length > 0) {
+    const labels = new Map(createFileTypeCategoryOptions(context.translator)
+      .flatMap(({ formats }) => formats.map(({ id, label }) => [id, label] as const)));
+    parts.push(rule.fileTypeFamilyIds.map((id) => labels.get(id) ?? id).join(", "));
+  }
+  if (rule.fileExtensions.length > 0) parts.push(rule.fileExtensions.map((item) => `.${item}`).join(", "));
+  if (rule.namingPatterns.length > 0) {
+    parts.push(`${t("settings.expected.namingPatterns")}: ${rule.namingPatterns.length.toString()}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : t("common.none");
+}
+
+function openExpectedRuleDialog(
+  host: HTMLElement,
+  sourceRule: ExpectedIsolationRule | null,
+  context: SettingsUiContext,
+): () => void {
+  const document = host.ownerDocument;
+  const ownerWindow = document.defaultView;
+  const { t } = context.translator;
+  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const overlay = document.createElement("div");
+  overlay.className = "link-integrity-rule-modal";
+  overlay.dir = context.translator.direction;
+  const panel = document.createElement("section");
+  panel.className = "link-integrity-rule-modal-panel";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  const heading = document.createElement("h3");
+  expectedRuleDialogCounter += 1;
+  heading.id = `link-integrity-rule-dialog-title-${expectedRuleDialogCounter.toString()}`;
+  heading.textContent = sourceRule?.name || t("settings.expected.addRule");
+  panel.setAttribute("aria-labelledby", heading.id);
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "link-integrity-rule-modal-close";
+  closeButton.textContent = "×";
+  closeButton.setAttribute("aria-label", t("common.cancel"));
+  const header = document.createElement("header");
+  header.append(heading, closeButton);
+  const content = document.createElement("div");
+  content.className = "link-integrity-rule-modal-content";
+  panel.append(header, content);
+  overlay.append(panel);
+  document.body.append(overlay);
+
+  let closed = false;
+  let previewTimer: number | null = null;
+  let editorCleanup: (() => void) | null = null;
+  let draft = sourceRule === null ? null : cloneExpectedRule(sourceRule);
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    editorCleanup?.();
+    overlay.remove();
+    previousFocus?.focus();
+  };
+  closeButton.addEventListener("click", close);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) close();
+  });
+  panel.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary',
+    ));
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (first === undefined || last === undefined) return;
+    if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+
+  const renderTemplatePicker = (): void => {
+    content.replaceChildren();
+    const help = textElement(content, "p", t("settings.expected.conditions"));
+    help.className = "link-integrity-help-text";
+    content.append(help);
+    const picker = document.createElement("div");
+    picker.className = "link-integrity-rule-template-picker";
+    const choose = (kind: "folder" | "naming" | "advanced", name: string): void => {
+      draft = createExpectedRule(context.createId("expected-rule"), name, kind, context);
+      renderEditor(kind !== "folder");
+    };
+    button(picker, t("settings.expected.periodicPreset"), () => {
+      close();
+      const preset = host.closest(".link-integrity-settings-panel")
+        ?.querySelector<HTMLElement>('[data-section-id="periodic-notes-preset"]');
+      preset?.scrollIntoView({ block: "center" });
+      preset?.querySelector<HTMLElement>('input, button, summary')?.focus();
+    });
+    button(picker, t("settings.expected.folder"), () => choose(
+      "folder",
+      t("settings.expected.folder"),
+    ));
+    button(picker, t("settings.expected.namingPatterns"), () => choose(
+      "naming",
+      t("settings.expected.namingPatterns"),
+    ));
+    button(picker, t("common.advanced"), () => choose("advanced", t("common.advanced")));
+    content.append(picker);
+  };
+
+  const renderEditor = (advancedOpen = true): void => {
+    if (draft === null) return;
+    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    editorCleanup?.();
+    editorCleanup = null;
+    content.replaceChildren();
+    heading.textContent = sourceRule === null ? t("settings.expected.addRule") : draft.name;
+    let updateDraftState = (): void => undefined;
+
+    const name = labeledInput(content, t("settings.expected.ruleName"), draft.name);
+    const folderField = document.createElement("label");
+    folderField.className = "link-integrity-rule-field";
+    const folderLabel = document.createElement("span");
+    folderLabel.textContent = t("settings.expected.folder");
+    const folderRow = document.createElement("div");
+    folderRow.className = "link-integrity-rule-condition";
+    const folderInput = document.createElement("input");
+    folderInput.type = "text";
+    folderInput.value = draft.folder?.path ?? "";
+    folderInput.placeholder = t("settings.expected.folder");
+    const folderMode = select(document, [
+      ["exact", t("settings.expected.folderExact")],
+      ["recursive", t("settings.expected.folderRecursive")],
+    ], draft.folder?.mode ?? "recursive");
+    folderRow.append(folderInput, folderMode);
+    folderField.append(folderLabel, folderRow);
+    content.append(folderField);
+
+    const advanced = document.createElement("details");
+    advanced.className = "link-integrity-rule-advanced";
+    advanced.open = advancedOpen;
+    const advancedSummary = document.createElement("summary");
+    advancedSummary.textContent = t("common.advanced");
+    advanced.append(advancedSummary);
+    const categories = createFileTypeCategoryOptions(context.translator);
+    editorCleanup = renderFileTypeSelection(advanced, {
+      categories,
+      selectedFormatIds: new Set(draft.fileTypeFamilyIds),
+      defaultFormatIds: new Set(["markdown"]),
+    }, {
+      selectAllLabel: t("common.selectAll"),
+      clearLabel: t("common.clear"),
+      restoreDefaultLabel: t("common.restoreDefault"),
+      selectedCountLabel: (selected, total) => t("fileType.selectedCount", { selected, total }),
+      onChange: (selected) => {
+        if (draft === null) return;
+        draft = {
+          ...draft,
+          fileTypeFamilyIds: Array.from(selected).filter(isFormatFamilyId),
+        };
+        updateDraftState();
+      },
+    });
+    const extensions = labeledInput(
+      advanced,
+      t("settings.expected.fileExtensions"),
+      draft.fileExtensions.join(", "),
+    );
+    const patternHeading = textElement(advanced, "h4", t("settings.expected.namingPatterns"));
+    advanced.append(patternHeading);
+    for (const pattern of draft.namingPatterns) {
+      advanced.append(renderExpectedPatternEditor(document, pattern, context, (nextPattern) => {
+        if (draft === null) return;
+        draft = {
+          ...draft,
+          namingPatterns: draft.namingPatterns.map((candidate) =>
+            candidate.id === nextPattern.id ? nextPattern : candidate),
+        };
+        updateDraftState();
+      }, () => {
+        if (draft === null) return;
+        draft = {
+          ...draft,
+          namingPatterns: draft.namingPatterns.filter(({ id }) => id !== pattern.id),
+        };
+        renderEditor(true);
+      }));
+    }
+    button(advanced, t("settings.expected.addPattern"), () => {
+      if (draft === null) return;
+      draft = {
+        ...draft,
+        namingPatterns: [...draft.namingPatterns, createExpectedPattern(context)],
+      };
+      renderEditor(true);
+    });
+    content.append(advanced);
+
+    const validation = document.createElement("div");
+    validation.className = "link-integrity-rule-validation";
+    validation.setAttribute("role", "alert");
+    const preview = document.createElement("div");
+    preview.className = "link-integrity-settings-rule-preview";
+    preview.setAttribute("role", "status");
+    preview.setAttribute("aria-live", "polite");
+    content.append(validation, preview);
+    const actions = document.createElement("footer");
+    actions.className = "link-integrity-rule-modal-actions";
+    if (sourceRule !== null) {
+      const remove = button(actions, t("common.delete"), () => {
+        const settings = currentSettings(context);
+        commitIsolated(context, {
+          ...settings.isolatedFiles,
+          expectedRules: settings.isolatedFiles.expectedRules
+            .filter(({ id }) => id !== sourceRule.id),
+        }, "query-only");
+        close();
+      });
+      remove.className = "mod-warning";
+    }
+    button(actions, t("common.cancel"), close);
+    const save = button(actions, t("common.save"), () => {
+      if (draft === null || validateExpectedIsolationRule(draft).length > 0) return;
+      const settings = currentSettings(context);
+      const normalizedDraft = { ...draft, name: draft.name.trim() };
+      const exists = settings.isolatedFiles.expectedRules.some(({ id }) => id === normalizedDraft.id);
+      commitIsolated(context, {
+        ...settings.isolatedFiles,
+        expectedRules: exists
+          ? settings.isolatedFiles.expectedRules.map((candidate) =>
+            candidate.id === normalizedDraft.id ? normalizedDraft : candidate)
+          : [...settings.isolatedFiles.expectedRules, normalizedDraft],
+      }, "query-only");
+      close();
+    });
+    save.className = "mod-cta";
+    content.append(actions);
+
+    const schedulePreview = (): void => {
+      if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+      const errors = draft === null ? [] : validateExpectedIsolationRule(draft);
+      validation.textContent = errors.join(" ");
+      validation.hidden = errors.length === 0;
+      save.disabled = context.writeProtected || errors.length > 0;
+      if (errors.length > 0 || draft === null || context.requestExpectedRulePreview === undefined) {
+        preview.textContent = "";
+        return;
+      }
+      const candidate = cloneExpectedRule(draft);
+      if (ownerWindow === null) return;
+      previewTimer = ownerWindow.setTimeout(() => runAction(
+        () => context.requestExpectedRulePreview?.(candidate, (state) => {
+          if (closed || !preview.isConnected) return;
+          renderExpectedPreview(preview, state, context);
+        }),
+        context,
+      ), 250);
+    };
+    const updateFolder = (): void => {
+      if (draft === null) return;
+      draft = {
+        ...draft,
+        folder: folderInput.value.trim().length === 0
+          ? null
+          : {
+            path: folderInput.value,
+            mode: folderMode.value === "exact" ? "exact" : "recursive",
+          },
+      };
+      updateDraftState();
+    };
+    updateDraftState = (): void => {
+      heading.textContent = sourceRule === null ? t("settings.expected.addRule") : draft?.name ?? "";
+      schedulePreview();
+    };
+    name.input.addEventListener("input", () => {
+      if (draft === null) return;
+      draft = { ...draft, name: name.input.value };
+      updateDraftState();
+    });
+    folderInput.addEventListener("input", updateFolder);
+    folderMode.addEventListener("change", updateFolder);
+    extensions.input.addEventListener("input", () => {
+      if (draft === null) return;
+      draft = { ...draft, fileExtensions: splitExtensions(extensions.input.value) };
+      updateDraftState();
+    });
+    disableControls(content, context.writeProtected);
+    schedulePreview();
+    name.input.focus();
+  };
+
+  if (draft === null) renderTemplatePicker();
+  else renderEditor(true);
+  queueMicrotask(() => {
+    content.querySelector<HTMLElement>("button, input, select, textarea")?.focus();
+  });
+  return close;
+}
+
+function renderExpectedPatternEditor(
   document: Document,
-  rule: ExpectedIsolationRule,
   pattern: ExpectedNamingPattern,
   context: SettingsUiContext,
+  onChange: (pattern: ExpectedNamingPattern) => void,
+  onRemove: () => void,
 ): HTMLElement {
   const { t } = context.translator;
   const row = document.createElement("div");
@@ -358,24 +587,47 @@ function renderExpectedPattern(
   flags.value = pattern.flags;
   flags.className = "link-integrity-regex-flags";
   flags.hidden = pattern.kind !== "regex";
-  const update = (): void => replaceExpectedPattern(context, rule, {
-    ...pattern,
-    kind: kind.value === "date-format" || kind.value === "regex" ? kind.value : "glob",
-    target: target.value === "path" ? "path" : "basename",
-    pattern: input.value,
-    flags: kind.value === "regex" ? flags.value : kind.value === "glob" ? "iu" : "u",
-  });
+  const update = (): void => {
+    const nextKind = kind.value === "date-format" || kind.value === "regex" ? kind.value : "glob";
+    flags.hidden = nextKind !== "regex";
+    onChange({
+      ...pattern,
+      kind: nextKind,
+      target: target.value === "path" ? "path" : "basename",
+      pattern: input.value,
+      flags: nextKind === "regex" ? flags.value : nextKind === "glob" ? "iu" : "u",
+    });
+  };
   kind.addEventListener("change", update);
   target.addEventListener("change", update);
-  input.addEventListener("change", update);
-  flags.addEventListener("change", update);
-  const remove = button(row, t("common.delete"), () => replaceExpectedRule(context, {
-    ...rule,
-    namingPatterns: rule.namingPatterns.filter(({ id }) => id !== pattern.id),
-  }));
-  for (const control of [kind, target, input, flags, remove]) control.disabled = context.writeProtected;
+  input.addEventListener("input", update);
+  flags.addEventListener("input", update);
+  const remove = button(row, t("common.delete"), onRemove);
+  remove.className = "mod-warning";
   row.append(kind, target, input, flags, remove);
   return row;
+}
+
+function renderExpectedPreview(
+  element: HTMLElement,
+  preview: ExpectedRulePreviewState,
+  context: SettingsUiContext,
+): void {
+  const { t } = context.translator;
+  element.textContent = preview.state === "loading"
+    ? t("settings.expected.previewLoading")
+    : preview.state === "failed"
+      ? t("settings.expected.previewFailed")
+      : preview.stats === null
+        ? ""
+        : preview.stats.errors.length > 0
+          ? preview.stats.errors.join(" ")
+          : preview.stats.matchCount === 0
+            ? t("settings.expected.previewEmpty")
+            : t("settings.expected.preview", {
+              count: preview.stats.matchCount,
+              samples: preview.stats.samples.join(", "),
+            });
 }
 
 function renderPeriodicPreset(container: HTMLElement, context: SettingsUiContext): void {
@@ -568,18 +820,6 @@ function renderIgnoreRule(
   return details;
 }
 
-function replaceExpectedPattern(
-  context: SettingsUiContext,
-  rule: ExpectedIsolationRule,
-  pattern: ExpectedNamingPattern,
-): void {
-  replaceExpectedRule(context, {
-    ...rule,
-    namingPatterns: rule.namingPatterns.map((candidate) =>
-      candidate.id === pattern.id ? pattern : candidate),
-  });
-}
-
 function replaceExpectedRule(context: SettingsUiContext, rule: ExpectedIsolationRule): void {
   const settings = currentSettings(context);
   commitIsolated(context, {
@@ -635,16 +875,42 @@ function currentSettings(context: SettingsUiContext): LinkIntegritySettings {
   return context.getSettings?.() ?? context.settings;
 }
 
-function createExpectedRule(id: string): ExpectedIsolationRule {
+function createExpectedRule(
+  id: string,
+  name: string,
+  kind: "folder" | "naming" | "advanced",
+  context: SettingsUiContext,
+): ExpectedIsolationRule {
   return {
     id,
-    name: id,
+    name,
     enabled: true,
-    fileTypeFamilyIds: ["markdown"],
+    fileTypeFamilyIds: [],
     fileTypeCategoryIds: [],
     fileExtensions: [],
     folder: null,
-    namingPatterns: [],
+    namingPatterns: kind === "naming" ? [createExpectedPattern(context)] : [],
+  };
+}
+
+function createExpectedPattern(context: SettingsUiContext): ExpectedNamingPattern {
+  return {
+    id: context.createId("expected-pattern"),
+    kind: "glob",
+    pattern: "",
+    flags: "iu",
+    target: "basename",
+  };
+}
+
+function cloneExpectedRule(rule: ExpectedIsolationRule): ExpectedIsolationRule {
+  return {
+    ...rule,
+    fileTypeFamilyIds: [...rule.fileTypeFamilyIds],
+    fileTypeCategoryIds: [...rule.fileTypeCategoryIds],
+    fileExtensions: [...rule.fileExtensions],
+    folder: rule.folder === null ? null : { ...rule.folder },
+    namingPatterns: rule.namingPatterns.map((pattern) => ({ ...pattern })),
   };
 }
 

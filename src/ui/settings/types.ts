@@ -38,6 +38,7 @@ export interface SettingsUiContext {
   readonly getExpectedRulePreview?: (ruleId: string) => ExpectedRulePreviewState;
   readonly requestExpectedRulePreview?: (
     rule: ExpectedIsolationRule,
+    publish?: (state: ExpectedRulePreviewState) => void,
   ) => void | Promise<void>;
   readonly getIgnoreRulePreview?: (ruleId: string) => IgnoreRulePreview | null;
   readonly requestIgnoreRulePreview?: (rule: IgnoreRule) => void | Promise<void>;

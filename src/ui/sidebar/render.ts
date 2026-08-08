@@ -183,7 +183,7 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
   toolbar.append(search);
 
   if (options.model.activeTab === "broken-links") {
-    toolbar.append(
+    toolbar.append(toggleGroup(container.ownerDocument,
       toggleButton(
         container.ownerDocument,
         t("sidebar.broken.view.group"),
@@ -204,7 +204,7 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
           brokenResultOffset: 0,
         }),
       ),
-    );
+    ));
     if (options.state.brokenView === "group") {
       toolbar.append(createSelect(container.ownerDocument, [
         ["target", t("sidebar.broken.group.target")],
@@ -219,7 +219,7 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         }
       }, t("settings.broken.defaultGrouping")));
     }
-    toolbar.append(createSelect(container.ownerDocument, [
+    toolbar.append(labeledToolbarSelect(container.ownerDocument, t("common.sort"), [
       ["path", t("settings.sort.path")],
       ["count", t("settings.sort.count")],
     ], options.state.brokenSort, (value) => {
@@ -232,7 +232,7 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
       }
     }, t("settings.broken.defaultSort")));
   } else {
-    toolbar.append(
+    toolbar.append(toggleGroup(container.ownerDocument,
       toggleButton(
         container.ownerDocument,
         t("sidebar.isolated.view.list"),
@@ -253,7 +253,7 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
           isolatedResultOffset: 0,
         }),
       ),
-    );
+    ));
     if (options.allowNoIncomingFilter) {
       toolbar.append(createSelect(container.ownerDocument, [
         ["isolated", t("sidebar.tab.isolated")],
@@ -268,7 +268,7 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         }
       }, t("settings.isolated.advancedMode")));
     }
-    toolbar.append(createSelect(container.ownerDocument, [
+    toolbar.append(labeledToolbarSelect(container.ownerDocument, t("common.sort"), [
       ["path", t("settings.sort.path")],
       ["name", t("settings.sort.name")],
       ["modified", t("settings.sort.modified")],
@@ -689,6 +689,30 @@ function createSelect(
   }
   select.addEventListener("change", () => onChange(select.value));
   return select;
+}
+
+function labeledToolbarSelect(
+  document: Document,
+  labelText: string,
+  options: readonly (readonly [string, string])[],
+  selected: string,
+  onChange: (value: string) => void,
+  ariaLabel?: string,
+): HTMLLabelElement {
+  const label = document.createElement("label");
+  label.className = "link-integrity-toolbar-select";
+  label.append(
+    createText(document, "span", labelText),
+    createSelect(document, options, selected, onChange, ariaLabel),
+  );
+  return label;
+}
+
+function toggleGroup(document: Document, ...buttons: readonly HTMLButtonElement[]): HTMLElement {
+  const group = document.createElement("div");
+  group.className = "link-integrity-toolbar-view-toggle";
+  group.append(...buttons);
+  return group;
 }
 
 function toggleButton(

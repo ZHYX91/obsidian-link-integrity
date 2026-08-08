@@ -220,6 +220,8 @@ describe("sidebar renderer", () => {
 
     render();
     const brokenSort = container.querySelector<HTMLSelectElement>('[aria-label="Default sort"]');
+    expect(brokenSort?.closest(".link-integrity-toolbar-select")?.textContent).toContain("Sort");
+    expect(container.querySelector(".link-integrity-toolbar-view-toggle")).not.toBeNull();
     expect(Array.from(brokenSort?.options ?? []).map(({ value }) => value))
       .toEqual(["path", "count"]);
     if (brokenSort !== null) {
@@ -231,6 +233,7 @@ describe("sidebar renderer", () => {
     state = { ...state, activeTab: "isolated-files" };
     render();
     const isolatedSort = container.querySelector<HTMLSelectElement>('[aria-label="Default sort"]');
+    expect(isolatedSort?.closest(".link-integrity-toolbar-select")?.textContent).toContain("Sort");
     expect(Array.from(isolatedSort?.options ?? []).map(({ value }) => value))
       .toEqual(["path", "name", "modified", "broken-count"]);
   });
