@@ -119,6 +119,8 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       getIndexStatus: () => this.owner.getIndexStatus(),
       subscribeIndexStatus: (listener) => this.owner.subscribeToIndexStatus(listener),
       rebuildIndex: () => this.owner.rebuild(),
+      fileExists: (path) => this.owner.hasVaultFile(path),
+      openFile: (path) => this.owner.openVaultFile(path),
       onError: (error) => this.owner.reportSettingsError(error),
     };
   }

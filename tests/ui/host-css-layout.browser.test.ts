@@ -25,6 +25,13 @@ interface LayoutMeasurements {
     readonly targetWidth: number;
     readonly width: number;
   };
+  readonly customSetting: {
+    readonly bodyHeight: number;
+  };
+  readonly folderAction: {
+    readonly height: number;
+    readonly width: number;
+  };
   readonly narrow: {
     readonly clientWidth: number;
     readonly scrollWidth: number;
@@ -52,6 +59,10 @@ interface LayoutMeasurements {
     readonly resultShadow: string;
     readonly tabBackground: string;
     readonly tabShadow: string;
+  };
+  readonly viewToggle: {
+    readonly groupWidth: number;
+    readonly listWidth: number;
   };
 }
 
@@ -85,6 +96,15 @@ describe("Obsidian host CSS layout contract", () => {
     expect(measurements.summaryDisplay).toBe("list-item");
   });
 
+  it("keeps declarative custom settings content-sized in a vertical host row", () => {
+    expect(measurements.customSetting.bodyHeight).toBeLessThan(100);
+  });
+
+  it("keeps folder actions comfortably tappable without coarse-pointer detection", () => {
+    expect(measurements.folderAction.height).toBeGreaterThanOrEqual(44);
+    expect(measurements.folderAction.width).toBeGreaterThanOrEqual(44);
+  });
+
   it("keeps flat plugin surfaces above the host button defaults", () => {
     expect(measurements.surfaces.resultBackground).toBe("rgba(0, 0, 0, 0)");
     expect(measurements.surfaces.resultShadow).toBe("none");
@@ -99,6 +119,12 @@ describe("Obsidian host CSS layout contract", () => {
     expect(measurements.rule.scrollWidth).toBeLessThanOrEqual(
       measurements.rule.clientWidth,
     );
+  });
+
+  it("gives grouped and list view segments equal width", () => {
+    expect(Math.abs(
+      measurements.viewToggle.groupWidth - measurements.viewToggle.listWidth,
+    )).toBeLessThanOrEqual(1);
   });
 
   it("uses logical indentation for RTL file formats", () => {
@@ -274,6 +300,15 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
       <div class="link-integrity-status">Результаты могут быть устаревшими</div>
       <button type="button">Повторить перестроение</button>
     </div>
+    <div class="link-integrity-toolbar">
+      <div class="link-integrity-toolbar-view-toggle">
+        <div class="link-integrity-grouping-control" id="group-segment">
+          <button type="button">Группа · Назначение</button>
+          <label class="link-integrity-grouping-choice"><span>▾</span><select><option>По цели</option></select></label>
+        </div>
+        <button id="list-segment" type="button">Список</button>
+      </div>
+    </div>
     <label class="link-integrity-advanced-toggle">
       <input id="square-checkbox" type="checkbox">
       <span>Показывать ожидаемо изолированные файлы</span>
@@ -293,7 +328,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
       </summary>
     </details>
     <ul class="link-integrity-isolated-tree">
-      <li><details><summary>FolderNameWithoutAnyPossibleNaturalBreak012345678901234567890123456789</summary></details></li>
+      <li><details><summary class="link-integrity-isolated-folder-summary"><span>FolderNameWithoutAnyPossibleNaturalBreak012345678901234567890123456789</span><button class="link-integrity-more-button" type="button">…</button></summary></details></li>
     </ul>
   </div>
   </div>
@@ -305,6 +340,12 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
     <input type="text" value="^(a-very-long-pattern)$">
     <input class="link-integrity-regex-flags" type="text" value="iu">
     <button type="button">Удалить</button>
+  </div>
+</section>
+<section class="link-integrity-settings-custom-row" id="custom-setting-row" style="display:flex;flex-direction:column;block-size:600px;inline-size:600px">
+  <div class="link-integrity-settings-custom-body" id="custom-setting-body">
+    <div class="link-integrity-index-status">Results updated</div>
+    <button type="button">Rebuild index</button>
   </div>
 </section>
 <section class="link-integrity-sidebar" dir="rtl" id="rtl-fixture" style="width: 250px">
@@ -325,12 +366,23 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const rtlStyle = getComputedStyle(document.getElementById("rtl-format-list"));
   const resultStyle = getComputedStyle(resultMain);
   const tabStyle = getComputedStyle(document.getElementById("inactive-tab"));
+  const groupSegment = document.getElementById("group-segment").getBoundingClientRect();
+  const listSegment = document.getElementById("list-segment").getBoundingClientRect();
+  const customSettingBody = document.getElementById("custom-setting-body").getBoundingClientRect();
+  const folderAction = document.querySelector(".link-integrity-isolated-folder-summary > .link-integrity-more-button").getBoundingClientRect();
   const measurements = {
     checkbox: {
       height: checkbox.height,
       targetHeight: checkboxTarget.height,
       targetWidth: checkboxTarget.width,
       width: checkbox.width,
+    },
+    customSetting: {
+      bodyHeight: customSettingBody.height,
+    },
+    folderAction: {
+      height: folderAction.height,
+      width: folderAction.width,
     },
     narrow: { clientWidth: narrow.clientWidth, scrollWidth: narrow.scrollWidth },
     result: {
@@ -353,6 +405,10 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
       resultShadow: resultStyle.boxShadow,
       tabBackground: tabStyle.backgroundColor,
       tabShadow: tabStyle.boxShadow,
+    },
+    viewToggle: {
+      groupWidth: groupSegment.width,
+      listWidth: listSegment.width,
     },
   };
   document.getElementById("layout-results").textContent = JSON.stringify(measurements);

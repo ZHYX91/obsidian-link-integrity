@@ -8,16 +8,25 @@ import {
   LinkIndex,
   makeOccurrenceLookupKey,
   type FileRecord,
+  type ExpectedIsolationRule,
   type LinkOccurrence,
 } from "../src/core";
 import { SidebarQueryService } from "../src/app/sidebar-query-service";
+import { extractMarkdownExplicitReferences } from "../src/adapters/obsidian/explicit-link-parser";
 import { createIsolatedFileProjection } from "../src/features/queries";
 import { IgnoreService, type IgnoreRule } from "../src/shared/ignore-rules";
 import { createDefaultSettings } from "../src/shared/settings";
+import {
+  createSidebarViewModel,
+  SIDEBAR_RESULT_BATCH_SIZE,
+  type BrokenLinkResult,
+  type SidebarQuerySnapshot,
+  type SidebarViewState,
+} from "../src/ui/sidebar";
 
 const LARGE_MODE = process.env.LINK_INTEGRITY_BENCHMARK_MODE === "large";
 const FILE_COUNT = LARGE_MODE ? 50_000 : 10_000;
-const MAX_BUILD_MILLISECONDS = LARGE_MODE ? 30_000 : 8_000;
+const MAX_BUILD_MILLISECONDS = LARGE_MODE ? 10_000 : 4_000;
 const GRAPH_IGNORE_BATCH_COUNT = LARGE_MODE ? 6 : 12;
 const OCCURRENCES_PER_SOURCE = 3;
 const QUERY_REFRESH_COUNT = LARGE_MODE ? 3 : 6;
@@ -108,7 +117,7 @@ describe(`LinkIndex generated ${FILE_COUNT.toLocaleString()}-file benchmark`, ()
     );
     expect(optimizedGraphRebuildCount).toBe(0);
     expect(optimizedElapsed).toBeLessThan(legacyElapsed);
-    expect(optimizedElapsed).toBeLessThan(LARGE_MODE ? 1_000 : 500);
+    expect(optimizedElapsed).toBeLessThan(LARGE_MODE ? 250 : 150);
     process.stdout.write(
       `\nLink Integrity graph-ignore benchmark: ${FILE_COUNT} files, ` +
       `${totalOccurrences} occurrences, ${GRAPH_IGNORE_BATCH_COUNT} single-source batches, ` +
@@ -136,7 +145,7 @@ describe(`LinkIndex generated ${FILE_COUNT.toLocaleString()}-file benchmark`, ()
     const elapsed = performance.now() - startedAt;
 
     expect(isolatedCount).toBe(FILE_COUNT);
-    expect(elapsed).toBeLessThan(LARGE_MODE ? 8_000 : 2_000);
+    expect(elapsed).toBeLessThan(LARGE_MODE ? 3_000 : 1_000);
     process.stdout.write(
       `\nLink Integrity sidebar-query benchmark: ${FILE_COUNT} isolated files, ` +
       `${QUERY_REFRESH_COUNT} full projections in ${elapsed.toFixed(1)} ms\n`,
@@ -160,10 +169,114 @@ describe(`LinkIndex generated ${FILE_COUNT.toLocaleString()}-file benchmark`, ()
     expect(snapshot.brokenLinks).toEqual([]);
     expect(snapshot.brokenLinksKnown).toBe(true);
     expect(snapshot.isolatedFilesKnown).toBe(false);
-    expect(elapsed).toBeLessThan(LARGE_MODE ? 1_000 : 500);
+    expect(elapsed).toBeLessThan(LARGE_MODE ? 250 : 150);
     process.stdout.write(
       `\nLink Integrity broken-tab benchmark: ${FILE_COUNT} files, ` +
       `${QUERY_REFRESH_COUNT} refreshes without isolated projection in ${elapsed.toFixed(1)} ms\n`,
+    );
+  });
+
+  it("bounds source-folder view-model materialization to one result page", () => {
+    const location = { line: 0, column: 0, property: null, canvasNodeId: null };
+    const brokenLinks: BrokenLinkResult[] = Array.from({ length: FILE_COUNT }, (_, index) => ({
+      id: `missing:${index.toString()}`,
+      sourcePath: `Generated/Group-${(index % 100).toString().padStart(3, "0")}/` +
+        `Note-${index.toString().padStart(6, "0")}.md`,
+      targetText: `Missing-${(index % 1_000).toString()}`,
+      resolvedTargetPath: null,
+      rawText: `[[Missing-${(index % 1_000).toString()}]]`,
+      context: "",
+      reason: "missing-file",
+      location,
+    }));
+    const snapshot: SidebarQuerySnapshot = {
+      status: { state: "ready", current: FILE_COUNT, total: FILE_COUNT, errorMessage: null },
+      brokenLinks,
+      brokenLinksKnown: true,
+      isolatedFiles: [],
+      noIncomingFiles: [],
+      isolatedFilesKnown: false,
+    };
+    const state: SidebarViewState = {
+      activeTab: "broken-links",
+      search: "",
+      brokenView: "group",
+      brokenGrouping: "source-folder",
+      brokenSort: "count",
+      isolatedView: "list",
+      isolatedSort: "path",
+      isolatedMode: "isolated",
+      showExpectedIsolated: false,
+      selectedFormatFamilyIds: new Set(["markdown"]),
+      brokenResultOffset: 0,
+      isolatedResultOffset: 0,
+      expandedBrokenFolderPaths: new Set(),
+    };
+    const startedAt = performance.now();
+    const model = createSidebarViewModel(snapshot, state);
+    const elapsed = performance.now() - startedAt;
+
+    expect(model.broken.visibleCount).toBe(FILE_COUNT);
+    expect(model.broken.renderedCount).toBe(SIDEBAR_RESULT_BATCH_SIZE);
+    expect(model.broken.sourceFolderCount).toBe(100);
+    expect(model.broken.folderTree.totalCount).toBe(FILE_COUNT);
+    expect(elapsed).toBeLessThan(LARGE_MODE ? 1_500 : 750);
+    process.stdout.write(
+      `\nLink Integrity source-folder benchmark: ${FILE_COUNT} broken links, ` +
+      `${model.broken.folderTree.folders.length.toString()} page folders in ` +
+      `${elapsed.toFixed(1)} ms\n`,
+    );
+  });
+
+  it("parses a dense Markdown source without super-linear inline-code work", () => {
+    const referenceCount = LARGE_MODE ? 20_000 : 5_000;
+    const source = Array.from({ length: referenceCount }, (_, index) =>
+      `Line ${index}: [[Target-${index}]] ` +
+      "`[[Ignored]]` ``also ignored``")
+      .join("\n");
+    const startedAt = performance.now();
+    const references = extractMarkdownExplicitReferences(source);
+    const elapsed = performance.now() - startedAt;
+
+    expect(references).toHaveLength(referenceCount);
+    expect(elapsed).toBeLessThan(LARGE_MODE ? 2_000 : 750);
+    process.stdout.write(
+      `\nLink Integrity Markdown parse: ${referenceCount.toLocaleString()} references in ${
+        elapsed.toFixed(1)
+      } ms\n`,
+    );
+  });
+
+  it("projects isolated files with many expected-folder rules without rule-stat scans", () => {
+    const files = createGeneratedFiles();
+    const index = new LinkIndex(files);
+    const defaults = createDefaultSettings();
+    const expectedRules: ExpectedIsolationRule[] = Array.from({ length: 25 }, (_, index) => ({
+      id: `folder-${index}`,
+      name: `Folder ${index}`,
+      enabled: true,
+      fileTypeFamilyIds: [],
+      fileTypeCategoryIds: [],
+      fileExtensions: [],
+      folder: { path: `Expected-${index}`, mode: "recursive" },
+      namingPatterns: [],
+    }));
+    const service = new SidebarQueryService(
+      () => index,
+      () => ({
+        ...defaults,
+        isolatedFiles: { ...defaults.isolatedFiles, expectedRules },
+      }),
+    );
+    const startedAt = performance.now();
+    const snapshot = service.getSnapshot("isolated-files");
+    const elapsed = performance.now() - startedAt;
+
+    expect(snapshot.isolatedFiles).toHaveLength(FILE_COUNT);
+    expect(elapsed).toBeLessThan(LARGE_MODE ? 3_000 : 1_000);
+    process.stdout.write(
+      `\nLink Integrity expected-folder benchmark: ${FILE_COUNT.toLocaleString()} files, ` +
+      `${expectedRules.length.toString()} rules in ${elapsed.toFixed(1)} ms\n`,
     );
   });
 });

@@ -13,11 +13,11 @@ import {
 import { normalizeIgnoreRules, type IgnoreRule } from "./ignore-rules";
 import { isPluginLocale, type PluginLocale } from "./i18n";
 
-export const SETTINGS_SCHEMA_VERSION = 1;
+export const SETTINGS_SCHEMA_VERSION = 2;
 
 export type SidebarTabId = "broken-links" | "isolated-files";
 export type BrokenViewMode = "group" | "list";
-export type BrokenGrouping = "target" | "source";
+export type BrokenGrouping = "target" | "source" | "source-folder";
 export type BrokenSort = "path" | "count";
 export type IsolatedViewMode = "list" | "tree";
 export type IsolatedSort = "path" | "name" | "modified" | "broken-count";
@@ -49,6 +49,7 @@ export interface IsolatedFileSettings {
   readonly allowNoIncomingFilter: boolean;
   readonly showExpectedIsolatedFiles: boolean;
   readonly showIgnored: boolean;
+  readonly expectedFilePaths: readonly string[];
   readonly expectedRules: readonly ExpectedIsolationRule[];
   readonly periodicNotesPreset: PeriodicNotesPreset;
 }
@@ -61,6 +62,7 @@ export interface UiPreferences {
   readonly brokenSort: BrokenSort | null;
   readonly isolatedView: IsolatedViewMode | null;
   readonly isolatedSort: IsolatedSort | null;
+  readonly expandedBrokenFolderPaths: readonly string[];
 }
 
 export interface LinkIntegritySettings {
@@ -134,6 +136,7 @@ export function createDefaultSettings(): LinkIntegritySettings {
       allowNoIncomingFilter: false,
       showExpectedIsolatedFiles: false,
       showIgnored: false,
+      expectedFilePaths: [],
       expectedRules: [],
       periodicNotesPreset: createDefaultPeriodicNotesPreset(),
     },
@@ -145,6 +148,7 @@ export function createDefaultSettings(): LinkIntegritySettings {
       brokenSort: null,
       isolatedView: null,
       isolatedSort: null,
+      expandedBrokenFolderPaths: [],
     },
   };
 }
@@ -239,6 +243,7 @@ export function normalizeSettings(value: unknown): LinkIntegritySettings {
         defaults.isolatedFiles.showExpectedIsolatedFiles,
       ),
       showIgnored: booleanOr(isolated.showIgnored, defaults.isolatedFiles.showIgnored),
+      expectedFilePaths: normalizeVaultPaths(isolated.expectedFilePaths),
       expectedRules: normalizeExpectedIsolationRules(isolated.expectedRules),
       periodicNotesPreset: normalizePeriodicNotesPreset(isolated.periodicNotesPreset),
     },
@@ -260,6 +265,7 @@ export function normalizeSettings(value: unknown): LinkIntegritySettings {
       isolatedSort: isIsolatedSort(ui.isolatedSort)
         ? ui.isolatedSort
         : null,
+      expandedBrokenFolderPaths: normalizeVaultPaths(ui.expandedBrokenFolderPaths),
     },
   };
 }
@@ -408,6 +414,17 @@ function normalizeCustomExtensions(value: unknown): string[] {
     .sort((left, right) => left.localeCompare(right));
 }
 
+function normalizeVaultPaths(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, ""))
+    .map((item) => item.replace(/\/{2,}/g, "/"))
+    .filter((item) => item.length > 0 && item.split("/").every((part) =>
+      part.length > 0 && part !== "." && part !== ".."))))
+    .sort((left, right) => left.localeCompare(right));
+}
+
 function isSidebarTabId(value: unknown): value is SidebarTabId {
   return value === "broken-links" || value === "isolated-files";
 }
@@ -417,7 +434,7 @@ function isBrokenViewMode(value: unknown): value is BrokenViewMode {
 }
 
 function isBrokenGrouping(value: unknown): value is BrokenGrouping {
-  return value === "target" || value === "source";
+  return value === "target" || value === "source" || value === "source-folder";
 }
 
 function isBrokenSort(value: unknown): value is BrokenSort {

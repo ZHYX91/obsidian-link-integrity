@@ -4,6 +4,7 @@ import {
   Notice,
   Plugin,
   TFile,
+  TFolder,
   getLanguage,
   type Command,
   type EventRef,
@@ -49,11 +50,16 @@ import {
 import type {
   BrokenLinkResult,
   IndexStatus,
+  IsolatedFileResult,
   SidebarNavigationPort,
   SidebarViewState,
 } from "../ui/sidebar";
 import { SidebarQueryService } from "./sidebar-query-service";
 import { LinkIntegritySettingTab } from "./settings-tab";
+import {
+  findPureExpectedFolderRule,
+  renameExpectedIsolationFolder,
+} from "./expected-isolation-paths";
 import {
   LINK_INTEGRITY_VIEW_TYPE,
   LinkIntegritySidebarView,
@@ -111,7 +117,9 @@ export default class LinkIntegrityPlugin extends Plugin {
       rebuildIndex: () => this.rebuild(),
       openBrokenLinkActions: (result, anchor) => this.showBrokenLinkActions(result, anchor),
       openIsolatedFileActions: (result, anchor) =>
-        this.showIsolatedFileActions(result.path, anchor),
+        this.showIsolatedFileActions(result, anchor),
+      openIsolatedFolderActions: (path, anchor) =>
+        this.showIsolatedFolderActions(path, anchor),
     };
     this.registerView(LINK_INTEGRITY_VIEW_TYPE, (leaf) => new LinkIntegritySidebarView(leaf, {
       query: this.query,
@@ -221,6 +229,14 @@ export default class LinkIntegrityPlugin extends Plugin {
     await this.app.workspace.revealLeaf(leaf);
   }
 
+  public hasVaultFile(path: string): boolean {
+    return this.app.vault.getFileByPath(path) !== null;
+  }
+
+  public async openVaultFile(path: string): Promise<void> {
+    await this.openFile(path);
+  }
+
   public rebuild(): Promise<void> {
     if (this.rebuildPromise !== null) return this.rebuildPromise;
     const request = this.performRebuild();
@@ -255,6 +271,13 @@ export default class LinkIntegrityPlugin extends Plugin {
       );
     } catch (error) {
       if (error instanceof RebuildCancelledError) return;
+      if (this.coordinator.state === "stale") {
+        try {
+          await this.coordinator.whenIdle();
+        } catch (replayError) {
+          this.reportError(replayError);
+        }
+      }
       const state: IndexStatus["state"] = this.coordinator.state === "stale"
         ? "stale"
         : "failed";
@@ -263,7 +286,7 @@ export default class LinkIntegrityPlugin extends Plugin {
         current: 0,
         total: 0,
         errorMessage: errorMessage(error),
-      });
+      }, true);
       throw error;
     } finally {
       if (!this.unloaded) this.registerMetadataEvents();
@@ -291,7 +314,12 @@ export default class LinkIntegrityPlugin extends Plugin {
       if (file instanceof TFile) this.enqueue({ type: "delete", path: file.path });
     }));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
-      if (file instanceof TFile) this.enqueue({ type: "rename", oldPath, path: file.path });
+      if (file instanceof TFile) {
+        this.renameExpectedFilePath(oldPath, file.path);
+        this.enqueue({ type: "rename", oldPath, path: file.path });
+      } else if (file instanceof TFolder) {
+        this.renameExpectedFolderPath(oldPath, file.path);
+      }
     }));
   }
 
@@ -502,32 +530,178 @@ export default class LinkIntegrityPlugin extends Plugin {
     showMenuAtAnchor(menu, anchor);
   }
 
-  private showIsolatedFileActions(path: string, anchor: HTMLElement): void {
+  private showIsolatedFileActions(result: IsolatedFileResult, anchor: HTMLElement): void {
     const translator = createTranslator(this.settings.general.locale, getLanguage());
     const menu = new Menu().setParentElement(anchor);
-    const label = translator.t("ignore.scope.excludeIsolated");
-    menu.addItem((item) => item
-      .setTitle(`${label}: ${path}`)
-      .onClick(() => this.addIgnoreRule(
-        "exclude-isolated-candidate",
-        "source-path",
-        path,
-        label,
-        anchor,
-      )));
-    const folder = path.split("/").slice(0, -1).join("/");
-    if (folder.length > 0) {
+    const explicitlyExpected = this.settings.isolatedFiles.expectedFilePaths.includes(result.path);
+    if (explicitlyExpected) {
       menu.addItem((item) => item
-        .setTitle(`${label}: ${folder}/`)
-        .onClick(() => this.addIgnoreRule(
-          "exclude-isolated-candidate",
-          "path-prefix",
-          folder,
-          label,
-          anchor,
+        .setTitle(translator.t("sidebar.isolated.removeExpected"))
+        .onClick(() => this.setExpectedFile(result.path, false, anchor.ownerDocument)));
+    } else if (result.expectation.kind === "expected") {
+      menu.addItem((item) => item
+        .setTitle(translator.t("sidebar.isolated.expectedByRule"))
+        .setDisabled(true));
+    } else {
+      menu.addItem((item) => item
+        .setTitle(translator.t("sidebar.isolated.markExpected"))
+        .onClick(() => this.setExpectedFile(result.path, true, anchor.ownerDocument)));
+    }
+    showMenuAtAnchor(menu, anchor);
+  }
+
+  private showIsolatedFolderActions(path: string, anchor: HTMLElement): void {
+    const translator = createTranslator(this.settings.general.locale, getLanguage());
+    const menu = new Menu().setParentElement(anchor);
+    const actions = [
+      {
+        mode: "exact" as const,
+        title: translator.t("sidebar.isolated.markFolderExpectedExact"),
+      },
+      {
+        mode: "recursive" as const,
+        title: translator.t("sidebar.isolated.markFolderExpectedRecursive"),
+      },
+    ];
+    for (const action of actions) {
+      const alreadyConfigured = findPureExpectedFolderRule(
+        this.settings.isolatedFiles.expectedRules,
+        path,
+        action.mode,
+      )?.enabled === true;
+      menu.addItem((item) => item
+        .setTitle(action.title)
+        .setDisabled(alreadyConfigured)
+        .onClick(() => this.addExpectedFolderRule(
+          path,
+          action.mode,
+          anchor.ownerDocument,
         )));
     }
     showMenuAtAnchor(menu, anchor);
+  }
+
+  private addExpectedFolderRule(
+    path: string,
+    mode: "exact" | "recursive",
+    document: Document,
+  ): void {
+    const existing = findPureExpectedFolderRule(
+      this.settings.isolatedFiles.expectedRules,
+      path,
+      mode,
+    );
+    if (existing?.enabled === true) return;
+    const translator = createTranslator(this.settings.general.locale, getLanguage());
+    const suffix = document.defaultView?.crypto.randomUUID?.() ?? Date.now().toString(36);
+    const rule: ExpectedIsolationRule = existing === null ? {
+      id: `expected-folder:${suffix}`,
+      name: translator.t("sidebar.isolated.expectedFolderRuleName", { path }),
+      enabled: true,
+      fileTypeFamilyIds: [],
+      fileTypeCategoryIds: [],
+      fileExtensions: [],
+      folder: { path, mode },
+      namingPatterns: [],
+    } : { ...existing, enabled: true };
+    const expectedRules = existing === null
+      ? [...this.settings.isolatedFiles.expectedRules, rule]
+      : this.settings.isolatedFiles.expectedRules.map((candidate) =>
+        candidate.id === existing.id ? rule : candidate);
+    this.updateSettings({
+      ...this.settings,
+      isolatedFiles: {
+        ...this.settings.isolatedFiles,
+        expectedRules,
+      },
+    }, "query-only");
+
+    const fragment = document.createDocumentFragment();
+    const message = document.createElement("span");
+    message.textContent = translator.t("sidebar.isolated.markedExpectedFolder", {
+      path,
+      scope: translator.t(mode === "exact"
+        ? "settings.expected.folderExact"
+        : "settings.expected.folderRecursive"),
+    });
+    const undo = document.createElement("button");
+    undo.type = "button";
+    undo.textContent = translator.t("common.undo");
+    fragment.append(message, document.createTextNode(" "), undo);
+    const notice = new Notice(fragment, 8_000);
+    undo.addEventListener("click", () => {
+      this.updateSettings({
+        ...this.settings,
+        isolatedFiles: {
+          ...this.settings.isolatedFiles,
+          expectedRules: existing === null
+            ? this.settings.isolatedFiles.expectedRules.filter(({ id }) => id !== rule.id)
+            : this.settings.isolatedFiles.expectedRules.map((candidate) =>
+              candidate.id === rule.id ? existing : candidate),
+        },
+      }, "query-only");
+      notice.hide();
+    }, { once: true });
+  }
+
+  private setExpectedFile(path: string, expected: boolean, document: Document): void {
+    const before = this.settings.isolatedFiles.expectedFilePaths;
+    const after = expected
+      ? [...before, path]
+      : before.filter((candidate) => candidate !== path);
+    this.updateSettings({
+      ...this.settings,
+      isolatedFiles: {
+        ...this.settings.isolatedFiles,
+        expectedFilePaths: after,
+      },
+    }, "query-only");
+    const translator = createTranslator(this.settings.general.locale, getLanguage());
+    const fragment = document.createDocumentFragment();
+    const message = document.createElement("span");
+    message.textContent = translator.t(expected
+      ? "sidebar.isolated.markedExpected"
+      : "sidebar.isolated.removedExpected", { path });
+    const undo = document.createElement("button");
+    undo.type = "button";
+    undo.textContent = translator.t("common.undo");
+    fragment.append(message, document.createTextNode(" "), undo);
+    const notice = new Notice(fragment, 8_000);
+    undo.addEventListener("click", () => {
+      const current = this.settings.isolatedFiles.expectedFilePaths;
+      this.updateSettings({
+        ...this.settings,
+        isolatedFiles: {
+          ...this.settings.isolatedFiles,
+          expectedFilePaths: expected
+            ? current.filter((candidate) => candidate !== path)
+            : [...current, path],
+        },
+      }, "query-only");
+      notice.hide();
+    }, { once: true });
+  }
+
+  private renameExpectedFilePath(oldPath: string, newPath: string): void {
+    if (!this.settings.isolatedFiles.expectedFilePaths.includes(oldPath)) return;
+    this.updateSettings({
+      ...this.settings,
+      isolatedFiles: {
+        ...this.settings.isolatedFiles,
+        expectedFilePaths: this.settings.isolatedFiles.expectedFilePaths
+          .map((path) => path === oldPath ? newPath : path),
+      },
+    }, "query-only");
+  }
+
+  private renameExpectedFolderPath(oldPath: string, newPath: string): void {
+    const isolatedFiles = renameExpectedIsolationFolder(
+      this.settings.isolatedFiles,
+      oldPath,
+      newPath,
+    );
+    if (isolatedFiles === this.settings.isolatedFiles) return;
+    this.updateSettings({ ...this.settings, isolatedFiles }, "query-only");
   }
 
   private addIgnoreRule(
@@ -590,7 +764,8 @@ export default class LinkIntegrityPlugin extends Plugin {
       state.brokenGrouping !== previousState.brokenGrouping ||
       state.brokenSort !== previousState.brokenSort ||
       state.isolatedView !== previousState.isolatedView ||
-      state.isolatedSort !== previousState.isolatedSort;
+      state.isolatedSort !== previousState.isolatedSort ||
+      !setsEqual(state.expandedBrokenFolderPaths, previousState.expandedBrokenFolderPaths);
     if (!changed) return;
     this.settings = normalizeSettings({
       ...this.settings,
@@ -613,6 +788,12 @@ export default class LinkIntegrityPlugin extends Plugin {
         isolatedSort: state.isolatedSort !== previousState.isolatedSort
           ? state.isolatedSort
           : this.settings.ui.isolatedSort,
+        expandedBrokenFolderPaths: !setsEqual(
+          state.expandedBrokenFolderPaths,
+          previousState.expandedBrokenFolderPaths,
+        )
+          ? Array.from(state.expandedBrokenFolderPaths)
+          : this.settings.ui.expandedBrokenFolderPaths,
       },
     });
     if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
@@ -681,6 +862,10 @@ export default class LinkIntegrityPlugin extends Plugin {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function setsEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  return left.size === right.size && Array.from(left).every((value) => right.has(value));
 }
 
 function showMenuAtAnchor(menu: Menu, anchor: HTMLElement): void {

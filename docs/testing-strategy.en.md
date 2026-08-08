@@ -42,6 +42,7 @@ Expected-isolation tests cover:
 - exact/recursive folders, date formats, globs, regular expressions, match counts, and samples;
 - daily, weekly, monthly, quarterly, and yearly periodic-note presets with configurable paths and formats;
 - prevention of an invalid rule from silently matching every file.
+- exact-file path normalization, deduplication, main-count exclusion, rename following, and visible removal of missing paths in settings.
 
 ## Full and incremental equivalence
 
@@ -63,7 +64,9 @@ Failure tests should assert more than an exception: they must verify whether a t
 
 ## UI, settings, and localization tests
 
-Automated UI tests should cover the two business tabs, three settings tabs, absence of a fixed sidebar title/refresh/settings row, first-index build, contextual recovery rebuild, the permanent settings-page rebuild entry, search, sorting, list/tree or grouped views, temporary format filters, advanced expected-isolation display, low-confidence markers, and fixed 200-result pagination with reachable first and final pages.
+Automated UI tests should cover the two business tabs, three settings tabs, absence of a fixed sidebar title/refresh/settings row, first-index build, contextual recovery rebuild, the permanent settings-page rebuild entry, search, equal-width view segments, immediate grouped-main switching, the native target/source-file/source-folder grouping select, contextual native sorting shown or hidden by view, fixed list/tree ordering contracts, source-tree counts and lazy DOM for collapsed branches, temporary format filters, advanced expected-isolation display, individual expected-isolation actions, exact/recursive expected-folder rules with Undo, low-confidence markers, and fixed 100-result pagination with reachable first and final pages.
+
+The canonical `npm run check` gate must enforce coverage thresholds. The release gate must execute both the quick and 50,000-file scale benchmarks. Large-source parsing benchmarks cover explicit-link position mapping and inline-code masking so neither path may regress quadratically with link or backtick count.
 
 Settings tests cover schema normalization, migration, future-schema write protection, serialized coalescing saves, retryable failures, and a single definition source shared by the 1.12 imperative and 1.13 declarative settings implementations. Keyboard tests cover tablist roles, roving tabindex, arrow keys, Home/End, focus retention, and RTL. DOM tests cannot replace real Obsidian style and focus acceptance.
 

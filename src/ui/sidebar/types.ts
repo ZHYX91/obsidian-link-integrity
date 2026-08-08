@@ -80,4 +80,8 @@ export interface SidebarNavigationPort {
     result: IsolatedFileResult,
     anchor: HTMLElement,
   ) => void | Promise<void>;
+  readonly openIsolatedFolderActions?: (
+    path: string,
+    anchor: HTMLElement,
+  ) => void | Promise<void>;
 }

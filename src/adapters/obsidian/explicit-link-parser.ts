@@ -202,23 +202,55 @@ function maskPairs(
 
 function maskInlineCode(characters: string[], source: string): void {
   const runs = [...source.matchAll(/`+/gu)];
+  const runLines = lineNumbersForMatches(source, runs);
+  const nextMatchingRun: Array<number | null> = Array.from({ length: runs.length }, () => null);
+  const nextByLength = new Map<number, number>();
+  let currentLine = -1;
+  for (let index = runs.length - 1; index >= 0; index -= 1) {
+    const line = runLines[index];
+    if (line !== currentLine) {
+      nextByLength.clear();
+      currentLine = line ?? -1;
+    }
+    const length = runs[index]?.[0].length;
+    if (length === undefined) continue;
+    nextMatchingRun[index] = nextByLength.get(length) ?? null;
+    nextByLength.set(length, index);
+  }
   for (let index = 0; index + 1 < runs.length; index += 1) {
     const opening = runs[index];
     if (opening === undefined) continue;
     const openingText = opening[0];
     if (openingText.length >= 3) continue;
-    const closingIndex = runs.findIndex(
-      (candidate, candidateIndex) =>
-        candidateIndex > index &&
-        candidate[0].length === openingText.length &&
-        !source.slice(opening.index + openingText.length, candidate.index).includes("\n"),
-    );
-    if (closingIndex <= index) continue;
+    const closingIndex = nextMatchingRun[index];
+    if (closingIndex == null) continue;
     const closing = runs[closingIndex];
     if (closing === undefined) continue;
-    maskRange(characters, opening.index, closing.index + closing[0].length);
+    maskRange(
+      characters,
+      opening.index ?? 0,
+      (closing.index ?? 0) + closing[0].length,
+    );
     index = closingIndex;
   }
+}
+
+function lineNumbersForMatches(
+  source: string,
+  matches: readonly RegExpMatchArray[],
+): readonly number[] {
+  const result: number[] = [];
+  let line = 0;
+  let nextLineBreak = source.indexOf("\n");
+  for (const match of matches) {
+    const offset = match.index ?? 0;
+    while (nextLineBreak >= 0 && nextLineBreak < offset) {
+      line += 1;
+      nextLineBreak = source.indexOf("\n", nextLineBreak + 1);
+    }
+    result.push(line);
+  }
+  return result;
 }
 
 function maskYamlComments(source: string): string {

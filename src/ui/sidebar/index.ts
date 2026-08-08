@@ -17,11 +17,14 @@ export type {
   SidebarTabId,
 } from "./types";
 export {
+  buildBrokenFolderTree,
   buildIsolatedTree,
   createSidebarViewModel,
   groupBrokenLinks,
   SIDEBAR_RESULT_BATCH_SIZE,
   type BrokenGroupViewModel,
+  type BrokenFolderTreeNode,
+  type BrokenSourceFileNode,
   type IsolatedTreeNode,
   type SidebarViewModel,
   type SidebarViewState,

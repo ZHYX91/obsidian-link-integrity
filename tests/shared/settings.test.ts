@@ -28,6 +28,7 @@ describe("settings", () => {
       brokenSort: null,
       isolatedView: null,
       isolatedSort: null,
+      expandedBrokenFolderPaths: [],
     });
   });
 
@@ -37,6 +38,7 @@ describe("settings", () => {
       isolatedFiles: {
         candidateFormatFamilyIds: ["markdown", "markdown", "unknown"],
         customExtensions: [".DRAWIO", " drawio ", "../bad"],
+        expectedFilePaths: [" /Loose.md ", "Loose.md", "Folder\\Note.md", "../bad.md"],
         expectedRules: [{
           id: "periodic-daily",
           name: "Daily",
@@ -67,8 +69,23 @@ describe("settings", () => {
     expect(settings.general.defaultSidebarTab).toBe("broken-links");
     expect(settings.isolatedFiles.candidateFormatFamilyIds).toEqual(["markdown"]);
     expect(settings.isolatedFiles.customExtensions).toEqual(["drawio"]);
+    expect(settings.isolatedFiles.expectedFilePaths).toEqual([
+      "Folder/Note.md",
+      "Loose.md",
+    ]);
     expect(settings.isolatedFiles.expectedRules).toHaveLength(1);
     expect(settings.ignoreRules).toHaveLength(1);
+  });
+
+  it("migrates schema one settings with empty exact expected paths", () => {
+    const result = loadSettings({
+      schemaVersion: 1,
+      isolatedFiles: { expectedRules: [] },
+    });
+    expect(result.compatibility).toBe("migrated");
+    expect(result.shouldPersistMigration).toBe(true);
+    expect(result.settings.isolatedFiles.expectedFilePaths).toEqual([]);
+    expect(result.settings.ui.expandedBrokenFolderPaths).toEqual([]);
   });
 
   it("migrates historical orphan terminology without retaining it", () => {

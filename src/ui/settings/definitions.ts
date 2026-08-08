@@ -114,6 +114,7 @@ export function getSettingsPageDefinitions(
             dropdown("brokenLinks.defaultGrouping", t("settings.broken.defaultGrouping"), undefined, [
               { value: "target", label: t("sidebar.broken.group.target") },
               { value: "source", label: t("sidebar.broken.group.source") },
+              { value: "source-folder", label: t("sidebar.broken.group.sourceFolder") },
             ]),
             dropdown("brokenLinks.defaultSort", t("settings.broken.defaultSort"), undefined, [
               { value: "path", label: t("settings.sort.path") },

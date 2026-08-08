@@ -148,12 +148,13 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         });
       }
       if (node.type === "text" && typeof node.text === "string") {
+        const lineStarts = createLineStarts(node.text);
         for (const reference of extractMarkdownExplicitReferences(node.text)) {
           inputs.push({
             raw: reference.raw,
             linktext: reference.linktext,
             kind: "canvas-text",
-            position: positionFromParsedReference(node.text, reference, nodeId),
+            position: positionFromParsedReference(lineStarts, reference, nodeId),
             ordinal: ordinal++,
           });
         }
@@ -164,11 +165,12 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
 
   private async buildBasesSnapshot(file: TFile): Promise<SourceSnapshot> {
     const source = await this.vault.cachedRead(file);
+    const lineStarts = createLineStarts(source);
     const inputs = extractBasesExplicitReferences(source).map((reference, ordinal) => ({
       raw: reference.raw,
       linktext: reference.linktext,
       kind: "bases-explicit" as const,
-      position: positionFromParsedReference(source, reference, null),
+      position: positionFromParsedReference(lineStarts, reference, null),
       ordinal,
     }));
     return this.resolveSnapshot(file.path, inputs);
@@ -179,12 +181,13 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     source: string,
     kind: LinkOccurrenceKind,
   ): Promise<SourceSnapshot> {
+    const lineStarts = createLineStarts(source);
     return this.resolveSnapshot(file.path, extractMarkdownExplicitReferences(source).map(
       (reference, ordinal) => ({
         raw: reference.raw,
         linktext: reference.linktext,
         kind: reference.embedded ? "markdown-embed" : kind,
-        position: positionFromParsedReference(source, reference, null),
+        position: positionFromParsedReference(lineStarts, reference, null),
         ordinal,
       }),
     ));
@@ -315,12 +318,12 @@ function frontmatterPosition(reference: FrontmatterLinkCache): SourcePosition {
 }
 
 function positionFromParsedReference(
-  source: string,
+  lineStarts: readonly number[],
   reference: ParsedExplicitReference,
   canvasNodeId: string | null,
 ): SourcePosition {
-  const start = offsetToLineColumn(source, reference.startOffset);
-  const end = offsetToLineColumn(source, reference.endOffset);
+  const start = offsetToLineColumn(lineStarts, reference.startOffset);
+  const end = offsetToLineColumn(lineStarts, reference.endOffset);
   return {
     line: start.line,
     column: start.column,
@@ -342,18 +345,28 @@ function canvasPosition(canvasNodeId: string | null): SourcePosition {
   };
 }
 
-function offsetToLineColumn(source: string, offset: number): { line: number; column: number } {
-  let line = 0;
-  let column = 0;
-  for (let index = 0; index < offset; index += 1) {
-    if (source[index] === "\n") {
-      line += 1;
-      column = 0;
-    } else {
-      column += 1;
-    }
+function createLineStarts(source: string): readonly number[] {
+  const starts = [0];
+  for (let index = 0; index < source.length; index += 1) {
+    if (source[index] === "\n") starts.push(index + 1);
   }
-  return { line, column };
+  return starts;
+}
+
+function offsetToLineColumn(
+  lineStarts: readonly number[],
+  offset: number,
+): { line: number; column: number } {
+  let low = 0;
+  let high = lineStarts.length - 1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const start = lineStarts[middle] ?? 0;
+    if (start <= offset) low = middle + 1;
+    else high = middle - 1;
+  }
+  const line = Math.max(0, high);
+  return { line, column: offset - (lineStarts[line] ?? 0) };
 }
 
 function occurrenceId(sourcePath: string, input: OccurrenceInput): string {

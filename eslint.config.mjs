@@ -7,6 +7,16 @@ const NODE_SCRIPT_FILES = ["*.mjs", "*.mts", "scripts/**/*.mjs", "acceptance/**/
 const disabledObsidianRules = Object.fromEntries(
   Object.keys(obsidianmd.rules).map((ruleName) => [`obsidianmd/${ruleName}`, "off"]),
 );
+const restrictedImports = (layers, allowObsidian = false) => ["error", {
+  paths: allowObsidian ? [] : [{
+    name: "obsidian",
+    message: "Host APIs belong in adapters or application/UI code.",
+  }],
+  patterns: [{
+    group: layers.map((layer) => `**/${layer}/**`),
+    message: "This import crosses the repository architecture boundary.",
+  }],
+}];
 
 export default defineConfig([
   {
@@ -24,6 +34,42 @@ export default defineConfig([
     },
     rules: {
       "obsidianmd/prefer-create-el": "off",
+    },
+  },
+  {
+    files: ["src/core/**/*.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports([
+        "adapters",
+        "app",
+        "features",
+        "shared",
+        "ui",
+      ]),
+    },
+  },
+  {
+    files: ["src/features/**/*.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(["adapters", "app", "shared", "ui"]),
+    },
+  },
+  {
+    files: ["src/shared/**/*.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(["adapters", "app", "features", "ui"]),
+    },
+  },
+  {
+    files: ["src/adapters/**/*.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(["app", "shared", "ui"], true),
+    },
+  },
+  {
+    files: ["src/ui/**/*.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(["adapters", "app", "features"], true),
     },
   },
   {

@@ -128,7 +128,6 @@ function renderItem(
   if (item.description !== undefined) setting.setDesc(item.description);
   setting.setDisabled(context.writeProtected);
   if (item.kind === "custom") {
-    setting.settingEl.classList.add("link-integrity-settings-custom-row");
     return renderCustomSetting(setting.settingEl, item.id, context);
   }
   if (item.kind === "toggle") {

@@ -127,6 +127,7 @@ export function createInitialSidebarState(settings: LinkIntegritySettings): Side
     selectedFormatFamilyIds: new Set(settings.isolatedFiles.candidateFormatFamilyIds),
     brokenResultOffset: 0,
     isolatedResultOffset: 0,
+    expandedBrokenFolderPaths: new Set(settings.ui.expandedBrokenFolderPaths),
   };
 }
 
@@ -196,6 +197,12 @@ export function reconcileSidebarState(
     selectedFormatFamilyIds: candidateTypesFollowedDefault
       ? new Set(settings.isolatedFiles.candidateFormatFamilyIds)
       : state.selectedFormatFamilyIds,
+    expandedBrokenFolderPaths: setsEqual(
+      state.expandedBrokenFolderPaths,
+      new Set(previousSettings.ui.expandedBrokenFolderPaths),
+    )
+      ? new Set(settings.ui.expandedBrokenFolderPaths)
+      : state.expandedBrokenFolderPaths,
   };
 }
 

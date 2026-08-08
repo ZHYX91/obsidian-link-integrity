@@ -8,6 +8,17 @@ import { renderCustomSetting } from "../../src/ui/settings/custom-sections";
 import type { SettingsUiContext } from "../../src/ui/settings";
 
 describe("custom settings sections", () => {
+  it("marks declarative custom rows for wrapping and cleans the marker up", () => {
+    const container = document.createElement("div");
+    const cleanup = renderCustomSetting(container, "index-maintenance", context(
+      createDefaultSettings(),
+    ));
+
+    expect(container.classList.contains("link-integrity-settings-custom-row")).toBe(true);
+    cleanup();
+    expect(container.classList.contains("link-integrity-settings-custom-row")).toBe(false);
+  });
+
   afterEach(() => {
     document.querySelectorAll(".link-integrity-rule-modal").forEach((element) => element.remove());
     vi.useRealTimers();
@@ -35,6 +46,7 @@ describe("custom settings sections", () => {
       }),
     }));
     expect(container.textContent).toContain("Rules only classify isolated files");
+    expect(container.textContent).toContain("Folders and rules");
     expect(container.textContent).toContain("Daily · Include subfolders · Markdown");
     expect(container.textContent).toContain("Matches 2 items");
     const summaryCheckbox = container.querySelector<HTMLInputElement>(
@@ -73,6 +85,38 @@ describe("custom settings sections", () => {
     );
     expect(document.querySelector(".link-integrity-rule-modal")).toBeNull();
     cleanup();
+  });
+
+  it("lists individual expected files, marks missing paths, and supports open and remove", () => {
+    const defaults = createDefaultSettings();
+    const settings: LinkIntegritySettings = {
+      ...defaults,
+      isolatedFiles: {
+        ...defaults.isolatedFiles,
+        expectedFilePaths: ["Existing.md", "Missing.md"],
+      },
+    };
+    const onSettingsChange = vi.fn();
+    const openFile = vi.fn();
+    const container = document.createElement("div");
+    renderCustomSetting(container, "expected-isolation-rules", context(settings, {
+      onSettingsChange,
+      fileExists: (path) => path === "Existing.md",
+      openFile,
+    }));
+    const rows = container.querySelectorAll<HTMLElement>(".link-integrity-expected-file-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.textContent).toContain("File exists");
+    expect(rows[1]?.classList.contains("is-missing")).toBe(true);
+    const existingButtons = rows[0]?.querySelectorAll<HTMLButtonElement>("button");
+    existingButtons?.[0]?.click();
+    expect(openFile).toHaveBeenCalledWith("Existing.md");
+    const missingButtons = rows[1]?.querySelectorAll<HTMLButtonElement>("button");
+    expect(missingButtons?.[0]?.disabled).toBe(true);
+    missingButtons?.[1]?.click();
+    expect(onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({
+      isolatedFiles: expect.objectContaining({ expectedFilePaths: ["Existing.md"] }),
+    }), "query-only");
   });
 
   it("chooses a friendly rule template and keeps it as a draft until save", () => {

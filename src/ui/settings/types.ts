@@ -50,5 +50,7 @@ export interface SettingsUiContext {
   readonly getIndexStatus?: () => IndexStatus;
   readonly subscribeIndexStatus?: (listener: (status: IndexStatus) => void) => () => void;
   readonly rebuildIndex?: () => void | Promise<void>;
+  readonly fileExists?: (path: string) => boolean;
+  readonly openFile?: (path: string) => void | Promise<void>;
   readonly onError?: (error: unknown) => void;
 }

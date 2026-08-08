@@ -38,6 +38,87 @@ describe("sidebar renderer", () => {
     }));
   });
 
+  it("switches through a compact native grouping control and lazily renders folders", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const onStateChange = vi.fn();
+    const location = { line: 0, column: 0, property: null, canvasNodeId: null };
+    const brokenLinks = [{
+      id: "broken-folder",
+      sourcePath: "Projects/Nested/A.md",
+      targetText: "Missing",
+      resolvedTargetPath: null,
+      rawText: "[[Missing]]",
+      context: "Missing",
+      reason: "missing-file" as const,
+      location,
+    }];
+    const targetState = { ...viewState(), brokenView: "list" as const };
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...querySnapshot(), brokenLinks }, targetState),
+      state: targetState,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false,
+      onStateChange,
+    });
+    const trigger = container.querySelector<HTMLButtonElement>(
+      ".link-integrity-grouping-control > button",
+    );
+    expect(trigger?.textContent).toBe("Group · Target");
+    trigger?.click();
+    expect(onStateChange).toHaveBeenCalledWith(expect.objectContaining({
+      brokenView: "group",
+      brokenGrouping: "target",
+    }));
+    const grouping = container.querySelector<HTMLSelectElement>(
+      '[aria-label="Choose grouping"]',
+    );
+    expect(Array.from(grouping?.options ?? []).map(({ textContent }) => textContent)).toEqual([
+      "Group by target",
+      "Group by source file",
+      "Group by source folder",
+    ]);
+    if (grouping !== null) {
+      grouping.value = "source-folder";
+      grouping.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    expect(onStateChange).toHaveBeenCalledWith(expect.objectContaining({
+      brokenView: "group",
+      brokenGrouping: "source-folder",
+    }));
+
+    const folderState = {
+      ...targetState,
+      brokenView: "group" as const,
+      brokenGrouping: "source-folder" as const,
+    };
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...querySnapshot(), brokenLinks }, folderState),
+      state: folderState,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false,
+      onStateChange,
+    });
+    expect(container.textContent).toContain("1 source folder");
+    expect(container.querySelectorAll(".link-integrity-result-row")).toHaveLength(0);
+    const folder = container.querySelector<HTMLDetailsElement>(
+      ".link-integrity-broken-folder-tree details",
+    );
+    if (folder !== null) {
+      folder.open = true;
+      folder.dispatchEvent(new Event("toggle"));
+    }
+    expect(onStateChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      expandedBrokenFolderPaths: new Set(["Projects"]),
+    }));
+  });
+
   it("marks an inactive tab count as unknown until that projection is requested", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");
@@ -221,7 +302,7 @@ describe("sidebar renderer", () => {
     expect(nav.rebuildIndex).toHaveBeenCalledOnce();
   });
 
-  it("exposes sorting controls for both business tabs", () => {
+  it("shows contextual sort controls only for views where ordering is meaningful", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");
     let state = viewState();
@@ -244,23 +325,37 @@ describe("sidebar renderer", () => {
     };
 
     render();
-    const brokenSort = container.querySelector<HTMLSelectElement>('[aria-label="Default sort"]');
-    expect(brokenSort?.closest(".link-integrity-toolbar-select")?.textContent).toContain("Sort");
+    const brokenSort = container.querySelector<HTMLSelectElement>('[aria-label="Choose sorting"]');
+    expect(brokenSort?.closest(".link-integrity-toolbar-compact-select")
+      ?.querySelector("span")?.textContent).toBe("Sort · Problems");
     expect(container.querySelector(".link-integrity-toolbar-view-toggle")).not.toBeNull();
     expect(Array.from(brokenSort?.options ?? []).map(({ value }) => value))
       .toEqual(["path", "count"]);
+    expect(Array.from(brokenSort?.options ?? []).map(({ textContent }) => textContent))
+      .toEqual(["Sort by link target name", "Sort by problem count"]);
     if (brokenSort !== null) {
       brokenSort.value = "path";
       brokenSort.dispatchEvent(new Event("change", { bubbles: true }));
     }
     expect(changes.at(-1)?.brokenSort).toBe("path");
 
-    state = { ...state, activeTab: "isolated-files" };
+    state = { ...state, brokenView: "list" };
     render();
-    const isolatedSort = container.querySelector<HTMLSelectElement>('[aria-label="Default sort"]');
-    expect(isolatedSort?.closest(".link-integrity-toolbar-select")?.textContent).toContain("Sort");
+    expect(container.querySelector('[aria-label="Choose sorting"]')).toBeNull();
+
+    state = { ...state, activeTab: "isolated-files", isolatedView: "list" };
+    render();
+    const isolatedSort = container.querySelector<HTMLSelectElement>(
+      '[aria-label="Choose sorting"]',
+    );
+    expect(isolatedSort?.closest(".link-integrity-toolbar-compact-select")
+      ?.querySelector("span")?.textContent).toBe("Sort · Path");
     expect(Array.from(isolatedSort?.options ?? []).map(({ value }) => value))
       .toEqual(["path", "name", "modified", "broken-count"]);
+
+    state = { ...state, isolatedView: "tree" };
+    render();
+    expect(container.querySelector('[aria-label="Choose sorting"]')).toBeNull();
   });
 
   it("reveals and restores focus to a clipped tab after a synchronous re-render", async () => {
@@ -412,11 +507,12 @@ describe("sidebar renderer", () => {
         expectation: { kind: "unexpected" as const, ruleIds: [] },
       }),
     );
+    const nav = navigation();
     renderSidebar(container, {
       model: createSidebarViewModel({ ...querySnapshot(), isolatedFiles }, state),
       state,
       translator,
-      navigation: navigation(),
+      navigation: nav,
       fileTypeCategories: createFileTypeCategoryOptions(translator),
       defaultFormatFamilyIds: new Set(["markdown"]),
       allowNoIncomingFilter: false,
@@ -426,6 +522,26 @@ describe("sidebar renderer", () => {
     expect(container.querySelectorAll(".link-integrity-result-row"))
       .toHaveLength(SIDEBAR_RESULT_BATCH_SIZE);
     expect(container.querySelector(".link-integrity-isolated-tree")).not.toBeNull();
+    const folderDetails = container.querySelector<HTMLDetailsElement>(
+      ".link-integrity-isolated-tree details",
+    );
+    const folderTreeItem = folderDetails?.closest('[role="treeitem"]');
+    expect(folderTreeItem?.getAttribute("aria-expanded")).toBe("true");
+    if (folderDetails !== null) {
+      folderDetails.open = false;
+      folderDetails.dispatchEvent(new Event("toggle"));
+    }
+    expect(folderTreeItem?.getAttribute("aria-expanded")).toBe("false");
+    const folderAction = container.querySelector<HTMLButtonElement>(
+      ".link-integrity-isolated-folder-summary > .link-integrity-more-button",
+    );
+    expect(folderAction?.getAttribute("aria-label"))
+      .toBe("Actions for folder Folder-000");
+    folderAction?.click();
+    expect(nav.openIsolatedFolderActions).toHaveBeenCalledWith(
+      "Folder-000",
+      folderAction,
+    );
     expect(container.querySelector<HTMLButtonElement>(".link-integrity-pagination button:last-child")
       ?.disabled).toBe(false);
   });
@@ -436,6 +552,7 @@ function navigation() {
     openBrokenLink: vi.fn(),
     openFile: vi.fn(),
     rebuildIndex: vi.fn(),
+    openIsolatedFolderActions: vi.fn(),
   };
 }
 
@@ -453,6 +570,7 @@ function viewState(): SidebarViewState {
     selectedFormatFamilyIds: new Set(["markdown"]),
     brokenResultOffset: 0,
     isolatedResultOffset: 0,
+    expandedBrokenFolderPaths: new Set(),
   };
 }
 

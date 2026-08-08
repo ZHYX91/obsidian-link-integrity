@@ -21,13 +21,15 @@ The sidebar starts with the two business tabs. It does not repeat the plugin tit
 
 The ready state consumes no permanent status row. Progress appears only while scanning; stale or failed state appears contextually in the current panel with a Retry rebuild action. With no baseline, opening the sidebar starts the first complete build automatically while retaining a discoverable Build index action. A full-rebuild failure must never replace the last-known-good result with an empty list.
 
-Result DOM is bounded to 200 occurrences or files per page. Previous/next controls preserve access to the complete filtered and sorted projection; badges remain full-result counts, the range label identifies the current page, and changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
+Result DOM is bounded to 100 occurrences or files per page. Previous/next controls preserve access to the complete filtered and sorted projection; badges remain full-result counts, the range label identifies the current page, and changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
-Toolbar hierarchy follows interaction frequency: search receives the primary available width, list/tree or grouped/list is the primary view switch, and sorting is a compact select with a visible Sort label. A narrow sidebar may wrap controls and increase touch height, but it does not stretch sorting into a full-row button with the same weight as the view switch. Options state the ordering explicitly, such as by path, file name, or modified time.
+Toolbar hierarchy follows interaction frequency: search receives the primary available width, and list/tree or grouped/list uses equal-width primary view segments. The grouped main button immediately returns to the last-used grouping, while its separate arrow opens a host-native select for target, source file, or source folder. A compact native `Sort · current value` select appears only when the active view has a user-comprehensible ordering. A narrow sidebar may wrap controls and increase touch height, but it does not stretch sorting into a full-row button with the same weight as the view switch. Menu options state the ordering explicitly, such as by path, file name, or modified time; the compact label only reports the current value.
 
 ### 2.1 Broken links tab
 
-Results are grouped by target by default, with source grouping and an occurrence list as alternatives. Each item shows at least its source, original reference, failure kind, and the best available location hint.
+Results are grouped by link target by default, with source-file grouping, source-folder grouping, and an occurrence list as alternatives. Group selection is contained in the primary switch and uses compact labels such as “Group · Target / Source / Folder”; menus, tooltips, and accessible names use the full terms instead of relying on the compact labels. Source-folder mode builds a tree only from real source paths and never guesses a folder for a missing target. A folder count is its subtree occurrence count, while a file count is the occurrence count for that source file.
+
+The source-folder tree collapses deeper hierarchy by default, offers Expand all and Collapse all, and persists folder expansion state. A collapsed branch does not materialize descendant result DOM. Path sort compares sibling paths; problem-count sort compares subtree or source occurrence counts. Target, source-file, and source-folder grouping each expose name/path and problem-count ordering with labels specific to the current object. The occurrence list remains ordered by source location and hides the sort control. The summary reports targets, source files, or source folders for the active grouping, while list mode reports only occurrences.
 
 - Missing files, headings, and blocks have distinct labels.
 - When a file exists but its subpath is missing, the target file can still be opened while retaining the subpath diagnostic.
@@ -38,13 +40,15 @@ Search, grouping, sorting, and “show ignored” affect only the current projec
 
 ### 2.2 Isolated files tab
 
-Users can switch between a list and folder tree and sort by name, path, or modification time. Results distinguish:
+Users can switch between a list and folder tree. The list can sort by path, name, modification time, or broken-outgoing-link count. The folder tree stays in deterministic path order and hides sorting; returning to the list restores its saved sort. Results distinguish:
 
 - Regular isolated: no valid incoming or outgoing connection to another existing Vault file.
 - Low-confidence isolated: still isolated, but containing one or more broken outgoing links.
 - Expected isolated: matched by an enabled expected-isolation rule and excluded from the main count and high-confidence projection by default.
 
 “Show expected isolated files” is an advanced viewing option. When enabled, expected items retain a separate badge and cannot be mixed indistinguishably with regular results. Expected-isolation rules never hide their broken links.
+
+The row menu of a regular isolated file offers “Mark as expected isolated.” The action writes plugin settings only, changes no Vault file, and immediately offers Undo. Each folder row in the folder tree has a separate action menu for marking only that folder or that folder and its descendants as expected isolated. It creates an existing folder rule rather than a second folder-list mechanism and also offers Undo. An exact-path expected item can be unmarked from its row; an item matched by a rule remains managed by that rule. The Expected isolation settings area lists individual files first, with Open, Remove, and missing-path status, followed by “Folders and rules” and the periodic-notes preset.
 
 “Files with no incoming links” is an advanced projection only and explicitly differs from the default isolation definition.
 
@@ -87,7 +91,7 @@ A language change updates plugin UI immediately. Follow Obsidian retains the sta
 - Default candidate categories and format families.
 - Default list/tree view and sorting.
 - Isolated-candidate ignore rules.
-- Expected-isolation rules and the periodic-notes preset.
+- Individual expected-isolated files, expected-isolation rules, and the periodic-notes preset.
 - Advanced expected-isolated and no-incoming projections.
 - Advanced graph-contribution exclusions, with a pre-save warning that they can create false isolated results.
 

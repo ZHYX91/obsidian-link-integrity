@@ -97,6 +97,7 @@ export class SidebarQueryService implements SidebarQueryPort {
       ...settings.isolatedFiles.expectedRules,
       ...createPeriodicExpectedIsolationRules(settings.isolatedFiles.periodicNotesPreset),
     ];
+    const expectedFilePaths = new Set(settings.isolatedFiles.expectedFilePaths);
     const ignoreService = new IgnoreService(settings.ignoreRules);
     const excludedCandidatePaths = settings.isolatedFiles.showIgnored || settings.ignoreRules.length === 0
       ? new Set<string>()
@@ -118,6 +119,7 @@ export class SidebarQueryService implements SidebarQueryPort {
     const isolated = createIsolatedFileProjection(index, {
       candidateScope,
       expectedRules,
+      expectedFilePaths,
       includeExpected: true,
       mode: "isolated",
     });
@@ -125,6 +127,7 @@ export class SidebarQueryService implements SidebarQueryPort {
       ? createIsolatedFileProjection(index, {
         candidateScope,
         expectedRules,
+        expectedFilePaths,
         includeExpected: true,
         mode: "no-incoming",
       })

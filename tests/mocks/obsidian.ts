@@ -5,7 +5,9 @@ export class Plugin {
     this.app = undefined;
   }
 
-  addCommand(): void {}
+  addCommand(command: { name: string }): { name: string } {
+    return command;
+  }
   addRibbonIcon(): HTMLElement {
     return document.createElement("div");
   }
@@ -53,11 +55,13 @@ export class Menu {
   addItem(callback: (item: {
     setIcon: () => unknown;
     setTitle: () => unknown;
+    setDisabled: () => unknown;
     onClick: () => unknown;
   }) => unknown): this {
     const item = {
       setIcon: () => item,
       setTitle: () => item,
+      setDisabled: () => item,
       onClick: () => item,
     };
     callback(item);
@@ -116,12 +120,18 @@ export class TFile {
   }
 }
 
+export class TFolder {
+  constructor(readonly path: string) {}
+}
+
 export class Notice {
   static readonly messages: string[] = [];
 
   constructor(message: string) {
     Notice.messages.push(message);
   }
+
+  hide(): void {}
 }
 
 export const Platform = {

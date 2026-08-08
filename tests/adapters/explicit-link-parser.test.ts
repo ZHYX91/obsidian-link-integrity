@@ -63,6 +63,20 @@ describe("extractMarkdownExplicitReferences", () => {
       "A_(B).md",
     ]);
   });
+
+  it("pairs one- and two-backtick spans independently without crossing lines", () => {
+    const source = [
+      "`[[one]]` ``[[two]]`` [[kept]]",
+      "`[[unclosed]]",
+      "[[next line]]",
+    ].join("\n");
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "kept",
+      "unclosed",
+      "next line",
+    ]);
+  });
 });
 
 describe("extractBasesExplicitReferences", () => {

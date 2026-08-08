@@ -137,4 +137,25 @@ describe("broken and isolated projections", () => {
       classification === "expected-isolated")).toHaveLength(2);
     expect(advanced.items.filter(({ confidence }) => confidence === "high")).toHaveLength(1);
   });
+
+  it("classifies exact expected file paths without mutating the graph", () => {
+    const index = new LinkIndex([
+      createFileRecord("Loose.md"),
+      createFileRecord("Other.md"),
+    ]);
+    const projection = createIsolatedFileProjection(index, {
+      expectedFilePaths: new Set(["Loose.md"]),
+      includeExpected: true,
+    });
+    expect(projection.items).toEqual([
+      expect.objectContaining({
+        path: "Loose.md",
+        classification: "expected-isolated",
+        expectedRuleIds: [],
+      }),
+      expect.objectContaining({ path: "Other.md", classification: "isolated" }),
+    ]);
+    expect(projection.expectedExcludedCount).toBe(1);
+    expect(index.toCanonicalState().edges).toEqual([]);
+  });
 });

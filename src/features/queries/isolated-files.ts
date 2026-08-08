@@ -8,10 +8,8 @@ import type { FileRecord } from "../../core/model";
 import { isCandidateFile, type CandidateScope } from "../../core/scopes";
 import { countBrokenOutgoing } from "./broken-links";
 import {
-  getExpectedRuleStats,
   matchExpectedIsolatedRules,
   type ExpectedIsolatedRule,
-  type ExpectedRuleStats,
 } from "./expected-isolated";
 
 export type IsolatedQueryMode = "isolated" | "no-incoming";
@@ -38,6 +36,7 @@ export interface IsolatedFileQueryOptions {
   readonly mode?: IsolatedQueryMode;
   readonly candidateScope?: CandidateScope;
   readonly expectedRules?: readonly ExpectedIsolatedRule[];
+  readonly expectedFilePaths?: ReadonlySet<string>;
   readonly includeExpected?: boolean;
 }
 
@@ -46,7 +45,6 @@ export interface IsolatedFileProjection {
   readonly mainCount: number;
   readonly lowConfidenceCount: number;
   readonly expectedExcludedCount: number;
-  readonly expectedRuleStats: readonly ExpectedRuleStats[];
 }
 
 export function createDefaultCandidateScope(): CandidateScope {
@@ -67,10 +65,11 @@ export function createIsolatedFileProjection(
   const mode = options.mode ?? "isolated";
   const candidateScope = options.candidateScope ?? createDefaultCandidateScope();
   const expectedRules = options.expectedRules ?? [];
+  const expectedFilePaths = options.expectedFilePaths ?? new Set<string>();
   const includeExpected = options.includeExpected ?? false;
   const candidates = index.files.filter((file) => isCandidateFile(file, candidateScope));
   const allResults = candidates
-    .map((file) => projectFile(index, file, mode, expectedRules))
+    .map((file) => projectFile(index, file, mode, expectedRules, expectedFilePaths))
     .filter((result): result is IsolatedFileResult => result !== null);
   const expectedExcludedCount = allResults.filter(({ classification }) =>
     classification === "expected-isolated").length;
@@ -82,7 +81,6 @@ export function createIsolatedFileProjection(
     mainCount: items.filter(({ classification }) => classification !== "expected-isolated").length,
     lowConfidenceCount: items.filter(({ confidence }) => confidence === "low").length,
     expectedExcludedCount,
-    expectedRuleStats: getExpectedRuleStats(candidates, expectedRules),
   };
 }
 
@@ -91,6 +89,7 @@ function projectFile(
   file: FileRecord,
   mode: IsolatedQueryMode,
   expectedRules: readonly ExpectedIsolatedRule[],
+  expectedFilePaths: ReadonlySet<string>,
 ): IsolatedFileResult | null {
   const incomingCount = index.getIncomingNeighborCount(file.path);
   const outgoingCount = index.getOutgoingNeighborCount(file.path);
@@ -98,7 +97,9 @@ function projectFile(
   if (mode === "isolated" ? !isolated : incomingCount !== 0) return null;
 
   const expected = isolated
-    ? matchExpectedIsolatedRules(file, expectedRules)
+    ? expectedFilePaths.has(file.path)
+      ? { expected: true, matchedRuleIds: [] }
+      : matchExpectedIsolatedRules(file, expectedRules)
     : { expected: false, matchedRuleIds: [] };
   const brokenOutgoingCount = countBrokenOutgoing(index, file.path);
   const classification: IsolationClassification = expected.expected

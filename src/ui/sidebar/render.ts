@@ -4,6 +4,19 @@ import {
   type FileTypeCategoryOption,
 } from "../file-type-selection";
 import { moveHorizontalTabIndex, revealHorizontalTab } from "../tab-navigation";
+import {
+  brokenSortOptions,
+  compactSelect,
+  createActionButton,
+  createSelect,
+  createText,
+  documentFor,
+  groupingControl,
+  moreButton,
+  runAction,
+  toggleButton,
+  toggleGroup,
+} from "./render-controls";
 import type {
   BrokenLinkResult,
   IsolatedFileResult,
@@ -13,6 +26,7 @@ import type {
 import {
   SIDEBAR_RESULT_BATCH_SIZE,
   type BrokenGroupViewModel,
+  type BrokenFolderTreeNode,
   type IsolatedTreeNode,
   type SidebarViewModel,
   type SidebarViewState,
@@ -199,16 +213,7 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
 
   if (options.model.activeTab === "broken-links") {
     toolbar.append(toggleGroup(container.ownerDocument,
-      toggleButton(
-        container.ownerDocument,
-        t("sidebar.broken.view.group"),
-        options.state.brokenView === "group",
-        () => options.onStateChange({
-          ...options.state,
-          brokenView: "group",
-          brokenResultOffset: 0,
-        }),
-      ),
+      groupingControl(options),
       toggleButton(
         container.ownerDocument,
         t("sidebar.broken.view.list"),
@@ -221,31 +226,23 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
       ),
     ));
     if (options.state.brokenView === "group") {
-      toolbar.append(createSelect(container.ownerDocument, [
-        ["target", t("sidebar.broken.group.target")],
-        ["source", t("sidebar.broken.group.source")],
-      ], options.state.brokenGrouping, (value) => {
-        if (value === "target" || value === "source") {
-          options.onStateChange({
-            ...options.state,
-            brokenGrouping: value,
-            brokenResultOffset: 0,
-          });
-        }
-      }, t("settings.broken.defaultGrouping")));
+      toolbar.append(compactSelect(
+        container.ownerDocument,
+        t("common.sort"),
+        brokenSortOptions(options),
+        options.state.brokenSort,
+        (value) => {
+          if (value === "path" || value === "count") {
+            options.onStateChange({
+              ...options.state,
+              brokenSort: value,
+              brokenResultOffset: 0,
+            });
+          }
+        },
+        t("sidebar.sort.choose"),
+      ));
     }
-    toolbar.append(labeledToolbarSelect(container.ownerDocument, t("common.sort"), [
-      ["path", t("settings.sort.path")],
-      ["count", t("settings.sort.count")],
-    ], options.state.brokenSort, (value) => {
-      if (value === "path" || value === "count") {
-        options.onStateChange({
-          ...options.state,
-          brokenSort: value,
-          brokenResultOffset: 0,
-        });
-      }
-    }, t("settings.broken.defaultSort")));
   } else {
     toolbar.append(toggleGroup(container.ownerDocument,
       toggleButton(
@@ -283,42 +280,51 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
         }
       }, t("settings.isolated.advancedMode")));
     }
-    toolbar.append(labeledToolbarSelect(container.ownerDocument, t("common.sort"), [
-      ["path", t("settings.sort.path")],
-      ["name", t("settings.sort.name")],
-      ["modified", t("settings.sort.modified")],
-      ["broken-count", t("settings.sort.count")],
-    ], options.state.isolatedSort, (value) => {
-      if (
-        value === "path" ||
-        value === "name" ||
-        value === "modified" ||
-        value === "broken-count"
-      ) {
-        options.onStateChange({
-          ...options.state,
-          isolatedSort: value,
-          isolatedResultOffset: 0,
-        });
-      }
-    }, t("settings.isolated.defaultSort")));
+    if (options.state.isolatedView === "list") {
+      toolbar.append(compactSelect(container.ownerDocument, t("common.sort"), [
+        ["path", t("settings.sort.path"), t("sidebar.sort.byPath")],
+        ["name", t("settings.sort.name"), t("sidebar.sort.byName")],
+        ["modified", t("settings.sort.modified"), t("sidebar.sort.byModified")],
+        ["broken-count", t("sidebar.sort.compactProblemCount"), t("sidebar.sort.byBrokenCount")],
+      ], options.state.isolatedSort, (value) => {
+        if (
+          value === "path" ||
+          value === "name" ||
+          value === "modified" ||
+          value === "broken-count"
+        ) {
+          options.onStateChange({
+            ...options.state,
+            isolatedSort: value,
+            isolatedResultOffset: 0,
+          });
+        }
+      }, t("sidebar.sort.choose")));
+    }
   }
   container.append(toolbar);
 }
 
 function renderBrokenResults(container: HTMLElement, options: SidebarRenderOptions): void {
   const { t } = options.translator;
+  const secondarySummary = options.model.broken.view === "list"
+    ? null
+    : options.model.broken.grouping === "target"
+      ? t("sidebar.broken.targets", { count: options.model.broken.uniqueTargetCount })
+      : options.model.broken.grouping === "source"
+        ? t("sidebar.broken.sources", { count: options.model.broken.sourceFileCount })
+        : t("sidebar.broken.sourceFolders", { count: options.model.broken.sourceFolderCount });
   const summary = createText(
     container.ownerDocument,
     "p",
-    `${t("sidebar.broken.occurrences", { count: options.model.broken.badgeCount })} · ${
-      t("sidebar.broken.targets", { count: options.model.broken.uniqueTargetCount })}`,
+    `${t("sidebar.broken.occurrences", { count: options.model.broken.visibleCount })}${
+      secondarySummary === null ? "" : ` · ${secondarySummary}`}`,
     "link-integrity-result-summary",
   );
-  if (options.model.broken.renderedCount !== options.model.broken.badgeCount) {
+  if (options.model.broken.renderedCount !== options.model.broken.visibleCount) {
     summary.append(` · ${formatResultRange(
       options.model.broken,
-      options.model.broken.badgeCount,
+      options.model.broken.visibleCount,
       options,
     )}`);
   }
@@ -333,6 +339,11 @@ function renderBrokenResults(container: HTMLElement, options: SidebarRenderOptio
     return;
   }
   if (options.model.broken.view === "group") {
+    if (options.model.broken.grouping === "source-folder") {
+      renderBrokenFolderTree(container, options);
+      renderPagination(container, options, "broken-links");
+      return;
+    }
     const list = container.ownerDocument.createElement("div");
     list.className = "link-integrity-broken-groups";
     for (const group of options.model.broken.groups) list.append(renderBrokenGroup(group, options));
@@ -344,6 +355,86 @@ function renderBrokenResults(container: HTMLElement, options: SidebarRenderOptio
     container.append(list);
   }
   renderPagination(container, options, "broken-links");
+}
+
+function renderBrokenFolderTree(container: HTMLElement, options: SidebarRenderOptions): void {
+  const controls = container.ownerDocument.createElement("div");
+  controls.className = "link-integrity-tree-controls";
+  controls.append(
+    createActionButton(container.ownerDocument, options.translator.t("common.expandAll"), () => {
+      options.onStateChange({
+        ...options.state,
+        expandedBrokenFolderPaths: new Set(collectFolderPaths(options.model.broken.folderTree)),
+      });
+    }),
+    createActionButton(container.ownerDocument, options.translator.t("common.collapseAll"), () => {
+      options.onStateChange({
+        ...options.state,
+        expandedBrokenFolderPaths: new Set(),
+      });
+    }),
+  );
+  const tree = container.ownerDocument.createElement("ul");
+  tree.className = "link-integrity-broken-folder-tree";
+  tree.setAttribute("role", "tree");
+  appendBrokenFolderChildren(tree, options.model.broken.folderTree, options);
+  container.append(controls, tree);
+}
+
+function appendBrokenFolderChildren(
+  parent: HTMLUListElement,
+  node: BrokenFolderTreeNode,
+  options: SidebarRenderOptions,
+): void {
+  for (const folder of node.folders) {
+    const item = parent.ownerDocument.createElement("li");
+    item.setAttribute("role", "treeitem");
+    const details = parent.ownerDocument.createElement("details");
+    const expanded = options.state.expandedBrokenFolderPaths.has(folder.path);
+    details.open = expanded;
+    item.setAttribute("aria-expanded", String(expanded));
+    const summary = parent.ownerDocument.createElement("summary");
+    summary.append(
+      createText(parent.ownerDocument, "span", folder.name),
+      createText(parent.ownerDocument, "span", String(folder.totalCount), "link-integrity-count"),
+    );
+    details.append(summary);
+    if (expanded) {
+      const group = parent.ownerDocument.createElement("ul");
+      group.setAttribute("role", "group");
+      appendBrokenFolderChildren(group, folder, options);
+      details.append(group);
+    }
+    details.addEventListener("toggle", () => {
+      if (details.open === expanded) return;
+      const next = new Set(options.state.expandedBrokenFolderPaths);
+      if (details.open) next.add(folder.path);
+      else next.delete(folder.path);
+      options.onStateChange({ ...options.state, expandedBrokenFolderPaths: next });
+    });
+    item.append(details);
+    parent.append(item);
+  }
+  for (const file of node.files) {
+    const item = parent.ownerDocument.createElement("li");
+    item.setAttribute("role", "treeitem");
+    const details = parent.ownerDocument.createElement("details");
+    const summary = parent.ownerDocument.createElement("summary");
+    summary.append(
+      createText(parent.ownerDocument, "span", file.name),
+      createText(parent.ownerDocument, "span", String(file.totalCount), "link-integrity-count"),
+    );
+    details.append(summary);
+    const list = parent.ownerDocument.createElement("ul");
+    for (const brokenLink of file.items) list.append(renderBrokenItem(brokenLink, options));
+    details.append(list);
+    item.append(details);
+    parent.append(item);
+  }
+}
+
+function collectFolderPaths(node: BrokenFolderTreeNode): string[] {
+  return node.folders.flatMap((folder) => [folder.path, ...collectFolderPaths(folder)]);
 }
 
 function renderBrokenGroup(
@@ -579,7 +670,28 @@ function appendTreeChildren(
     item.setAttribute("aria-expanded", "true");
     const details = parent.ownerDocument.createElement("details");
     details.open = true;
-    details.append(createText(parent.ownerDocument, "summary", folder.name));
+    details.addEventListener("toggle", () => {
+      item.setAttribute("aria-expanded", String(details.open));
+    });
+    const summary = parent.ownerDocument.createElement("summary");
+    summary.className = "link-integrity-isolated-folder-summary";
+    summary.append(createText(parent.ownerDocument, "span", folder.name));
+    if (options.navigation.openIsolatedFolderActions !== undefined) {
+      const more = moreButton(
+        parent.ownerDocument,
+        options.translator.t("sidebar.isolated.folderActions", { path: folder.path }),
+        (anchor) => runAction(
+          () => options.navigation.openIsolatedFolderActions?.(folder.path, anchor),
+          options.onActionError,
+        ),
+      );
+      more.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      summary.append(more);
+    }
+    details.append(summary);
     const group = parent.ownerDocument.createElement("ul");
     group.setAttribute("role", "group");
     appendTreeChildren(group, folder, options);
@@ -684,110 +796,4 @@ function formatBrokenReason(
   }
   if (reason === "missing-block") return translator.t("sidebar.broken.reason.missingBlock");
   return translator.t("sidebar.broken.reason.invalid");
-}
-
-function createSelect(
-  document: Document,
-  options: readonly (readonly [string, string])[],
-  selected: string,
-  onChange: (value: string) => void,
-  ariaLabel?: string,
-): HTMLSelectElement {
-  const select = document.createElement("select");
-  if (ariaLabel !== undefined) select.setAttribute("aria-label", ariaLabel);
-  for (const [value, label] of options) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    option.selected = value === selected;
-    select.append(option);
-  }
-  select.addEventListener("change", () => onChange(select.value));
-  return select;
-}
-
-function labeledToolbarSelect(
-  document: Document,
-  labelText: string,
-  options: readonly (readonly [string, string])[],
-  selected: string,
-  onChange: (value: string) => void,
-  ariaLabel?: string,
-): HTMLLabelElement {
-  const label = document.createElement("label");
-  label.className = "link-integrity-toolbar-select";
-  label.append(
-    createText(document, "span", labelText),
-    createSelect(document, options, selected, onChange, ariaLabel),
-  );
-  return label;
-}
-
-function toggleGroup(document: Document, ...buttons: readonly HTMLButtonElement[]): HTMLElement {
-  const group = document.createElement("div");
-  group.className = "link-integrity-toolbar-view-toggle";
-  group.append(...buttons);
-  return group;
-}
-
-function toggleButton(
-  document: Document,
-  label: string,
-  pressed: boolean,
-  onClick: () => void,
-): HTMLButtonElement {
-  const button = createActionButton(document, label, onClick);
-  button.className = pressed ? "is-active" : "";
-  button.setAttribute("aria-pressed", String(pressed));
-  return button;
-}
-
-function moreButton(
-  document: Document,
-  label: string,
-  onClick: (button: HTMLButtonElement) => void,
-): HTMLButtonElement {
-  const button = createActionButton(document, "…", () => onClick(button));
-  button.className = "link-integrity-more-button";
-  button.setAttribute("aria-label", label);
-  return button;
-}
-
-function createActionButton(
-  document: Document,
-  label: string,
-  onClick: () => void,
-): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = label;
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-function createText(
-  document: Document,
-  tag: "div" | "h2" | "h3" | "p" | "span" | "summary",
-  text: string,
-  className?: string,
-): HTMLElement {
-  const element = document.createElement(tag);
-  element.textContent = text;
-  if (className !== undefined) element.className = className;
-  return element;
-}
-
-function runAction(action: () => void | Promise<void>, onError?: (error: unknown) => void): void {
-  try {
-    const result = action();
-    if (result instanceof Promise) void result.catch((error: unknown) => onError?.(error));
-  } catch (error) {
-    onError?.(error);
-  }
-}
-
-function documentFor(options: SidebarRenderOptions): Document {
-  // All render inputs originate from one mounted document. This helper keeps
-  // nested row builders free of host globals in tests and embedded windows.
-  return options.document ?? window.document;
 }

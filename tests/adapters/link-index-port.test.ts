@@ -142,6 +142,28 @@ describe("ObsidianLinkIndexPort", () => {
         { linkpath: "Missing.md", fileStatus: "missing" },
       ]);
   });
+
+  it("maps fallback parser offsets through one shared multiline index", async () => {
+    const sourceFile = fakeFile("Source.md");
+    const source = [
+      "😀 preface",
+      "[[First]]",
+      "plain text",
+      "before [[Second]] after",
+    ].join("\n");
+    const { port } = createPort([sourceFile], {
+      content: { [sourceFile.path]: source },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    const snapshot = await port.buildSourceSnapshot(sourceFile.path);
+
+    expect(snapshot?.occurrences.map(({ position }) => position)).toEqual([
+      expect.objectContaining({ line: 1, column: 0, endLine: 1, endColumn: 9 }),
+      expect.objectContaining({ line: 3, column: 7, endLine: 3, endColumn: 17 }),
+    ]);
+  });
 });
 
 function createPort(

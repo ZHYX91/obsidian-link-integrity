@@ -54,6 +54,8 @@ Some files may be isolated by workflow design, including periodic notes, templat
 
 A rule may combine file type, folder, and naming conditions. Different conditions use AND; multiple date-format, glob, or regular-expression naming patterns within one rule use OR. Rules have names and can report a match count with a bounded sample. The built-in periodic-note presets run independently of Chrono Notes or any other plugin, cover daily, weekly, monthly, quarterly, and yearly formats, and allow path and naming formats to be configured.
 
+A user may also choose “Mark as expected isolated” from one isolated-file row. This action stores only a normalized exact Vault path, creates no ignore rule, changes no file, and offers immediate undo. A folder menu in the isolated folder tree offers direct-folder or recursive scope; that action creates a folder rule without extra file-type or naming conditions and also offers immediate undo. Rename events update stored exact-file paths. Deleted or temporarily missing paths remain visibly marked as missing in settings until the user removes them. Exact paths and rule matches share the same expected-isolated classification but are managed separately in settings.
+
 ## Scopes and file types
 
 Link Integrity keeps three scopes strictly separate:

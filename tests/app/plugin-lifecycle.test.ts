@@ -1,4 +1,4 @@
-import { TFile } from "obsidian";
+import { Notice, TFile, TFolder } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import LinkIntegrityPlugin from "../../src/app/plugin";
@@ -79,6 +79,59 @@ describe("plugin index lifecycle", () => {
     expect(snapshotBuildCount).toBeGreaterThanOrEqual(1);
     expect(metadataEvents.listenerCount("changed")).toBe(1);
     expect(metadataEvents.listenerCount("deleted")).toBe(1);
+
+    runtime.setExpectedFile("A.md", true, document);
+    expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["A.md"]);
+    const undoNotice = (Notice as unknown as { messages: unknown[] }).messages
+      .at(-1) as DocumentFragment;
+    undoNotice.querySelector<HTMLButtonElement>("button")?.click();
+    expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual([]);
+
+    runtime.addExpectedFolderRule("Archive", "recursive", document);
+    expect(plugin.getSettings().isolatedFiles.expectedRules).toEqual([
+      expect.objectContaining({
+        name: "Expected folder: Archive",
+        folder: { path: "Archive", mode: "recursive" },
+      }),
+    ]);
+    const folderUndoNotice = (Notice as unknown as { messages: unknown[] }).messages
+      .at(-1) as DocumentFragment;
+    expect(folderUndoNotice.textContent).toContain(
+      "Marked Archive as expected isolated (Include subfolders)",
+    );
+    folderUndoNotice.querySelector<HTMLButtonElement>("button")?.click();
+    expect(plugin.getSettings().isolatedFiles.expectedRules).toEqual([]);
+
+    const disabledFolderRule = {
+      id: "existing-folder",
+      name: "Existing folder",
+      enabled: false,
+      fileTypeFamilyIds: [],
+      fileTypeCategoryIds: [],
+      fileExtensions: [],
+      folder: { path: "Archive", mode: "recursive" as const },
+      namingPatterns: [],
+    };
+    plugin.updateSettings({
+      ...plugin.getSettings(),
+      isolatedFiles: {
+        ...plugin.getSettings().isolatedFiles,
+        expectedFilePaths: ["Archive/Single.md"],
+        expectedRules: [disabledFolderRule],
+      },
+    }, "query-only");
+    runtime.addExpectedFolderRule("Archive", "recursive", document);
+    expect(plugin.getSettings().isolatedFiles.expectedRules).toEqual([
+      { ...disabledFolderRule, enabled: true },
+    ]);
+    const reenableUndoNotice = (Notice as unknown as { messages: unknown[] }).messages
+      .at(-1) as DocumentFragment;
+    reenableUndoNotice.querySelector<HTMLButtonElement>("button")?.click();
+    expect(plugin.getSettings().isolatedFiles.expectedRules).toEqual([disabledFolderRule]);
+
+    vaultEvents.emit("rename", createMockFolder("Stored"), "Archive");
+    expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["Stored/Single.md"]);
+    expect(plugin.getSettings().isolatedFiles.expectedRules[0]?.folder?.path).toBe("Stored");
 
     let queryNotifications = 0;
     const unsubscribe = runtime.query.subscribe(() => {
@@ -218,6 +271,10 @@ describe("plugin index lifecycle", () => {
     vi.spyOn(plugin, "loadData").mockResolvedValue({
       ...defaults,
       general: { ...defaults.general, scanOnStartup: true },
+      isolatedFiles: {
+        ...defaults.isolatedFiles,
+        expectedFilePaths: [fileB.path],
+      },
     });
 
     await plugin.onload();
@@ -239,6 +296,7 @@ describe("plugin index lifecycle", () => {
     await Promise.resolve();
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
     expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["C.md"]);
+    expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["C.md"]);
     expect(snapshotBuildCount).toBe(1);
     plugin.onunload();
   });
@@ -403,6 +461,36 @@ describe("plugin index lifecycle", () => {
     unsubscribe();
     plugin.onunload();
   });
+
+  it("invalidates cached projections after a failed rebuild drains buffered events", async () => {
+    const plugin = new LinkIntegrityPlugin({} as never, {} as never);
+    let replayDrained = false;
+    const statuses: Array<{ readonly state: string; readonly invalidate: boolean }> = [];
+    Object.assign(plugin, {
+      runtimeStarted: true,
+      initialMetadataReady: true,
+      metadataEventsRegistered: true,
+      coordinator: {
+        state: "stale",
+        rebuild: () => Promise.reject(new Error("rebuild failed")),
+        whenIdle: async () => {
+          replayDrained = true;
+        },
+      },
+      query: {
+        setStatus: (status: IndexStatus, invalidate = false) => {
+          statuses.push({ state: status.state, invalidate });
+          if (status.state === "stale") expect(replayDrained).toBe(true);
+        },
+      },
+    });
+
+    await expect(plugin.rebuild()).rejects.toThrow("rebuild failed");
+    expect(statuses).toEqual([
+      { state: "scanning", invalidate: false },
+      { state: "stale", invalidate: true },
+    ]);
+  });
 });
 
 interface PluginRuntimeInspection {
@@ -423,6 +511,12 @@ interface PluginRuntimeInspection {
   readonly persistViewState: (
     state: SidebarViewState,
     previousState: SidebarViewState,
+  ) => void;
+  readonly setExpectedFile: (path: string, expected: boolean, document: Document) => void;
+  readonly addExpectedFolderRule: (
+    path: string,
+    mode: "exact" | "recursive",
+    document: Document,
   ) => void;
 }
 
@@ -467,4 +561,9 @@ function createMockFile(path: string, modifiedAt: number): TFile {
   ) => TFile;
   const extension = path.includes(".") ? path.slice(path.lastIndexOf(".") + 1) : "";
   return new MockTFile(path, extension, modifiedAt);
+}
+
+function createMockFolder(path: string): TFolder {
+  const MockTFolder = TFolder as unknown as new (path: string) => TFolder;
+  return new MockTFolder(path);
 }
