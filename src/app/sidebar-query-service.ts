@@ -13,11 +13,18 @@ import type {
   IsolatedFileResult,
   SidebarQueryPort,
   SidebarQuerySnapshot,
+  SidebarTabId,
 } from "../ui/sidebar";
 
 export class SidebarQueryService implements SidebarQueryPort {
   private readonly listeners = new Set<() => void>();
-  private cachedSnapshot: SidebarQuerySnapshot | null = null;
+  private brokenLinks: readonly BrokenLinkResult[] = [];
+  private isolatedFiles: readonly IsolatedFileResult[] = [];
+  private noIncomingFiles: readonly IsolatedFileResult[] = [];
+  private brokenLinksKnown = false;
+  private isolatedFilesKnown = false;
+  private brokenLinksDirty = true;
+  private isolatedFilesDirty = true;
   private status: IndexStatus = {
     state: "idle",
     current: 0,
@@ -35,8 +42,55 @@ export class SidebarQueryService implements SidebarQueryPort {
     return () => this.listeners.delete(listener);
   };
 
-  public readonly getSnapshot = (): SidebarQuerySnapshot => {
-    if (this.cachedSnapshot !== null) return this.cachedSnapshot;
+  public readonly getSnapshot = (
+    activeTab: SidebarTabId | null = null,
+  ): SidebarQuerySnapshot => {
+    if (activeTab === "broken-links" && this.brokenLinksDirty) {
+      this.brokenLinks = this.computeBrokenLinks();
+      this.brokenLinksKnown = true;
+      this.brokenLinksDirty = false;
+    }
+    if (activeTab === "isolated-files" && this.isolatedFilesDirty) {
+      const projection = this.computeIsolatedFiles();
+      this.isolatedFiles = projection.isolatedFiles;
+      this.noIncomingFiles = projection.noIncomingFiles;
+      this.isolatedFilesKnown = true;
+      this.isolatedFilesDirty = false;
+    }
+    return {
+      status: this.status,
+      brokenLinks: this.brokenLinks,
+      brokenLinksKnown: this.brokenLinksKnown,
+      isolatedFiles: this.isolatedFiles,
+      noIncomingFiles: this.noIncomingFiles,
+      isolatedFilesKnown: this.isolatedFilesKnown,
+    };
+  };
+
+  public getStatus(): IndexStatus {
+    return this.status;
+  }
+
+  private computeBrokenLinks(): readonly BrokenLinkResult[] {
+    const index = this.getIndex();
+    const settings = this.getSettings();
+    const ignoreService = new IgnoreService(settings.ignoreRules);
+    return queryBrokenLinks(index)
+      .filter((diagnostic) => diagnosticEnabled(diagnostic, settings))
+      .filter((diagnostic) => settings.brokenLinks.showIgnored ||
+        !ignoreService.shouldHideBrokenResult({
+          sourcePath: diagnostic.sourcePath,
+          targetPath: diagnostic.resolvedTargetPath ?? diagnostic.targetText,
+          occurrenceId: diagnostic.id,
+          extension: index.getFile(diagnostic.sourcePath)?.extension ?? null,
+        }))
+      .map(toBrokenResult);
+  }
+
+  private computeIsolatedFiles(): {
+    readonly isolatedFiles: readonly IsolatedFileResult[];
+    readonly noIncomingFiles: readonly IsolatedFileResult[];
+  } {
     const index = this.getIndex();
     const settings = this.getSettings();
     const expectedRules = [
@@ -75,44 +129,31 @@ export class SidebarQueryService implements SidebarQueryPort {
         mode: "no-incoming",
       })
       : null;
-    this.cachedSnapshot = {
-      status: this.status,
-      brokenLinks: queryBrokenLinks(index)
-        .filter((diagnostic) => diagnosticEnabled(diagnostic, settings))
-        .filter((diagnostic) => settings.brokenLinks.showIgnored ||
-          !ignoreService.shouldHideBrokenResult({
-            sourcePath: diagnostic.sourcePath,
-            targetPath: diagnostic.resolvedTargetPath ?? diagnostic.targetText,
-            occurrenceId: diagnostic.id,
-            extension: index.getFile(diagnostic.sourcePath)?.extension ?? null,
-          }))
-        .map(toBrokenResult),
+    return {
       isolatedFiles: isolated.items.map(toIsolatedResult),
       noIncomingFiles: noIncoming?.items.map(toIsolatedResult) ?? [],
     };
-    return this.cachedSnapshot;
-  };
+  }
 
   public setStatus(status: IndexStatus, invalidateResults = false): void {
     this.status = status;
-    if (invalidateResults) this.cachedSnapshot = null;
-    else if (this.cachedSnapshot !== null) {
-      this.cachedSnapshot = { ...this.cachedSnapshot, status };
-    }
+    if (invalidateResults) this.invalidateResults();
     this.emit();
   }
 
   public setProgress(current: number, total: number): void {
     this.status = { state: "scanning", current, total, errorMessage: null };
-    if (this.cachedSnapshot !== null) {
-      this.cachedSnapshot = { ...this.cachedSnapshot, status: this.status };
-    }
     this.emit();
   }
 
   public notify(): void {
-    this.cachedSnapshot = null;
+    this.invalidateResults();
     this.emit();
+  }
+
+  private invalidateResults(): void {
+    this.brokenLinksDirty = true;
+    this.isolatedFilesDirty = true;
   }
 
   private emit(): void {

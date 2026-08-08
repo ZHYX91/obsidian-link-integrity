@@ -136,7 +136,7 @@ export const EN_MESSAGES = {
   "settings.general.language.description": "Choose Follow Obsidian to use Obsidian's interface language.",
   "settings.general.language.auto": "Follow Obsidian",
   "settings.general.scanOnStartup": "Scan on startup",
-  "settings.general.scanOnStartup.description": "Build the link index after the workspace is ready.",
+  "settings.general.scanOnStartup.description": "Build the complete link index after the workspace is ready. Leave this off to defer indexing and listeners until you open the sidebar or rebuild manually.",
   "settings.general.defaultTab": "Default sidebar tab",
   "settings.general.indexMaintenance": "Link index",
   "settings.general.indexMaintenance.description": "The index updates incrementally as the Vault changes. Rebuild it after an error or when you need a complete verification.",

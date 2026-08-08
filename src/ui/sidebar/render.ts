@@ -102,16 +102,26 @@ function renderContextualStatus(
 
 function renderTabs(container: HTMLElement, options: SidebarRenderOptions): HTMLElement {
   const { t, direction } = options.translator;
-  const definitions: readonly [SidebarTabId, string, number][] = [
-    ["broken-links", t("sidebar.tab.broken"), options.model.broken.badgeCount],
-    ["isolated-files", t("sidebar.tab.isolated"), options.model.isolated.badgeCount],
+  const definitions: readonly [SidebarTabId, string, number, boolean][] = [
+    [
+      "broken-links",
+      t("sidebar.tab.broken"),
+      options.model.broken.badgeCount,
+      options.model.broken.badgeKnown,
+    ],
+    [
+      "isolated-files",
+      t("sidebar.tab.isolated"),
+      options.model.isolated.badgeCount,
+      options.model.isolated.badgeKnown,
+    ],
   ];
   const tabList = container.ownerDocument.createElement("div");
   tabList.className = "link-integrity-tabs";
   tabList.setAttribute("role", "tablist");
   tabList.setAttribute("aria-label", t("sidebar.tabs.label"));
   tabList.setAttribute("aria-orientation", "horizontal");
-  definitions.forEach(([id, label, count], index) => {
+  definitions.forEach(([id, label, count, countKnown], index) => {
     const active = options.model.activeTab === id;
     const button = container.ownerDocument.createElement("button");
     button.type = "button";
@@ -123,7 +133,12 @@ function renderTabs(container: HTMLElement, options: SidebarRenderOptions): HTML
     button.tabIndex = active ? 0 : -1;
     button.append(
       createText(container.ownerDocument, "span", label),
-      createText(container.ownerDocument, "span", String(count), "link-integrity-tab-count"),
+      createText(
+        container.ownerDocument,
+        "span",
+        countKnown ? String(count) : "…",
+        "link-integrity-tab-count",
+      ),
     );
     button.addEventListener("click", () => {
       selectSidebarTab(options, id);

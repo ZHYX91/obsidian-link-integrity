@@ -130,6 +130,7 @@ function snapshot(): SidebarQuerySnapshot {
   const location = { line: 0, column: 1, property: null, canvasNodeId: null };
   return {
     status: { state: "ready", current: 3, total: 3, errorMessage: null },
+    brokenLinksKnown: true,
     brokenLinks: [
       {
         id: "a",
@@ -162,6 +163,7 @@ function snapshot(): SidebarQuerySnapshot {
         location,
       },
     ],
+    isolatedFilesKnown: true,
     isolatedFiles: [
       isolated("Loose.md", "unexpected", 0),
       isolated("With broken.md", "unexpected", 2),

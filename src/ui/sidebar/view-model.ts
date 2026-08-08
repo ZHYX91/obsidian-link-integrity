@@ -50,6 +50,7 @@ export interface SidebarViewModel {
   readonly search: string;
   readonly broken: {
     readonly badgeCount: number;
+    readonly badgeKnown: boolean;
     readonly uniqueTargetCount: number;
     readonly visibleCount: number;
     readonly renderedCount: number;
@@ -61,6 +62,7 @@ export interface SidebarViewModel {
   };
   readonly isolated: {
     readonly badgeCount: number;
+    readonly badgeKnown: boolean;
     readonly expectedCount: number;
     readonly configuredScopeCount: number;
     readonly visibleCount: number;
@@ -124,6 +126,7 @@ export function createSidebarViewModel(
     search: state.search,
     broken: {
       badgeCount: snapshot.brokenLinks.length,
+      badgeKnown: snapshot.brokenLinksKnown,
       uniqueTargetCount: new Set(snapshot.brokenLinks.map(targetGroupKey)).size,
       visibleCount: visibleBrokenItems.length,
       renderedCount: brokenItems.length,
@@ -141,6 +144,7 @@ export function createSidebarViewModel(
     isolated: {
       badgeCount: snapshot.isolatedFiles
         .filter(({ expectation }) => expectation.kind === "unexpected").length,
+      badgeKnown: snapshot.isolatedFilesKnown,
       expectedCount: expectedIsolatedItems.length,
       configuredScopeCount: unexpectedIsolatedItems.length + expectedIsolatedItems.length,
       visibleCount: visibleIsolatedItems.length,

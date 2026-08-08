@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("plugin index lifecycle", () => {
-  it("starts event capture immediately and lazily builds the first index", async () => {
+  it("keeps the runtime dormant until an on-demand index is requested", async () => {
     vi.useFakeTimers();
     const file = createMockFile("A.md", 1);
     const vaultEvents = new TestEvents();
@@ -55,8 +55,9 @@ describe("plugin index lifecycle", () => {
     await Promise.resolve();
     expect(metadataEvents.listenerCount("resolved")).toBe(0);
     expect(metadataEvents.listenerCount("resolve")).toBe(0);
-    expect(metadataEvents.listenerCount("changed")).toBe(1);
-    expect(metadataEvents.listenerCount("deleted")).toBe(1);
+    expect(metadataEvents.listenerCount("changed")).toBe(0);
+    expect(metadataEvents.listenerCount("deleted")).toBe(0);
+    expect(vaultEvents.listenerCount("modify")).toBe(0);
 
     const runtime = plugin as unknown as PluginRuntimeInspection;
     expect(runtime.query.getSnapshot().status.state).toBe("idle");
@@ -66,11 +67,18 @@ describe("plugin index lifecycle", () => {
     expect(snapshotBuildCount).toBe(0);
     expect(runtime.coordinator.store.generation).toBe(0);
 
-    await plugin.ensureIndex();
+    const indexing = plugin.ensureIndex();
+    expect(plugin.ensureIndex()).toBe(indexing);
+    expect(vaultEvents.listenerCount("modify")).toBe(1);
+    expect(metadataEvents.listenerCount("resolved")).toBe(1);
+    metadataEvents.emit("resolved");
+    await indexing;
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
     expect(runtime.coordinator.store.generation).toBeGreaterThanOrEqual(1);
     expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["A.md"]);
     expect(snapshotBuildCount).toBeGreaterThanOrEqual(1);
+    expect(metadataEvents.listenerCount("changed")).toBe(1);
+    expect(metadataEvents.listenerCount("deleted")).toBe(1);
 
     let queryNotifications = 0;
     const unsubscribe = runtime.query.subscribe(() => {
@@ -135,7 +143,11 @@ describe("plugin index lifecycle", () => {
     };
     const plugin = new LinkIntegrityPlugin(app as never, {} as never);
     Object.assign(plugin, { app });
-    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+    const defaults = createDefaultSettings();
+    vi.spyOn(plugin, "loadData").mockResolvedValue({
+      ...defaults,
+      general: { ...defaults.general, scanOnStartup: true },
+    });
 
     await plugin.onload();
     (layoutReady as (() => void) | null)?.();
@@ -202,7 +214,11 @@ describe("plugin index lifecycle", () => {
     };
     const plugin = new LinkIntegrityPlugin(app as never, {} as never);
     Object.assign(plugin, { app });
-    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+    const defaults = createDefaultSettings();
+    vi.spyOn(plugin, "loadData").mockResolvedValue({
+      ...defaults,
+      general: { ...defaults.general, scanOnStartup: true },
+    });
 
     await plugin.onload();
     (layoutReady as (() => void) | null)?.();
@@ -218,11 +234,8 @@ describe("plugin index lifecycle", () => {
     for (let count = 0; count < 100; count += 1) vaultEvents.emit("modify", fileC);
     metadataEvents.emit("resolved");
 
-    await Promise.resolve();
+    await plugin.ensureIndex();
     const runtime = plugin as unknown as PluginRuntimeInspection;
-    const startupRebuild = runtime.coordinator.rebuildPromise;
-    expect(startupRebuild).not.toBeNull();
-    await startupRebuild;
     await Promise.resolve();
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
     expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["C.md"]);
@@ -278,7 +291,11 @@ describe("plugin index lifecycle", () => {
     };
     const plugin = new LinkIntegrityPlugin(app as never, {} as never);
     Object.assign(plugin, { app });
-    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+    const defaults = createDefaultSettings();
+    vi.spyOn(plugin, "loadData").mockResolvedValue({
+      ...defaults,
+      general: { ...defaults.general, scanOnStartup: true },
+    });
 
     await plugin.onload();
     (layoutReady as (() => void) | null)?.();
@@ -342,7 +359,9 @@ describe("plugin index lifecycle", () => {
     await plugin.onload();
     (layoutReady as (() => void) | null)?.();
     await Promise.resolve();
-    await plugin.rebuild();
+    const rebuilding = plugin.rebuild();
+    metadataEvents.emit("resolved");
+    await rebuilding;
 
     const runtime = plugin as unknown as PluginRuntimeInspection;
     const baselineBuildCount = snapshotBuildCount;

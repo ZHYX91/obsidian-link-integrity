@@ -70,8 +70,12 @@ export default class LinkIntegrityPlugin extends Plugin {
   private rebuildCommand: Command | null = null;
   private runtimeStarted = false;
   private coordinatorStarted = false;
+  private layoutReady = false;
+  private initialMetadataReady = false;
+  private initialMetadataPromise: Promise<void> | null = null;
+  private metadataEventsRegistered = false;
   private baselineAvailable = false;
-  private rebuildRequestCount = 0;
+  private rebuildPromise: Promise<void> | null = null;
   private unloaded = false;
   private notificationPending = false;
   private pendingSourceEvents: SourceEvent[] = [];
@@ -122,15 +126,24 @@ export default class LinkIntegrityPlugin extends Plugin {
 
     this.refreshEntrypoints();
     this.app.workspace.onLayoutReady(() => {
-      if (!this.unloaded) void this.startRuntime();
+      this.layoutReady = true;
+      const sidebarAlreadyOpen = this.app.workspace
+        .getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE).length > 0;
+      if (!this.unloaded && (this.settings.general.scanOnStartup || sidebarAlreadyOpen)) {
+        void this.ensureIndex().catch((error: unknown) => this.reportError(error));
+      }
     });
   }
 
   public override onunload(): void {
     this.unloaded = true;
     this.runtimeStarted = false;
+    this.layoutReady = false;
+    this.initialMetadataReady = false;
+    this.initialMetadataPromise = null;
+    this.metadataEventsRegistered = false;
     this.baselineAvailable = false;
-    this.rebuildRequestCount = 0;
+    this.rebuildPromise = null;
     if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
     if (this.eventMaxFlushTimer !== null) window.clearTimeout(this.eventMaxFlushTimer);
     this.eventFlushTimer = null;
@@ -184,13 +197,18 @@ export default class LinkIntegrityPlugin extends Plugin {
     settings: LinkIntegritySettings,
     impact: SettingsChangeImpact = "query-only",
   ): void {
+    const scanOnStartupWasEnabled = this.settings.general.scanOnStartup;
     this.settings = normalizeSettings(settings);
     if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
     if (impact === "full-rebuild") this.updateGraphContributionPolicy();
     this.refreshEntrypoints();
     this.query.notify();
+    const shouldStartOnDemandRuntime = !scanOnStartupWasEnabled &&
+      this.settings.general.scanOnStartup && this.layoutReady;
     if (impact === "full-rebuild" && this.runtimeStarted) {
       void this.rebuild().catch((error: unknown) => this.reportError(error));
+    } else if (shouldStartOnDemandRuntime && !this.baselineAvailable) {
+      void this.ensureIndex().catch((error: unknown) => this.reportError(error));
     }
   }
 
@@ -203,15 +221,28 @@ export default class LinkIntegrityPlugin extends Plugin {
     await this.app.workspace.revealLeaf(leaf);
   }
 
-  public async rebuild(): Promise<void> {
+  public rebuild(): Promise<void> {
+    if (this.rebuildPromise !== null) return this.rebuildPromise;
+    const request = this.performRebuild();
+    this.rebuildPromise = request;
+    void request.then(
+      () => {
+        if (this.rebuildPromise === request) this.rebuildPromise = null;
+      },
+      () => {
+        if (this.rebuildPromise === request) this.rebuildPromise = null;
+      },
+    );
+    return request;
+  }
+
+  private async performRebuild(): Promise<void> {
+    this.startRuntime();
     if (!this.runtimeStarted) return;
-    if (!this.coordinatorStarted) {
-      this.coordinator.start();
-      this.coordinatorStarted = true;
-    }
-    this.rebuildRequestCount += 1;
     this.query.setStatus({ state: "scanning", current: 0, total: 0, errorMessage: null });
     try {
+      await this.ensureInitialMetadataResolution();
+      if (this.unloaded) return;
       const startsNewRebuild = this.coordinator.state !== "rebuilding";
       if (startsNewRebuild) this.discardPendingSourceEvents();
       const rebuild = this.coordinator.rebuild();
@@ -235,11 +266,11 @@ export default class LinkIntegrityPlugin extends Plugin {
       });
       throw error;
     } finally {
-      this.rebuildRequestCount = Math.max(0, this.rebuildRequestCount - 1);
+      if (!this.unloaded) this.registerMetadataEvents();
     }
   }
 
-  private async startRuntime(): Promise<void> {
+  private startRuntime(): void {
     if (this.runtimeStarted || this.unloaded) return;
     this.runtimeStarted = true;
     if (!this.coordinatorStarted) {
@@ -247,19 +278,6 @@ export default class LinkIntegrityPlugin extends Plugin {
       this.coordinatorStarted = true;
     }
     this.registerVaultEvents();
-    try {
-      const sidebarAlreadyOpen = this.app.workspace
-        .getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE).length > 0;
-      if (this.settings.general.scanOnStartup || sidebarAlreadyOpen) {
-        await this.waitForInitialMetadataResolution();
-        if (this.unloaded) return;
-        await this.rebuild();
-      }
-    } catch (error) {
-      this.reportError(error);
-    } finally {
-      if (!this.unloaded) this.registerMetadataEvents();
-    }
   }
 
   private registerVaultEvents(): void {
@@ -278,6 +296,8 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private registerMetadataEvents(): void {
+    if (this.metadataEventsRegistered) return;
+    this.metadataEventsRegistered = true;
     this.registerEvent(this.app.metadataCache.on("changed", (file) => {
       this.enqueueMetadata({ type: "modify", path: file.path });
     }));
@@ -298,6 +318,18 @@ export default class LinkIntegrityPlugin extends Plugin {
       eventRef = this.app.metadataCache.on("resolved", finish);
       timeout = window.setTimeout(finish, maxWaitMs);
     });
+  }
+
+  private async ensureInitialMetadataResolution(): Promise<void> {
+    if (this.initialMetadataReady) return;
+    this.initialMetadataPromise ??= this.waitForInitialMetadataResolution()
+      .then(() => {
+        this.initialMetadataReady = true;
+      })
+      .finally(() => {
+        this.initialMetadataPromise = null;
+      });
+    await this.initialMetadataPromise;
   }
 
   private enqueueMetadata(event: SourceEvent): void {
@@ -400,17 +432,17 @@ export default class LinkIntegrityPlugin extends Plugin {
     }
   }
 
-  public async ensureIndex(): Promise<void> {
-    if (!this.runtimeStarted || this.baselineAvailable || this.rebuildRequestCount > 0) return;
-    await this.rebuild();
+  public ensureIndex(): Promise<void> {
+    if (this.baselineAvailable) return Promise.resolve();
+    return this.rebuild();
   }
 
   public getIndexStatus(): IndexStatus {
-    return this.query.getSnapshot().status;
+    return this.query.getStatus();
   }
 
   public subscribeToIndexStatus(listener: (status: IndexStatus) => void): () => void {
-    return this.query.subscribe(() => listener(this.query.getSnapshot().status));
+    return this.query.subscribe(() => listener(this.query.getStatus()));
   }
 
   private async openBrokenLink(result: BrokenLinkResult): Promise<void> {

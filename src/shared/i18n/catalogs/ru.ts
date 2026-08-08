@@ -157,7 +157,7 @@ export const RU_MESSAGES = localizedCatalog({
   "fileType.family.ebook": "Электронные книги",
   "fileType.family.other-custom": "Пользовательские расширения",
   "settings.general.language.description": "Выберите «Как в Obsidian», чтобы использовать язык интерфейса Obsidian.",
-  "settings.general.scanOnStartup.description": "Создаёт индекс ссылок после готовности рабочего пространства.",
+  "settings.general.scanOnStartup.description": "Создаёт полный индекс после готовности рабочего пространства. Если параметр выключен, индексирование и обработчики запускаются только при открытии боковой панели или ручном перестроении.",
   "settings.isolated.candidates.description": "Определяет только файлы, которые могут попасть в отчёт. Невыбранные файлы по-прежнему создают допустимые связи.",
   "settings.isolated.advancedMode.description": "Отсутствие входящих ссылок не означает изоляцию. Этот параметр лишь показывает дополнительный фильтр.",
   "settings.expected.glob": "Glob",

@@ -131,7 +131,7 @@ describe(`LinkIndex generated ${FILE_COUNT.toLocaleString()}-file benchmark`, ()
     let isolatedCount = 0;
     for (let refresh = 0; refresh < QUERY_REFRESH_COUNT; refresh += 1) {
       query.notify();
-      isolatedCount = query.getSnapshot().isolatedFiles.length;
+      isolatedCount = query.getSnapshot("isolated-files").isolatedFiles.length;
     }
     const elapsed = performance.now() - startedAt;
 
@@ -140,6 +140,30 @@ describe(`LinkIndex generated ${FILE_COUNT.toLocaleString()}-file benchmark`, ()
     process.stdout.write(
       `\nLink Integrity sidebar-query benchmark: ${FILE_COUNT} isolated files, ` +
       `${QUERY_REFRESH_COUNT} full projections in ${elapsed.toFixed(1)} ms\n`,
+    );
+  });
+
+  it("keeps broken-link refreshes independent from the isolated-file projection", () => {
+    const index = new LinkIndex(createGeneratedFiles());
+    const query = new SidebarQueryService(
+      () => index,
+      () => createDefaultSettings(),
+    );
+    const startedAt = performance.now();
+    let snapshot = query.getSnapshot("broken-links");
+    for (let refresh = 1; refresh < QUERY_REFRESH_COUNT; refresh += 1) {
+      query.notify();
+      snapshot = query.getSnapshot("broken-links");
+    }
+    const elapsed = performance.now() - startedAt;
+
+    expect(snapshot.brokenLinks).toEqual([]);
+    expect(snapshot.brokenLinksKnown).toBe(true);
+    expect(snapshot.isolatedFilesKnown).toBe(false);
+    expect(elapsed).toBeLessThan(LARGE_MODE ? 1_000 : 500);
+    process.stdout.write(
+      `\nLink Integrity broken-tab benchmark: ${FILE_COUNT} files, ` +
+      `${QUERY_REFRESH_COUNT} refreshes without isolated projection in ${elapsed.toFixed(1)} ms\n`,
     );
   });
 });

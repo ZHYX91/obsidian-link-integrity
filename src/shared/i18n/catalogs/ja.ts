@@ -158,7 +158,7 @@ export const JA_MESSAGES = localizedCatalog({
   "fileType.family.ebook": "電子書籍",
   "fileType.family.other-custom": "カスタム拡張子",
   "settings.general.language.description": "「Obsidian に従う」を選ぶと、Obsidian のインターフェース言語を使用します。",
-  "settings.general.scanOnStartup.description": "ワークスペースの準備後にリンクインデックスを作成します。",
+  "settings.general.scanOnStartup.description": "ワークスペースの準備後に完全なリンクインデックスを作成します。オフの場合、サイドバーを開くか手動で再構築するまでインデックス作成とリスナーを開始しません。",
   "settings.isolated.candidates.description": "報告対象となるファイルだけを制御します。未選択のファイルも有効な接続には引き続き寄与します。",
   "settings.isolated.advancedMode.description": "入力リンクがないことは孤立を意味しません。このオプションは追加フィルターを表示するだけです。",
   "settings.expected.glob": "Glob",

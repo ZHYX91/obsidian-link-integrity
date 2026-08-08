@@ -20,6 +20,7 @@ describe("settings", () => {
     );
     expect(left.isolatedFiles.candidateFormatFamilyIds).toEqual(FORMAT_FAMILY_IDS);
     expect(left.isolatedFiles.showExpectedIsolatedFiles).toBe(false);
+    expect(left.general.scanOnStartup).toBe(false);
     expect(left.ui).toEqual({
       activeSidebarTab: null,
       brokenView: null,

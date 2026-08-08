@@ -38,6 +38,31 @@ describe("sidebar renderer", () => {
     }));
   });
 
+  it("marks an inactive tab count as unknown until that projection is requested", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = viewState();
+    const snapshot = {
+      ...querySnapshot(),
+      isolatedFiles: [],
+      isolatedFilesKnown: false,
+    };
+    renderSidebar(container, {
+      model: createSidebarViewModel(snapshot, state),
+      state,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: true,
+      onStateChange: vi.fn(),
+    });
+
+    const tabs = container.querySelectorAll('[role="tab"]');
+    expect(tabs[0]?.querySelector(".link-integrity-tab-count")?.textContent).toBe("0");
+    expect(tabs[1]?.querySelector(".link-integrity-tab-count")?.textContent).toBe("…");
+  });
+
   it("does not render expected isolation until the advanced toggle is enabled", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");
@@ -434,7 +459,9 @@ function viewState(): SidebarViewState {
 function querySnapshot(): SidebarQuerySnapshot {
   return {
     status: { state: "ready", current: 1, total: 1, errorMessage: null },
+    brokenLinksKnown: true,
     brokenLinks: [],
+    isolatedFilesKnown: true,
     isolatedFiles: [
       {
         path: "With broken.md",

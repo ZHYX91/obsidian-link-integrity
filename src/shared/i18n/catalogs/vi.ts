@@ -158,7 +158,7 @@ export const VI_MESSAGES = localizedCatalog({
   "fileType.family.ebook": "Sách điện tử",
   "fileType.family.other-custom": "Phần mở rộng tùy chỉnh",
   "settings.general.language.description": "Chọn “Theo Obsidian” để sử dụng ngôn ngữ giao diện của Obsidian.",
-  "settings.general.scanOnStartup.description": "Tạo chỉ mục liên kết sau khi không gian làm việc sẵn sàng.",
+  "settings.general.scanOnStartup.description": "Tạo chỉ mục liên kết đầy đủ khi không gian làm việc sẵn sàng. Khi tắt, việc lập chỉ mục và các trình lắng nghe chỉ bắt đầu lúc mở thanh bên hoặc xây dựng lại thủ công.",
   "settings.isolated.candidates.description": "Chỉ kiểm soát những tệp có thể được báo cáo. Các tệp không được chọn vẫn đóng góp kết nối hợp lệ.",
   "settings.isolated.advancedMode.description": "Không có liên kết đến không có nghĩa là bị cô lập. Tùy chọn này chỉ hiển thị một bộ lọc bổ sung.",
   "settings.expected.glob": "Glob",

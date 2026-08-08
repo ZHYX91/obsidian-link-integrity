@@ -124,7 +124,7 @@ export const ZH_TW_MESSAGES = {
   "settings.general.language.description": "選擇「跟隨 Obsidian」可使用 Obsidian 的介面語言。",
   "settings.general.language.auto": "跟隨 Obsidian",
   "settings.general.scanOnStartup": "啟動時掃描",
-  "settings.general.scanOnStartup.description": "工作區就緒後建立連結索引。",
+  "settings.general.scanOnStartup.description": "工作區就緒後建立完整連結索引。保持關閉時，開啟側欄或手動重建前不會啟動索引與監聽。",
   "settings.general.defaultTab": "預設側欄頁籤",
   "settings.general.indexMaintenance": "連結索引",
   "settings.general.indexMaintenance.description": "索引會隨 Vault 變更自動增量更新；發生錯誤或需要完整核對時可手動重建。",

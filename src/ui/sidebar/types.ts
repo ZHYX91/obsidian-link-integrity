@@ -1,11 +1,13 @@
+import type { SidebarTabId } from "../../shared/settings";
+
 export type {
   BrokenGrouping,
   BrokenSort,
   BrokenViewMode,
   IsolatedSort,
   IsolatedViewMode,
-  SidebarTabId,
 } from "../../shared/settings";
+export type { SidebarTabId };
 export type IsolatedQueryMode = "isolated" | "no-incoming";
 export type BrokenReason =
   | "missing-file"
@@ -55,12 +57,14 @@ export interface IndexStatus {
 export interface SidebarQuerySnapshot {
   readonly status: IndexStatus;
   readonly brokenLinks: readonly BrokenLinkResult[];
+  readonly brokenLinksKnown: boolean;
   readonly isolatedFiles: readonly IsolatedFileResult[];
   readonly noIncomingFiles: readonly IsolatedFileResult[];
+  readonly isolatedFilesKnown: boolean;
 }
 
 export interface SidebarQueryPort {
-  readonly getSnapshot: () => SidebarQuerySnapshot;
+  readonly getSnapshot: (activeTab: SidebarTabId) => SidebarQuerySnapshot;
   readonly subscribe: (listener: () => void) => () => void;
 }
 

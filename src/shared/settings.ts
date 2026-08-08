@@ -111,7 +111,7 @@ export function createDefaultSettings(): LinkIntegritySettings {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     general: {
       locale: "auto",
-      scanOnStartup: true,
+      scanOnStartup: false,
       defaultSidebarTab: "broken-links",
     },
     brokenLinks: {

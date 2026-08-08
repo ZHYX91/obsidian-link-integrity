@@ -55,7 +55,8 @@ describe("SidebarQueryService", () => {
     };
     const query = new SidebarQueryService(() => index, () => settings);
 
-    const snapshot = query.getSnapshot();
+    query.getSnapshot("broken-links");
+    const snapshot = query.getSnapshot("isolated-files");
 
     expect(snapshot.isolatedFiles).toEqual([
       expect.objectContaining({
@@ -73,6 +74,8 @@ describe("SidebarQueryService", () => {
       "Daily/2026-08-02.md",
       "Loose.md",
     ]);
+    expect(snapshot.brokenLinksKnown).toBe(true);
+    expect(snapshot.isolatedFilesKnown).toBe(true);
     expect(index.getSelfLinkCount("Daily/2026-08-02.md")).toBe(1);
     expect(index.getIncomingNeighborCount("Daily/2026-08-02.md")).toBe(0);
   });
@@ -110,37 +113,46 @@ describe("SidebarQueryService", () => {
     };
     const query = new SidebarQueryService(() => index, () => settings);
 
-    const snapshot = query.getSnapshot();
+    query.getSnapshot("broken-links");
+    const snapshot = query.getSnapshot("isolated-files");
 
     expect(snapshot.brokenLinks).toEqual([]);
     expect(snapshot.isolatedFiles.map(({ path }) => path)).toEqual(["Hidden-source.md"]);
     expect(index.getOutgoingNeighborCount("Hidden-source.md")).toBe(0);
   });
 
-  it("reuses an immutable query snapshot until the index or settings notify", () => {
+  it("computes only the active tab and reuses the inactive tab's last-known results", () => {
     const index = new LinkIndex([createFileRecord("A.md")]);
     const settings = createDefaultSettings();
     const query = new SidebarQueryService(() => index, () => settings);
 
-    const first = query.getSnapshot();
-    expect(query.getSnapshot()).toBe(first);
+    const first = query.getSnapshot("broken-links");
+    expect(first.brokenLinksKnown).toBe(true);
+    expect(first.isolatedFilesKnown).toBe(false);
+    expect(query.getSnapshot("broken-links").brokenLinks).toBe(first.brokenLinks);
 
     query.setProgress(1, 2);
-    const progress = query.getSnapshot();
+    const progress = query.getSnapshot("broken-links");
     expect(progress.status).toMatchObject({ state: "scanning", current: 1, total: 2 });
     expect(progress.brokenLinks).toBe(first.brokenLinks);
     expect(progress.isolatedFiles).toBe(first.isolatedFiles);
 
     query.setStatus({ state: "ready", current: 0, total: 0, errorMessage: null });
-    const ready = query.getSnapshot();
+    const ready = query.getSnapshot("broken-links");
     expect(ready.status.state).toBe("ready");
     expect(ready.brokenLinks).toBe(first.brokenLinks);
     expect(ready.isolatedFiles).toBe(first.isolatedFiles);
 
     query.notify();
-    const refreshed = query.getSnapshot();
+    const refreshed = query.getSnapshot("broken-links");
     expect(refreshed.brokenLinks).not.toBe(first.brokenLinks);
-    expect(refreshed.isolatedFiles).not.toBe(first.isolatedFiles);
+    expect(refreshed.isolatedFiles).toBe(first.isolatedFiles);
+    expect(refreshed.isolatedFilesKnown).toBe(false);
+
+    const isolated = query.getSnapshot("isolated-files");
+    expect(isolated.brokenLinks).toBe(refreshed.brokenLinks);
+    expect(isolated.isolatedFilesKnown).toBe(true);
+    expect(isolated.isolatedFiles).not.toBe(first.isolatedFiles);
   });
 
   it("does not compute or expose the advanced no-incoming projection by default", () => {
@@ -148,7 +160,7 @@ describe("SidebarQueryService", () => {
     const settings = createDefaultSettings();
     const query = new SidebarQueryService(() => index, () => settings);
 
-    expect(query.getSnapshot().noIncomingFiles).toEqual([]);
+    expect(query.getSnapshot("isolated-files").noIncomingFiles).toEqual([]);
   });
 });
 

@@ -90,7 +90,10 @@ export class LinkIntegritySidebarView extends ItemView {
     this.lastSettings = settings;
     const translator = createTranslator(settings.general.locale, getLanguage());
     const categories = createFileTypeOptions(translator.t);
-    const model = createSidebarViewModel(this.options.query.getSnapshot(), this.state);
+    const model = createSidebarViewModel(
+      this.options.query.getSnapshot(this.state.activeTab),
+      this.state,
+    );
     this.renderCleanup = renderSidebar(this.contentEl, {
       model,
       state: this.state,

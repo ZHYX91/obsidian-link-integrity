@@ -43,7 +43,7 @@ For a manual installation, place `main.js`, `manifest.json`, and `styles.css` in
 1. Enable Link Integrity under **Settings → Community plugins**.
 2. Open Link Integrity from the ribbon or the command palette. The sidebar starts with **Broken links** and **Isolated files** tabs.
 3. Select a diagnostic to open its source. Use the isolated-file filters to narrow the current view without changing saved defaults.
-4. If startup scanning is disabled or the baseline failed, use **Build index** or **Rebuild index** in General settings. After a successful baseline, incremental updates keep results current automatically.
+4. Startup scanning is disabled by default. Opening the sidebar builds the index on demand; you can also use **Build index** or **Rebuild index** in General settings. After a successful baseline, incremental updates keep results current automatically.
 
 ## Settings
 

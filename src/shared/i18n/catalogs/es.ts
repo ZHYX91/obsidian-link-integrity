@@ -157,7 +157,7 @@ export const ES_MESSAGES = localizedCatalog({
   "fileType.family.ebook": "Libros electrónicos",
   "fileType.family.other-custom": "Extensiones personalizadas",
   "settings.general.language.description": "Elige «Seguir Obsidian» para usar el idioma de la interfaz de Obsidian.",
-  "settings.general.scanOnStartup.description": "Crea el índice de enlaces cuando el espacio de trabajo está listo.",
+  "settings.general.scanOnStartup.description": "Crea el índice completo cuando el espacio de trabajo está listo. Si se desactiva, el índice y los escuchadores no se inician hasta abrir la barra lateral o reconstruirlo manualmente.",
   "settings.isolated.candidates.description": "Solo controla qué archivos pueden mostrarse. Los archivos no seleccionados siguen aportando conexiones válidas.",
   "settings.isolated.advancedMode.description": "No tener enlaces entrantes no significa estar aislado. Esta opción solo muestra un filtro adicional.",
   "settings.expected.glob": "Glob",

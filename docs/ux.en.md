@@ -70,7 +70,7 @@ Settings contain three tabs: General, Broken links, and Isolated files. The impe
 ### 4.1 General
 
 - Language: Follow Obsidian or one of 11 bundled languages.
-- Default sidebar tab and scan on startup.
+- Default sidebar tab and optional scan on startup. Startup scanning is off by default; before the sidebar is first opened, indexing and listeners remain dormant.
 - Link-index status and a manual rebuild action for recovery or complete verification, not routine refresh.
 
 A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings search, keyboard navigation, and status text use the selected locale. All 11 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
