@@ -27,6 +27,16 @@ interface SnapshotBuild {
 
 export interface IncrementalIndexOptions {
   readonly concurrency?: number;
+  readonly now?: () => number;
+  readonly onPendingEventCountChange?: (count: number) => void;
+  readonly onBatchComplete?: (diagnostics: IncrementalBatchDiagnostics) => void;
+}
+
+export interface IncrementalBatchDiagnostics {
+  readonly completedAt: number;
+  readonly durationMs: number;
+  readonly eventCount: number;
+  readonly affectedSourceCount: number;
 }
 
 export class IncrementalIndexController {
@@ -36,13 +46,18 @@ export class IncrementalIndexController {
   private queuedEvents: SourceEvent[] = [];
   private drainPromise: Promise<void> | null = null;
   private readonly concurrency: number;
+  private readonly now: () => number;
+  private readonly options: IncrementalIndexOptions;
+  private activeEventCount = 0;
 
   public constructor(
     private readonly port: LinkIndexPort,
     private readonly store: AtomicLinkIndexStore,
     options: IncrementalIndexOptions = {},
   ) {
+    this.options = options;
     this.concurrency = Math.max(1, Math.floor(options.concurrency ?? 4));
+    this.now = options.now ?? Date.now;
   }
 
   public get epoch(): number {
@@ -50,7 +65,7 @@ export class IncrementalIndexController {
   }
 
   public get pendingEventCount(): number {
-    return this.queuedEvents.length;
+    return this.queuedEvents.length + this.activeEventCount;
   }
 
   public start(): void {
@@ -64,12 +79,15 @@ export class IncrementalIndexController {
     this.active = false;
     this.lifecycleEpoch += 1;
     this.queuedEvents = [];
+    this.activeEventCount = 0;
+    this.notifyPendingEventCount();
   }
 
   public enqueue(eventInput: SourceEvent): void {
     if (!this.active) throw new Error("Incremental index controller is not active.");
     const event = normalizeEvent(eventInput);
     this.queuedEvents.push(event);
+    this.notifyPendingEventCount();
     for (const path of this.getImmediatelyAffectedPaths(event)) this.bumpRevision(path);
     this.scheduleDrain();
   }
@@ -96,11 +114,28 @@ export class IncrementalIndexController {
     while (this.active && this.queuedEvents.length > 0) {
       const events = this.queuedEvents;
       this.queuedEvents = [];
-      await this.applyBatch(coalesceEvents(events));
+      this.activeEventCount = events.length;
+      this.notifyPendingEventCount();
+      const startedAt = this.now();
+      try {
+        const affectedSourceCount = await this.applyBatch(coalesceEvents(events));
+        if (affectedSourceCount !== null && this.active) {
+          const completedAt = this.now();
+          this.safelyNotify(() => this.options.onBatchComplete?.(Object.freeze({
+            completedAt,
+            durationMs: Math.max(0, completedAt - startedAt),
+            eventCount: events.length,
+            affectedSourceCount,
+          })));
+        }
+      } finally {
+        this.activeEventCount = 0;
+        this.notifyPendingEventCount();
+      }
     }
   }
 
-  private async applyBatch(events: CoalescedEvents): Promise<void> {
+  private async applyBatch(events: CoalescedEvents): Promise<number | null> {
     const epoch = this.lifecycleEpoch;
     const index = this.store.current;
     const affectedPaths = new Set(events.directPaths);
@@ -115,7 +150,7 @@ export class IncrementalIndexController {
     if (events.namespaceChanged) {
       const previousFiles = index.files;
       nextFiles = await this.port.listFiles();
-      if (!this.isCurrentEpoch(epoch)) return;
+      if (!this.isCurrentEpoch(epoch)) return null;
       const changedLookupKeys = getChangedLookupKeys(previousFiles, nextFiles);
       addAll(affectedPaths, index.getSourcePathsByLookupKeys(changedLookupKeys));
       for (const file of nextFiles) {
@@ -128,7 +163,7 @@ export class IncrementalIndexController {
         path,
         file: await this.port.getFileRecord(path),
       })));
-      if (!this.isCurrentEpoch(epoch)) return;
+      if (!this.isCurrentEpoch(epoch)) return null;
       for (const update of fileRecordUpdates) {
         const before = index.getFile(update.path);
         const changedLookupKeys = getChangedLookupKeys(
@@ -156,7 +191,7 @@ export class IncrementalIndexController {
       }
     }
     const builds = await this.buildSnapshots(Array.from(affectedPaths), availableSourcePaths);
-    if (!this.isCurrentEpoch(epoch)) return;
+    if (!this.isCurrentEpoch(epoch)) return null;
     const currentBuilds = builds.filter((build) =>
       this.getRevision(build.sourcePath) === build.revision);
     index.validateSourceSnapshotReplacements(currentBuilds, availableSourcePaths);
@@ -170,6 +205,19 @@ export class IncrementalIndexController {
       }
     }
     for (const build of currentBuilds) this.publishIfCurrent(build);
+    return currentBuilds.length;
+  }
+
+  private notifyPendingEventCount(): void {
+    this.safelyNotify(() => this.options.onPendingEventCountChange?.(this.pendingEventCount));
+  }
+
+  private safelyNotify(notify: () => void): void {
+    try {
+      notify();
+    } catch {
+      // Diagnostics are observational and must never interrupt indexing.
+    }
   }
 
   private publishIfCurrent(build: SnapshotBuild): void {

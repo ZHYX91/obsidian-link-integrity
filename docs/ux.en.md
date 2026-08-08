@@ -75,7 +75,7 @@ Settings contain three tabs: General, Broken links, and Isolated files. The impe
 
 - Language: Follow Obsidian or one of 11 bundled languages.
 - Default sidebar tab and optional scan on startup. Startup scanning is off by default; before the sidebar is first opened, indexing and listeners remain dormant.
-- Link-index status and a manual rebuild action for recovery or complete verification, not routine refresh.
+- Link-index status and a manual rebuild action for recovery or complete verification, not routine refresh. The status summary stays compact, while a collapsed-by-default Index details disclosure shows Vault files, analyzed sources, link references, pending updates, and completion time plus duration for the latest full rebuild and incremental batch. A failure may expose its latest error inside the details, but never a Vault name, file path, or note content. Disclosure state is not persisted.
 
 A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings search, keyboard navigation, and status text use the selected locale. All 11 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
 

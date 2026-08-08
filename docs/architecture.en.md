@@ -80,6 +80,8 @@ Broken-link and isolated-file result arrays are independent lazy projections cac
 
 The initial version does not persist `LinkIndex`, edges, or diagnostic projections. `data.json` stores only settings, rules, and interface preferences after schema validation, migration, and normalization. This prevents a stale namespace from a previous run from becoming an authoritative result.
 
+The coordinator separately maintains a small read-only runtime-diagnostics snapshot. File, source, and occurrence counts come directly from index-container sizes; a completed full rebuild or successful incremental batch records only aggregate counts, completion time, duration, and pending-event count at its completion boundary. Settings subscribe to that snapshot without traversing the Vault, exporting canonical state, or persisting diagnostics. Staging replay never masquerades as an incremental update to the published index.
+
 Scan on startup is disabled by default. While it remains disabled and the sidebar has not been opened, the coordinator, Vault listeners, and Metadata Cache listeners remain dormant. Restoring or first opening the sidebar, enabling startup scanning after layout readiness, or manually rebuilding starts the runtime and a complete baseline; local events are never used to manufacture a partial baseline. After the baseline succeeds, incremental updates keep the index synchronized for the session, so routine changes require no manual refresh. If future performance evidence justifies a cross-restart cache, it must remain a verifiable cache and cannot bypass resolution against the current Vault.
 
 ## Current implementation boundaries

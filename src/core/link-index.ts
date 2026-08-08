@@ -29,6 +29,12 @@ export interface EdgeContribution {
   readonly byKind: ReadonlyMap<LinkOccurrenceKind, number>;
 }
 
+export interface LinkIndexStatistics {
+  readonly fileCount: number;
+  readonly sourceCount: number;
+  readonly occurrenceCount: number;
+}
+
 export interface CanonicalLinkIndexState {
   readonly files: readonly {
     readonly path: string;
@@ -96,6 +102,14 @@ export class LinkIndex {
 
   public get occurrences(): readonly LinkOccurrence[] {
     return Array.from(this.occurrencesById.values());
+  }
+
+  public getStatistics(): LinkIndexStatistics {
+    return Object.freeze({
+      fileCount: this.filesByPath.size,
+      sourceCount: this.snapshotsBySource.size,
+      occurrenceCount: this.occurrencesById.size,
+    });
   }
 
   public get graphContributionPolicy(): GraphContributionPolicy {

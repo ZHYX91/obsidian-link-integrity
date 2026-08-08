@@ -24,6 +24,7 @@ import {
 import {
   LinkIndexCoordinator,
   RebuildCancelledError,
+  type IndexDiagnosticsSnapshot,
   type SourceEvent,
 } from "../features/index";
 import { queryBrokenLinks } from "../features/queries";
@@ -471,6 +472,16 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   public subscribeToIndexStatus(listener: (status: IndexStatus) => void): () => void {
     return this.query.subscribe(() => listener(this.query.getStatus()));
+  }
+
+  public getIndexDiagnostics(): IndexDiagnosticsSnapshot {
+    return this.coordinator.diagnostics;
+  }
+
+  public subscribeToIndexDiagnostics(
+    listener: (snapshot: IndexDiagnosticsSnapshot) => void,
+  ): () => void {
+    return this.coordinator.subscribeDiagnostics(listener);
   }
 
   private async openBrokenLink(result: BrokenLinkResult): Promise<void> {

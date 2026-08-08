@@ -6,6 +6,25 @@ import type { GraphContributionPolicyContext } from "../../src/core/scopes";
 import { occurrence, snapshot } from "./test-helpers";
 
 describe("LinkIndex", () => {
+  it("exposes allocation-free cardinality statistics", () => {
+    const index = new LinkIndex([
+      createFileRecord("Source.md"),
+      createFileRecord("Target.md"),
+    ]);
+    index.replaceSourceSnapshot("Source.md", snapshot("Source.md", [
+      occurrence("edge", "Source.md", {
+        targetPath: "Target.md",
+        fileStatus: "resolved",
+      }),
+    ]));
+
+    expect(index.getStatistics()).toEqual({
+      fileCount: 2,
+      sourceCount: 1,
+      occurrenceCount: 1,
+    });
+  });
+
   it("counts valid non-self edges by occurrence kind", () => {
     const index = new LinkIndex([
       createFileRecord("Source.md"),

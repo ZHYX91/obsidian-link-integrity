@@ -8,6 +8,27 @@ import type { Translator } from "../../shared/i18n";
 import type { SettingsSaveStatus } from "../../shared/settings-save-coordinator";
 import type { IndexStatus } from "../sidebar";
 
+export interface IndexOperationDiagnosticsView {
+  readonly completedAt: number;
+  readonly durationMs: number;
+}
+
+export interface IndexDiagnosticsView {
+  readonly fileCount: number;
+  readonly sourceCount: number;
+  readonly occurrenceCount: number;
+  readonly pendingEventCount: number;
+  readonly lastFullRebuild: (IndexOperationDiagnosticsView & {
+    readonly fileCount: number;
+    readonly sourceCount: number;
+    readonly occurrenceCount: number;
+  }) | null;
+  readonly lastIncrementalUpdate: (IndexOperationDiagnosticsView & {
+    readonly eventCount: number;
+    readonly affectedSourceCount: number;
+  }) | null;
+}
+
 export const SETTINGS_TAB_IDS = ["general", "broken-links", "isolated-files"] as const;
 export type SettingsTabId = (typeof SETTINGS_TAB_IDS)[number];
 
@@ -49,6 +70,10 @@ export interface SettingsUiContext {
   readonly retrySave?: () => void | Promise<void>;
   readonly getIndexStatus?: () => IndexStatus;
   readonly subscribeIndexStatus?: (listener: (status: IndexStatus) => void) => () => void;
+  readonly getIndexDiagnostics?: () => IndexDiagnosticsView;
+  readonly subscribeIndexDiagnostics?: (
+    listener: (snapshot: IndexDiagnosticsView) => void,
+  ) => () => void;
   readonly rebuildIndex?: () => void | Promise<void>;
   readonly fileExists?: (path: string) => boolean;
   readonly openFile?: (path: string) => void | Promise<void>;

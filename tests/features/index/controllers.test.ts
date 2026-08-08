@@ -280,6 +280,82 @@ describe("incremental indexing", () => {
 });
 
 describe("index coordinator", () => {
+  it("publishes bounded rebuild and incremental diagnostics", async () => {
+    let now = 1_000;
+    const vault = new VirtualVault({
+      "A.md": ["B"],
+      "B.md": [],
+    });
+    const coordinator = new LinkIndexCoordinator(vault, new LinkIndex(), {
+      now: () => now,
+    }, {
+      now: () => now,
+    });
+    const snapshots: unknown[] = [];
+    coordinator.subscribeDiagnostics((snapshot) => snapshots.push(snapshot));
+    coordinator.start();
+
+    const rebuilding = coordinator.rebuild();
+    now = 1_025;
+    await rebuilding;
+    expect(coordinator.diagnostics).toMatchObject({
+      fileCount: 2,
+      sourceCount: 2,
+      occurrenceCount: 1,
+      pendingEventCount: 0,
+      lastFullRebuild: {
+        completedAt: 1_025,
+        durationMs: 25,
+        fileCount: 2,
+        sourceCount: 2,
+        occurrenceCount: 1,
+      },
+      lastIncrementalUpdate: null,
+    });
+
+    vault.setLinks("A.md", []);
+    now = 2_000;
+    coordinator.enqueue({ type: "modify", path: "A.md" });
+    expect(coordinator.diagnostics.pendingEventCount).toBe(1);
+    now = 2_007;
+    await coordinator.whenIdle();
+    expect(coordinator.diagnostics).toMatchObject({
+      fileCount: 2,
+      sourceCount: 2,
+      occurrenceCount: 0,
+      pendingEventCount: 0,
+      lastIncrementalUpdate: {
+        completedAt: 2_007,
+        durationMs: 0,
+        eventCount: 1,
+        affectedSourceCount: 1,
+      },
+    });
+    expect(snapshots.length).toBeGreaterThanOrEqual(3);
+    coordinator.stop();
+  });
+
+  it("keeps indexing when diagnostics observers throw", async () => {
+    const vault = new VirtualVault({
+      "A.md": ["B"],
+      "B.md": [],
+    });
+    const coordinator = new LinkIndexCoordinator(vault);
+    coordinator.subscribeDiagnostics(() => {
+      throw new Error("observer failed");
+    });
+    coordinator.start();
+
+    await expect(coordinator.rebuild()).resolves.toBeDefined();
+    vault.setLinks("A.md", []);
+    coordinator.enqueue({ type: "modify", path: "A.md" });
+    await expect(coordinator.whenIdle()).resolves.toBeUndefined();
+
+    expect(coordinator.index.getOutgoingNeighborCount("A.md")).toBe(0);
+    expect(coordinator.diagnostics.occurrenceCount).toBe(0);
+    coordinator.stop();
+  });
+
   it("keeps graph contribution policy across rebuild and incremental updates", async () => {
     const vault = new VirtualVault({
       "Source.md": ["Target"],

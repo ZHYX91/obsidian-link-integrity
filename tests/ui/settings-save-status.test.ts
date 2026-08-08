@@ -58,6 +58,8 @@ describe("settings persistence status", () => {
   it("provides index status and a manual rebuild action in General settings", () => {
     const container = document.createElement("div");
     const rebuild = vi.fn();
+    const unsubscribeStatus = vi.fn();
+    const unsubscribeDiagnostics = vi.fn();
     const cleanup = renderCustomSetting(container, "index-maintenance", {
       settings: createDefaultSettings(),
       translator: createTranslator("en", "en"),
@@ -70,14 +72,41 @@ describe("settings persistence status", () => {
         total: 0,
         errorMessage: null,
       }),
+      subscribeIndexStatus: () => unsubscribeStatus,
+      getIndexDiagnostics: () => ({
+        fileCount: 12_438,
+        sourceCount: 10_904,
+        occurrenceCount: 86_201,
+        pendingEventCount: 0,
+        lastFullRebuild: {
+          completedAt: Date.UTC(2026, 7, 9, 6, 32),
+          durationMs: 1_240,
+          fileCount: 12_438,
+          sourceCount: 10_904,
+          occurrenceCount: 86_201,
+        },
+        lastIncrementalUpdate: {
+          completedAt: Date.UTC(2026, 7, 9, 6, 34),
+          durationMs: 18,
+          eventCount: 7,
+          affectedSourceCount: 7,
+        },
+      }),
+      subscribeIndexDiagnostics: () => unsubscribeDiagnostics,
       rebuildIndex: rebuild,
     });
 
-    expect(container.textContent).toContain("Results are up to date");
+    expect(container.textContent).toContain("Ready · 12,438 files · 86,201 references");
+    const details = container.querySelector("details");
+    expect(details?.open).toBe(false);
+    expect(details?.textContent).toContain("Analyzed sources10,904");
+    expect(details?.textContent).toContain("Memory only; rebuilt after restart");
     const button = Array.from(container.querySelectorAll("button"))
       .find(({ textContent }) => textContent === "Rebuild index");
     button?.click();
     expect(rebuild).toHaveBeenCalledOnce();
     cleanup();
+    expect(unsubscribeStatus).toHaveBeenCalledOnce();
+    expect(unsubscribeDiagnostics).toHaveBeenCalledOnce();
   });
 });

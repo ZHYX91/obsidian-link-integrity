@@ -108,43 +108,151 @@ function renderIndexMaintenance(
   container: HTMLElement,
   context: SettingsUiContext,
 ): (() => void) | undefined {
+  const { t } = context.translator;
+  const document = container.ownerDocument;
   container.classList.add("link-integrity-index-maintenance");
-  const status = container.ownerDocument.createElement("div");
+  const status = document.createElement("div");
   status.className = "link-integrity-index-status";
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
-  const rebuild = button(container, context.translator.t("index.start"), () => runAction(
+  const rebuild = button(container, t("index.start"), () => runAction(
     () => context.rebuildIndex?.(),
     context,
   ));
-  const update = (snapshot = context.getIndexStatus?.()): void => {
-    const current = snapshot ?? {
+  const details = document.createElement("details");
+  details.className = "link-integrity-index-details";
+  const detailsSummary = document.createElement("summary");
+  detailsSummary.textContent = t("index.details.title");
+  const metrics = document.createElement("dl");
+  metrics.className = "link-integrity-index-metrics";
+  const values = {
+    files: appendIndexMetric(metrics, t("index.details.files")),
+    sources: appendIndexMetric(metrics, t("index.details.sources")),
+    occurrences: appendIndexMetric(metrics, t("index.details.occurrences")),
+    fullRebuild: appendIndexMetric(metrics, t("index.details.fullRebuild")),
+    incremental: appendIndexMetric(metrics, t("index.details.incremental")),
+    pending: appendIndexMetric(metrics, t("index.details.pending")),
+    storage: appendIndexMetric(metrics, t("index.details.storage")),
+    error: appendIndexMetric(metrics, t("index.details.error")),
+  };
+  details.append(detailsSummary, metrics);
+  container.prepend(status);
+  container.append(details);
+
+  const update = (): void => {
+    const current = context.getIndexStatus?.() ?? {
       state: "idle" as const,
       current: 0,
       total: 0,
       errorMessage: null,
     };
+    const diagnostics = context.getIndexDiagnostics?.() ?? {
+      fileCount: 0,
+      sourceCount: 0,
+      occurrenceCount: 0,
+      pendingEventCount: 0,
+      lastFullRebuild: null,
+      lastIncrementalUpdate: null,
+    };
     status.textContent = current.state === "scanning"
-      ? context.translator.t("status.scanning", {
+      ? t("status.scanning", {
         current: current.current,
         total: current.total,
       })
-      : current.state === "failed" && current.errorMessage !== null
-        ? current.errorMessage
-        : context.translator.t(`status.${current.state}`);
+      : current.state === "ready"
+        ? t("index.readySummary", {
+          files: formatInteger(diagnostics.fileCount, context.translator.locale),
+          occurrences: formatInteger(diagnostics.occurrenceCount, context.translator.locale),
+        })
+        : t(`status.${current.state}`);
     status.setAttribute("role", current.state === "failed" ? "alert" : "status");
     rebuild.textContent = current.state === "idle"
-      ? context.translator.t("index.start")
+      ? t("index.start")
       : current.state === "scanning"
-        ? context.translator.t("index.rebuilding")
+        ? t("index.rebuilding")
         : current.state === "failed" || current.state === "stale"
-          ? context.translator.t("index.retry")
-          : context.translator.t("index.rebuild");
+          ? t("index.retry")
+          : t("index.rebuild");
     rebuild.disabled = context.rebuildIndex === undefined || current.state === "scanning";
+    values.files.textContent = formatInteger(diagnostics.fileCount, context.translator.locale);
+    values.sources.textContent = formatInteger(diagnostics.sourceCount, context.translator.locale);
+    values.occurrences.textContent = formatInteger(
+      diagnostics.occurrenceCount,
+      context.translator.locale,
+    );
+    values.fullRebuild.textContent = formatCompletedOperation(
+      diagnostics.lastFullRebuild,
+      context,
+    );
+    values.incremental.textContent = diagnostics.lastIncrementalUpdate === null
+      ? t("index.details.never")
+      : t("index.details.incrementalValue", {
+        time: formatTimestamp(
+          diagnostics.lastIncrementalUpdate.completedAt,
+          context.translator.locale,
+        ),
+        sources: formatInteger(
+          diagnostics.lastIncrementalUpdate.affectedSourceCount,
+          context.translator.locale,
+        ),
+        duration: formatDuration(
+          diagnostics.lastIncrementalUpdate.durationMs,
+          context.translator.locale,
+        ),
+      });
+    values.pending.textContent = formatInteger(
+      diagnostics.pendingEventCount,
+      context.translator.locale,
+    );
+    values.storage.textContent = t("index.details.memoryOnly");
+    const errorRow = values.error.parentElement;
+    if (errorRow !== null) errorRow.hidden = current.errorMessage === null;
+    values.error.textContent = current.errorMessage ?? "";
   };
-  container.prepend(status);
   update();
-  return context.subscribeIndexStatus?.(update);
+  const unsubscribeStatus = context.subscribeIndexStatus?.(update);
+  const unsubscribeDiagnostics = context.subscribeIndexDiagnostics?.(update);
+  return () => {
+    unsubscribeStatus?.();
+    unsubscribeDiagnostics?.();
+  };
+}
+
+function appendIndexMetric(container: HTMLDListElement, label: string): HTMLElement {
+  const row = container.ownerDocument.createElement("div");
+  const term = container.ownerDocument.createElement("dt");
+  const value = container.ownerDocument.createElement("dd");
+  term.textContent = label;
+  row.append(term, value);
+  container.append(row);
+  return value;
+}
+
+function formatCompletedOperation(
+  operation: { readonly completedAt: number; readonly durationMs: number } | null,
+  context: SettingsUiContext,
+): string {
+  if (operation === null) return context.translator.t("index.details.never");
+  return context.translator.t("index.details.completedValue", {
+    time: formatTimestamp(operation.completedAt, context.translator.locale),
+    duration: formatDuration(operation.durationMs, context.translator.locale),
+  });
+}
+
+function formatInteger(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatTimestamp(value: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(value);
+}
+
+function formatDuration(value: number, locale: string): string {
+  if (value < 1_000) return `${formatInteger(Math.round(value), locale)} ms`;
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value / 1_000)} s`;
 }
 
 function renderCandidateTypes(

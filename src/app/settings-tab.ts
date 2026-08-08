@@ -118,6 +118,9 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       retrySave: () => this.owner.retrySettingsSave(),
       getIndexStatus: () => this.owner.getIndexStatus(),
       subscribeIndexStatus: (listener) => this.owner.subscribeToIndexStatus(listener),
+      getIndexDiagnostics: () => this.owner.getIndexDiagnostics(),
+      subscribeIndexDiagnostics: (listener) =>
+        this.owner.subscribeToIndexDiagnostics(listener),
       rebuildIndex: () => this.owner.rebuild(),
       fileExists: (path) => this.owner.hasVaultFile(path),
       openFile: (path) => this.owner.openVaultFile(path),
