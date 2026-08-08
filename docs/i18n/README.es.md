@@ -34,7 +34,7 @@ Los resultados dinámicos de Bases no son aristas explícitas. Si el archivo se 
 
 ## Instalación
 
-La primera versión pública espera la aceptación final. Tras publicarse, instala Link Integrity desde **Ajustes → Complementos de la comunidad → Explorar** o descarga `link-integrity-<version>.zip` desde la [última versión](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+Tras la aprobación en el directorio de la comunidad, instala Link Integrity desde **Ajustes → Complementos de la comunidad → Explorar**. También puedes descargar `link-integrity-<version>.zip` desde la [última versión de GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
 Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` en `Vault/.obsidian/plugins/link-integrity/`. Al actualizar, sustituye solo esos tres archivos y conserva `data.json` salvo que quieras restablecer los ajustes.
 

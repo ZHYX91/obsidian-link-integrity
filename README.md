@@ -34,7 +34,7 @@ Dynamic Bases query results are not explicit edges. A resolved file with a missi
 
 ## Installation
 
-The initial public release is awaiting final acceptance. Once published, install Link Integrity from **Settings → Community plugins → Browse** or download `link-integrity-<version>.zip` from the [latest release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+After community-directory approval, install Link Integrity from **Settings → Community plugins → Browse**. You can also download `link-integrity-<version>.zip` from the [latest GitHub release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
 For a manual installation, place `main.js`, `manifest.json`, and `styles.css` in `Vault/.obsidian/plugins/link-integrity/`, reload Obsidian, and enable Link Integrity. During upgrades, replace only those three files and preserve `data.json` unless you explicitly want to reset the plugin settings.
 

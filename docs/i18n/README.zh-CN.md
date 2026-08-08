@@ -34,7 +34,7 @@ Bases 动态查询结果不算显式边。文件目标已解析但标题或块�
 
 ## 安装
 
-首个公开版本正在等待最终验收。发布后，可从 **设置 → 第三方插件 → 浏览** 安装，或从[最新版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下载 `link-integrity-<version>.zip`。
+社区目录审核通过后，可从 **设置 → 第三方插件 → 浏览** 安装。也可以从[最新 GitHub 版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下载 `link-integrity-<version>.zip`。
 
 手动安装时，把 `main.js`、`manifest.json` 和 `styles.css` 放入 `Vault/.obsidian/plugins/link-integrity/`，重新加载 Obsidian 并启用插件。升级只替换这三个文件；除非明确重置设置，否则保留 `data.json`。
 

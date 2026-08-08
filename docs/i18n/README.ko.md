@@ -34,7 +34,7 @@ Bases 동적 쿼리 결과는 명시적 간선이 아닙니다. 파일은 해결
 
 ## 설치
 
-첫 공개 버전은 최종 승인 대기 중입니다. 공개 후 **설정 → 커뮤니티 플러그인 → 탐색**에서 설치하거나 [최신 릴리스](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)의 `link-integrity-<version>.zip`을 이용할 수 있습니다.
+커뮤니티 디렉터리 승인 후 **설정 → 커뮤니티 플러그인 → 탐색**에서 설치할 수 있습니다. [최신 GitHub 릴리스](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)에서 `link-integrity-<version>.zip`을 다운로드할 수도 있습니다.
 
 수동 설치는 `main.js`, `manifest.json`, `styles.css`를 `Vault/.obsidian/plugins/link-integrity/`에 넣습니다. 업그레이드할 때는 이 세 파일만 교체하고 설정을 초기화하려는 경우가 아니면 `data.json`을 보존하세요.
 

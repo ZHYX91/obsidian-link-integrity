@@ -34,7 +34,7 @@ Dynamische Bases-Abfragen sind keine expliziten Kanten. Ein aufgelöstes Dateizi
 
 ## Installation
 
-Die erste öffentliche Version wartet auf die Endabnahme. Nach der Veröffentlichung kann Link Integrity über **Einstellungen → Community-Erweiterungen → Durchsuchen** oder als `link-integrity-<version>.zip` aus dem [neuesten Release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest) installiert werden.
+Nach der Freigabe im Community-Verzeichnis kann Link Integrity über **Einstellungen → Community-Erweiterungen → Durchsuchen** installiert werden. Alternativ steht `link-integrity-<version>.zip` im [neuesten GitHub-Release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest) bereit.
 
 Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` nach `Vault/.obsidian/plugins/link-integrity/`. Beim Aktualisieren werden nur diese drei Dateien ersetzt; `data.json` bleibt erhalten, solange die Einstellungen nicht ausdrücklich zurückgesetzt werden sollen.
 

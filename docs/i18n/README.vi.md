@@ -34,7 +34,7 @@ Kết quả truy vấn Bases động không phải cạnh rõ ràng. Nếu tệp
 
 ## Cài đặt
 
-Bản công khai đầu tiên đang chờ nghiệm thu cuối. Sau khi phát hành, cài từ **Cài đặt → Plugin cộng đồng → Duyệt** hoặc tải `link-integrity-<version>.zip` từ [bản phát hành mới nhất](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+Sau khi được phê duyệt trong thư mục cộng đồng, hãy cài từ **Cài đặt → Plugin cộng đồng → Duyệt**. Bạn cũng có thể tải `link-integrity-<version>.zip` từ [bản phát hành GitHub mới nhất](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
 Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css` vào `Vault/.obsidian/plugins/link-integrity/`. Khi nâng cấp, chỉ thay ba tệp này và giữ `data.json` trừ khi muốn đặt lại cài đặt.
 

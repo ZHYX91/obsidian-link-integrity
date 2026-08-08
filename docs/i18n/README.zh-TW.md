@@ -34,7 +34,7 @@ Bases 動態查詢結果不算明確圖邊。若檔案已解析但標題或區�
 
 ## 安裝
 
-首個公開版本正在等待最終驗收。發佈後，可從 **設定 → 第三方外掛 → 瀏覽** 安裝，或從[最新版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下載 `link-integrity-<version>.zip`。
+通過社群目錄審核後，可從 **設定 → 第三方外掛 → 瀏覽** 安裝。也可以從[最新 GitHub 版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下載 `link-integrity-<version>.zip`。
 
 手動安裝時，將 `main.js`、`manifest.json` 與 `styles.css` 放入 `Vault/.obsidian/plugins/link-integrity/`，重新載入 Obsidian 並啟用外掛。升級只替換這三個檔案；除非要重設設定，否則保留 `data.json`。
 

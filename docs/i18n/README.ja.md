@@ -34,7 +34,7 @@ Bases の動的クエリ結果は明示的な辺ではありません。ファ�
 
 ## インストール
 
-最初の公開版は最終確認待ちです。公開後は **設定 → コミュニティプラグイン → 閲覧** からインストールするか、[最新リリース](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)の `link-integrity-<version>.zip` を利用できます。
+コミュニティディレクトリで承認された後は、**設定 → コミュニティプラグイン → 閲覧** からインストールできます。[最新の GitHub リリース](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)から `link-integrity-<version>.zip` をダウンロードすることもできます。
 
 手動では `main.js`、`manifest.json`、`styles.css` を `Vault/.obsidian/plugins/link-integrity/` に配置します。更新時はこの 3 ファイルだけを置き換え、設定をリセットしない限り `data.json` を保持してください。
 

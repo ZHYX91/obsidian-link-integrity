@@ -34,7 +34,7 @@ Link Integrity — локальный диагностический плаги�
 
 ## Установка
 
-Первая публичная версия ожидает финальной приёмки. После публикации установите Link Integrity через **Настройки → Сторонние плагины → Обзор** или скачайте `link-integrity-<version>.zip` из [последнего выпуска](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+После одобрения в каталоге сообщества установите Link Integrity через **Настройки → Сторонние плагины → Обзор**. Также можно скачать `link-integrity-<version>.zip` из [последнего выпуска GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
 Для ручной установки поместите `main.js`, `manifest.json` и `styles.css` в `Vault/.obsidian/plugins/link-integrity/`. При обновлении заменяйте только эти три файла и сохраняйте `data.json`, если не требуется сброс настроек.
 
