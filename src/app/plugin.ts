@@ -212,8 +212,9 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.rebuildRequestCount += 1;
     this.query.setStatus({ state: "scanning", current: 0, total: 0, errorMessage: null });
     try {
+      const startsNewRebuild = this.coordinator.state !== "rebuilding";
+      if (startsNewRebuild) this.discardPendingSourceEvents();
       const rebuild = this.coordinator.rebuild();
-      this.flushPendingSourceEvents();
       await rebuild;
       this.baselineAvailable = true;
       this.flushPendingSourceEvents();
@@ -351,6 +352,14 @@ export default class LinkIntegrityPlugin extends Plugin {
         });
         this.reportError(error);
       });
+  }
+
+  private discardPendingSourceEvents(): void {
+    if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
+    if (this.eventMaxFlushTimer !== null) window.clearTimeout(this.eventMaxFlushTimer);
+    this.eventFlushTimer = null;
+    this.eventMaxFlushTimer = null;
+    this.pendingSourceEvents = [];
   }
 
   private refreshEntrypoints(): void {

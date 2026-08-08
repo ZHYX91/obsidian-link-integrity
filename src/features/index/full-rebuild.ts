@@ -9,6 +9,7 @@ export interface FullRebuildOptions {
   readonly onProgress?: (completed: number, total: number) => void;
   readonly progressThrottleMs?: number;
   readonly yieldEvery?: number;
+  readonly yieldIntervalMs?: number;
   readonly yieldControl?: () => Promise<void>;
   readonly now?: () => number;
 }
@@ -23,6 +24,7 @@ export interface FullRebuildResult {
 export class FullRebuildController {
   private readonly concurrency: number;
   private readonly yieldEvery: number;
+  private readonly yieldIntervalMs: number;
   private readonly yieldControl: () => Promise<void>;
 
   public constructor(
@@ -32,6 +34,7 @@ export class FullRebuildController {
   ) {
     this.concurrency = Math.max(1, Math.floor(options.concurrency ?? 4));
     this.yieldEvery = Math.max(1, Math.floor(options.yieldEvery ?? 128));
+    this.yieldIntervalMs = Math.max(1, options.yieldIntervalMs ?? 8);
     this.yieldControl = options.yieldControl ?? defaultYieldControl;
   }
 
@@ -63,6 +66,8 @@ export class FullRebuildController {
     let completed = 0;
     let lastProgressAt = Number.NEGATIVE_INFINITY;
     const now = this.options.now ?? Date.now;
+    let lastYieldAt = now();
+    let pendingYield: Promise<void> | null = null;
     const throttleMs = Math.max(0, this.options.progressThrottleMs ?? 50);
     const reportProgress = (force: boolean): void => {
       if (this.options.onProgress === undefined) return;
@@ -74,6 +79,7 @@ export class FullRebuildController {
     reportProgress(true);
     const worker = async (): Promise<void> => {
       while (nextIndex < files.length) {
+        if (pendingYield !== null) await pendingYield;
         const fileIndex = nextIndex;
         nextIndex += 1;
         const file = files[fileIndex];
@@ -82,8 +88,15 @@ export class FullRebuildController {
         if (snapshot !== null) index.replaceSourceSnapshot(file.path, snapshot);
         completed += 1;
         reportProgress(completed === files.length);
-        if (completed < files.length && completed % this.yieldEvery === 0) {
-          await this.yieldControl();
+        const currentTime = now();
+        const countBudgetReached = completed % this.yieldEvery === 0;
+        const timeBudgetReached = currentTime - lastYieldAt >= this.yieldIntervalMs;
+        if (completed < files.length && (countBudgetReached || timeBudgetReached)) {
+          pendingYield ??= this.yieldControl().finally(() => {
+            lastYieldAt = now();
+            pendingYield = null;
+          });
+          await pendingYield;
         }
       }
     };

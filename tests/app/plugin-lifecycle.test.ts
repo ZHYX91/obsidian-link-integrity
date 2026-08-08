@@ -167,7 +167,7 @@ describe("plugin index lifecycle", () => {
     plugin.onunload();
   });
 
-  it("buffers create, modify, rename, and delete events across the startup baseline", async () => {
+  it("absorbs pre-scan Vault events into the startup baseline without replaying them", async () => {
     vi.useFakeTimers();
     const fileA = createMockFile("A.md", 1);
     const fileB = createMockFile("B.md", 2);
@@ -215,6 +215,7 @@ describe("plugin index lifecycle", () => {
     vaultEvents.emit("rename", fileC, fileB.path);
     files = [fileC];
     vaultEvents.emit("delete", fileA);
+    for (let count = 0; count < 100; count += 1) vaultEvents.emit("modify", fileC);
     metadataEvents.emit("resolved");
 
     await Promise.resolve();
@@ -225,7 +226,78 @@ describe("plugin index lifecycle", () => {
     await Promise.resolve();
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
     expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["C.md"]);
-    expect(snapshotBuildCount).toBe(2);
+    expect(snapshotBuildCount).toBe(1);
+    plugin.onunload();
+  });
+
+  it("still replays Vault events that arrive after a baseline scan begins", async () => {
+    vi.useFakeTimers();
+    const canvas = createMockFile("A.canvas", 1);
+    const target = createMockFile("B.md", 1);
+    const vaultEvents = new TestEvents();
+    const metadataEvents = new TestEvents();
+    let layoutReady: (() => void) | null = null;
+    let source = JSON.stringify({ nodes: [] });
+    let cachedReadCount = 0;
+    let releaseFirstRead = (): void => undefined;
+    let markFirstReadStarted = (): void => undefined;
+    const firstReadStarted = new Promise<void>((resolve) => {
+      markFirstReadStarted = resolve;
+    });
+    const firstReadGate = new Promise<void>((resolve) => {
+      releaseFirstRead = resolve;
+    });
+    const app = {
+      vault: {
+        cachedRead: async () => {
+          cachedReadCount += 1;
+          const captured = source;
+          if (cachedReadCount === 1) {
+            markFirstReadStarted();
+            await firstReadGate;
+          }
+          return captured;
+        },
+        getFileByPath: (path: string) => [canvas, target]
+          .find((file) => file.path === path) ?? null,
+        getFiles: () => [canvas, target],
+        on: vaultEvents.on,
+      },
+      metadataCache: {
+        getFileCache: () => ({ links: [], embeds: [], frontmatterLinks: [] }),
+        getFirstLinkpathDest: (path: string) => path === target.path ? target : null,
+        on: metadataEvents.on,
+        offref: metadataEvents.offref,
+      },
+      workspace: {
+        getLeavesOfType: () => [],
+        onLayoutReady: (callback: () => void) => {
+          layoutReady = callback;
+        },
+      },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+
+    await plugin.onload();
+    (layoutReady as (() => void) | null)?.();
+    metadataEvents.emit("resolved");
+    await firstReadStarted;
+
+    source = JSON.stringify({
+      nodes: [{ id: "target", type: "file", file: target.path }],
+    });
+    vaultEvents.emit("modify", canvas);
+    await vi.advanceTimersByTimeAsync(100);
+    releaseFirstRead();
+
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    const startupRebuild = runtime.coordinator.rebuildPromise;
+    expect(startupRebuild).not.toBeNull();
+    await startupRebuild;
+    expect(cachedReadCount).toBe(2);
+    expect(runtime.coordinator.index.getOutgoingNeighborCount(canvas.path)).toBe(1);
     plugin.onunload();
   });
 
@@ -320,7 +392,10 @@ interface PluginRuntimeInspection {
     readonly subscribe: (listener: () => void) => () => void;
   };
   readonly coordinator: {
-    readonly index: { readonly files: readonly { readonly path: string }[] };
+    readonly index: {
+      readonly files: readonly { readonly path: string }[];
+      readonly getOutgoingNeighborCount: (path: string) => number;
+    };
     readonly store: { readonly generation: number };
     readonly rebuildPromise: Promise<unknown> | null;
     readonly enqueue: (event: { readonly type: "modify"; readonly path: string }) => void;
@@ -371,5 +446,6 @@ function createMockFile(path: string, modifiedAt: number): TFile {
     extension: string,
     modifiedAt: number,
   ) => TFile;
-  return new MockTFile(path, "md", modifiedAt);
+  const extension = path.includes(".") ? path.slice(path.lastIndexOf(".") + 1) : "";
+  return new MockTFile(path, extension, modifiedAt);
 }

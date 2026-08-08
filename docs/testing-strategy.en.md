@@ -51,13 +51,13 @@ A clean rebuild is the correctness oracle for the incremental implementation. Te
 2. rebuild a clean index from the current virtual Vault;
 3. compare normalized files, snapshots, occurrence statuses, edge counts, and self-links.
 
-Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, buffered replay of create/modify/delete/rename during the startup baseline, global metadata-resolved handling, and bounded concurrency.
+Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, absorption of pre-scan event storms by the new baseline without duplicate snapshot work, buffered replay of create/modify/delete/rename after a scan has begun, global metadata-resolved handling, and bounded concurrency.
 
 ## Rebuild and failure tests
 
 Transactional tests verify that staging is invisible before completion and is published atomically only after success. On build failure, the store retains the same last-known-good object and generation.
 
-Coordinator tests cover buffering and replay during rebuild, single-flight concurrent rebuilds, lifecycle recovery after pre-rebuild incremental failure, and prevention of an obsolete rebuild publishing after stop. Yield tests inject `yieldControl`, and progress tests use a controlled clock to verify throttling and final progress.
+Coordinator tests cover buffering and replay during rebuild, single-flight concurrent rebuilds, lifecycle recovery after pre-rebuild incremental failure, and prevention of an obsolete rebuild publishing after stop. Yield tests inject `yieldControl` and a controlled clock to verify both file-count and main-thread-time budgets; progress tests verify throttling and final progress.
 
 Failure tests should assert more than an exception: they must verify whether a trustworthy index remains, whether queued events can continue, and whether status honestly becomes failed or stale. Targeted synchronous-reducer fault injection makes a later source in one batch introduce a cross-source occurrence-ID collision and asserts that batch prevalidation fails before any file metadata or snapshot is published.
 
@@ -80,6 +80,8 @@ Performance acceptance observes at least full construction, one-file modificatio
 The local synthetic 10k and explicit 50k modes have been run for the current implementation. On the exact runtime, the 2026-08-02 candidate built the 10k graph and isolated projection in 116.9 ms; explicit 50k mode took 606.0 ms and the complete guarded 50k benchmark test took 955 ms. A 100k claim remains unverified and must not be inferred from the 50k result.
 
 The dedicated 2026-08-06 graph-ignore benchmark generates three occurrences per source and repeatedly replaces one complete source snapshot. At 10k/29,700 occurrences and 12 batches, the legacy full-scan comparator performed 356,400 rule evaluations and 12 complete-graph rebuilds in 659.6 ms; the local policy path performed 72 evaluations, zero complete-graph rebuilds, and took 0.4 ms. In explicit 50k/149,700-occurrence mode with six batches, the comparator took 898,200 evaluations, six complete-graph rebuilds, and 1,746.6 ms, while the local path took 36 evaluations, zero complete-graph rebuilds, and 0.3 ms. The guard asserts that evaluation count equals only the old and new occurrences per batch and that ordinary updates do not rebuild the complete graph, with broad elapsed limits of 500 ms/1,000 ms respectively; the same-process heap delta is printed but is not a threshold promise because it depends on garbage-collection timing.
+
+On 2026-08-08, the guardrail gained an all-isolated sidebar-query refresh case covering the file-candidate classification, isolation projection, diagnostic projection, and result materialization performed after each index notification. In final verification on the exact runtime, six complete projections of 10k isolated files took 192.7 ms total, while three complete projections of 50k isolated files took 494.6 ms total; the gates use conservative ceilings of 2,000 ms and 8,000 ms respectively. This confirms that the implementation has no background polling, but an open sidebar still performs one O(file count + occurrence count) derived query per real index-change batch. These synthetic figures detect regressions and do not replace real-Vault interaction-jank or longest-main-thread-task measurement.
 
 ## Package and host acceptance
 

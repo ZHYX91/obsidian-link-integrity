@@ -56,6 +56,33 @@ describe("full rebuild", () => {
     expect(yields).toBe(2);
     expect(progress).toEqual(["0/5", "5/5"]);
   });
+
+  it("yields when scan work reaches the main-thread time budget", async () => {
+    const files = Array.from({ length: 5 }, (_, index) =>
+      createFileRecord(`Note-${index}.md`));
+    let clock = 0;
+    let yields = 0;
+    const controller = new FullRebuildController({
+      listFiles: async () => files,
+      getFileRecord: async (path) => files.find((file) => file.path === path) ?? null,
+      buildSourceSnapshot: async (path) => {
+        clock += 5;
+        return snapshot(path, []);
+      },
+    }, new AtomicLinkIndexStore(), {
+      concurrency: 1,
+      yieldEvery: 1_000,
+      yieldIntervalMs: 8,
+      yieldControl: async () => {
+        yields += 1;
+      },
+      now: () => clock,
+    });
+
+    await controller.rebuild();
+
+    expect(yields).toBe(2);
+  });
 });
 
 describe("incremental indexing", () => {

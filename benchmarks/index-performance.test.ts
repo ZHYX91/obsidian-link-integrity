@@ -10,14 +10,17 @@ import {
   type FileRecord,
   type LinkOccurrence,
 } from "../src/core";
+import { SidebarQueryService } from "../src/app/sidebar-query-service";
 import { createIsolatedFileProjection } from "../src/features/queries";
 import { IgnoreService, type IgnoreRule } from "../src/shared/ignore-rules";
+import { createDefaultSettings } from "../src/shared/settings";
 
 const LARGE_MODE = process.env.LINK_INTEGRITY_BENCHMARK_MODE === "large";
 const FILE_COUNT = LARGE_MODE ? 50_000 : 10_000;
 const MAX_BUILD_MILLISECONDS = LARGE_MODE ? 30_000 : 8_000;
 const GRAPH_IGNORE_BATCH_COUNT = LARGE_MODE ? 6 : 12;
 const OCCURRENCES_PER_SOURCE = 3;
+const QUERY_REFRESH_COUNT = LARGE_MODE ? 3 : 6;
 
 describe(`LinkIndex generated ${FILE_COUNT.toLocaleString()}-file benchmark`, () => {
   it("builds a deterministic graph and projects isolated files within the guardrail", () => {
@@ -115,6 +118,28 @@ describe(`LinkIndex generated ${FILE_COUNT.toLocaleString()}-file benchmark`, ()
       `optimized ${optimizedEvaluationCount} evaluations/${optimizedGraphRebuildCount} rebuilds ` +
       `in ${optimizedElapsed.toFixed(1)} ms ` +
       `(heap ${(optimizedHeapDelta / 1_048_576).toFixed(1)} MiB)\n`,
+    );
+  });
+
+  it("bounds repeated all-isolated sidebar projections", () => {
+    const index = new LinkIndex(createGeneratedFiles());
+    const query = new SidebarQueryService(
+      () => index,
+      () => createDefaultSettings(),
+    );
+    const startedAt = performance.now();
+    let isolatedCount = 0;
+    for (let refresh = 0; refresh < QUERY_REFRESH_COUNT; refresh += 1) {
+      query.notify();
+      isolatedCount = query.getSnapshot().isolatedFiles.length;
+    }
+    const elapsed = performance.now() - startedAt;
+
+    expect(isolatedCount).toBe(FILE_COUNT);
+    expect(elapsed).toBeLessThan(LARGE_MODE ? 8_000 : 2_000);
+    process.stdout.write(
+      `\nLink Integrity sidebar-query benchmark: ${FILE_COUNT} isolated files, ` +
+      `${QUERY_REFRESH_COUNT} full projections in ${elapsed.toFixed(1)} ms\n`,
     );
   });
 });
