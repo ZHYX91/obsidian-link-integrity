@@ -159,46 +159,6 @@ export async function verifyReleaseHandoff({ directory, version }) {
   return { publicAssetNames: expectedPublicNames, version };
 }
 
-export async function compareExistingReleaseAssets({
-  existingDirectory,
-  localDirectory,
-  version,
-}) {
-  assertReleaseVersion(version);
-  if (typeof existingDirectory !== "string" || existingDirectory.length === 0) {
-    throw new Error("An existing Release asset directory is required");
-  }
-  if (typeof localDirectory !== "string" || localDirectory.length === 0) {
-    throw new Error("A local Release candidate directory is required");
-  }
-  const existingRoot = path.resolve(existingDirectory);
-  const localRoot = path.resolve(localDirectory);
-  const expectedNames = publicReleaseAssetNames(version);
-  const existingEntries = await readdir(existingRoot, { withFileTypes: true });
-  assertExactNames(
-    existingEntries.map(({ name }) => name).sort(),
-    expectedNames,
-    "Existing immutable Release asset inventory",
-  );
-  for (const entry of existingEntries) {
-    if (!entry.isFile() || entry.isSymbolicLink()) {
-      throw new Error(`Existing Release asset must be a regular file: ${entry.name}`);
-    }
-  }
-  for (const name of expectedNames) {
-    const [local, existing] = await Promise.all([
-      readRegularFile(path.join(localRoot, name), `Local Release asset ${name}`),
-      readRegularFile(path.join(existingRoot, name), `Existing Release asset ${name}`),
-    ]);
-    if (hashSha256(local) !== hashSha256(existing)) {
-      throw new Error(
-        `Existing immutable Release asset differs: ${name}; publish a new version instead`,
-      );
-    }
-  }
-  return expectedNames;
-}
-
 export function createDeterministicZip(entries) {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error("ZIP must contain at least one entry");
@@ -466,21 +426,8 @@ async function main() {
     process.stdout.write(`Release handoff verified for ${result.version}.\n`);
     return;
   }
-  if (command === "compare") {
-    assertAllowedOptions(values, new Set(["--existing-dir", "--local-dir", "--version"]));
-    const version = values.get("--version");
-    const assets = await compareExistingReleaseAssets({
-      existingDirectory: values.get("--existing-dir"),
-      localDirectory: values.get("--local-dir"),
-      version,
-    });
-    process.stdout.write(
-      `Existing immutable Release ${version} is an identical no-op (${assets.join(", ")}).\n`,
-    );
-    return;
-  }
   throw new Error(
-    "Usage: release-assets.mjs <archive|handoff|verify-handoff|compare> [--name value]",
+    "Usage: release-assets.mjs <archive|handoff|verify-handoff> [--name value]",
   );
 }
 

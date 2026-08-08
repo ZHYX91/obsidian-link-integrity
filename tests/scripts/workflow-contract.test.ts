@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
@@ -7,8 +7,14 @@ const release = readFileSync(".github/workflows/release.yml", "utf8");
 const publish = release.split("\n  publish:\n", 2)[1] ?? "";
 
 describe("workflow supply-chain contract", () => {
-  it("runs the canonical release gate including the quick benchmark", () => {
+  it("publishes only from a numeric version tag after the canonical release gate", () => {
+    expect(release).toContain('- "[0-9]*.[0-9]*.[0-9]*"');
+    expect(release).not.toContain("workflow_dispatch:");
+    expect(release).toContain('node scripts/check-release-version.mjs "$GITHUB_REF_NAME"');
     expect(release).toContain("run: npm run release:check");
+    expect(release).toContain(
+      'git merge-base --is-ancestor "$GITHUB_SHA" "origin/${{ github.event.repository.default_branch }}"',
+    );
   });
 
   it("keeps every multiline shell block syntactically valid", () => {
@@ -21,31 +27,54 @@ describe("workflow supply-chain contract", () => {
           input: block,
           windowsHide: true,
         });
-        expect(
-          result.status,
-          `${fileName} run block ${index + 1}: ${result.stderr}`,
-        ).toBe(0);
+        expect(result.status, `${fileName} run block ${index + 1}: ${result.stderr}`).toBe(0);
       });
     }
   }, 15_000);
 
-  it("pins every action to a full commit and pins the runner, Node.js, and npm", () => {
+  it("pins actions, runner, Node.js, and npm", () => {
     const workflows = `${ci}\n${release}`;
-    const actionReferences = [
-      ...workflows.matchAll(/uses:\s+[^@\s]+@([^\s#]+)/gu),
-    ].map((match) => match[1] ?? "");
-    expect(actionReferences.length).toBeGreaterThan(0);
-    expect(actionReferences.every((reference) => /^[0-9a-f]{40}$/u.test(reference))).toBe(
-      true,
+    const actionReferences = [...workflows.matchAll(/uses:\s+[^@\s]+@([^\s#]+)/gu)].map(
+      (match) => match[1] ?? "",
     );
+    expect(actionReferences.length).toBeGreaterThan(0);
+    expect(actionReferences.every((reference) => /^[0-9a-f]{40}$/u.test(reference))).toBe(true);
     expect(workflows).toContain("runs-on: ubuntu-24.04");
     expect(workflows).toContain("node-version: 24.18.0");
     expect(workflows).toContain("npm@11.16.0");
   });
 
-  it("keeps verification read-only and publication free of checkout and project execution", () => {
-    const verify = release.split("\n  publish:\n", 1)[0];
-    expect(verify).toContain("permissions:\n      attestations: read\n      contents: read");
+  it("hands publish one exact current-run artifact", () => {
+    expect(release).toContain(
+      "name: link-integrity-release-${{ github.run_id }}-${{ github.run_attempt }}",
+    );
+    expect(release).toContain("overwrite: false");
+    expect(release).toContain("artifact-id");
+    expect(release).toContain("artifact-digest");
+    expect(publish).toContain("/actions/artifacts/$EXPECTED_ARTIFACT_ID");
+    expect(publish).toContain(".workflow_run.id == $run_id");
+    expect(publish).toContain(".workflow_run.head_sha == $sha");
+    expect(publish).toContain('.digest == $digest');
+    expect(publish).toContain('$(sha256sum "$transport_zip"');
+  });
+
+  it("publishes exactly the four Obsidian assets and keeps checksums private", () => {
+    expect(publish).toContain(
+      "expected_names=\"$(printf '%s\\n' SHA256SUMS \"link-integrity-$GITHUB_REF_NAME.zip\" main.js manifest.json styles.css",
+    );
+    expect(publish).toContain("(cd \"$RUNNER_TEMP/release\" && sha256sum --check SHA256SUMS)");
+
+    const attestationBlock = publish.match(
+      /subject-path:\s*\|([\s\S]*?)\n\s+- name: Publish GitHub Release/u,
+    )?.[1] ?? "";
+    expect(attestationBlock).toContain("main.js");
+    expect(attestationBlock).toContain("manifest.json");
+    expect(attestationBlock).toContain("styles.css");
+    expect(attestationBlock).toContain("link-integrity-");
+    expect(attestationBlock).not.toContain("SHA256SUMS");
+  });
+
+  it("keeps publication isolated from checked-out project code", () => {
     expect(publish).toContain("actions: read");
     expect(publish).toContain("attestations: write");
     expect(publish).toContain("contents: write");
@@ -54,141 +83,29 @@ describe("workflow supply-chain contract", () => {
     expect(publish).not.toContain("actions/setup-node");
     expect(publish).not.toMatch(/npm (?:ci|install|run)/u);
     expect(publish).not.toMatch(/node\s+scripts\//u);
-    expect(publish).not.toMatch(/(?:bash|sh)\s+scripts\//u);
     expect(publish).not.toContain("$GITHUB_WORKSPACE");
-    expect(publish).toContain('source "$RUNNER_TEMP/release-inline.sh"');
-    expect(publish).toContain('[[ "$RUNNER_ENVIRONMENT" == "github-hosted" ]]');
   });
 
-  it("binds the handoff to run id, attempt, exact artifact id, owner, and GitHub digest", () => {
-    expect(release).toContain('name="link-integrity-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"');
-    expect(release).toContain("overwrite: false");
-    expect(release).toContain("artifact-id");
-    expect(release).toContain("artifact-digest");
-    expect(publish).toContain("/actions/artifacts/$EXPECTED_ARTIFACT_ID");
-    expect(publish).toContain("/actions/runs/$GITHUB_RUN_ID/artifacts");
-    expect(publish).toContain(".run_attempt == $attempt");
-    expect(publish).toContain(".repository.owner.login == $owner");
-    expect(publish).toContain(".digest == $digest");
-    expect(release).toContain('[[ "$ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]');
-    expect(publish).toContain('--arg digest "sha256:$EXPECTED_ARTIFACT_DIGEST"');
-    expect(publish).toContain('$(sha256sum "$transport_zip"');
-    expect(publish).not.toContain('sha256:$(sha256sum "$transport_zip"');
+  it("uses the shared direct-release flow without repository-governance preconditions", () => {
+    expect(publish).toContain('gh release create "$GITHUB_REF_NAME"');
+    expect(publish).toContain("--generate-notes");
+    expect(publish).toContain("--verify-tag");
+    expect(publish).not.toContain("--clobber");
+    expect(release).not.toContain("immutable_releases_confirmed");
+    expect(release).not.toContain("protected_numeric_tags_confirmed");
+    expect(release).not.toContain("github-release-contract.mjs");
+    expect(release).not.toContain("verify-release-source.mjs");
   });
 
-  it("publishes exactly four assets while keeping SHA256SUMS inside the handoff", () => {
-    expect(release).toContain("SHA256SUMS is handoff-only");
-    expect(release).toContain('[[ "$(wc -l < "$candidate_dir/SHA256SUMS")" -eq 4 ]]');
-    expect(release).toContain("unzip -Z1");
-    expect(release).toContain('cmp --silent "$candidate_dir/$name" "$RUNNER_TEMP/archive-$name"');
-
-    const attestationBlock = publish.match(
-      /subject-path:\s*\|([\s\S]*?)\n\s+- name: Verify exact candidate provenance/u,
-    )?.[1] ?? "";
-    expect(attestationBlock).toContain("main.js");
-    expect(attestationBlock).toContain("manifest.json");
-    expect(attestationBlock).toContain("styles.css");
-    expect(attestationBlock).toContain("link-integrity-");
-    expect(attestationBlock).not.toContain("SHA256SUMS");
-
-    const transactionBlock = publish.match(
-      /- name: Create verified draft[\s\S]*?(?=\n\s+- name: Final immutable)/u,
-    )?.[0] ?? "";
-    expect(transactionBlock).toContain("draft: true, prerelease: false");
-    expect(transactionBlock).toContain('for name in "${public_assets[@]}"; do');
-    expect(transactionBlock).toContain(
-      'upload_asset_to_draft "$created_draft_id" "$name" "$candidate_dir/$name"',
-    );
-    expect(transactionBlock).not.toContain("SHA256SUMS");
-  });
-
-  it("binds draft creation, exact upload, and publication to a new release id", () => {
-    const transactionBlock = publish.match(
-      /- name: Create verified draft[\s\S]*?(?=\n\s+- name: Final immutable)/u,
-    )?.[0] ?? "";
-    expect(transactionBlock).toContain("if: steps.release_state.outputs.decision == 'create'");
-    expect(transactionBlock).toContain(
-      'create_empty_draft "$create_request" "$created_draft_id_file"',
-    );
-    expect(transactionBlock).toContain(
-      'IFS= read -r created_draft_id < "$created_draft_id_file"',
-    );
-    expect(transactionBlock).toContain(
-      'upload_asset_to_draft "$created_draft_id"',
-    );
-    expect(transactionBlock).toContain('verify_uploaded_draft "$created_draft_id"');
-    expect(transactionBlock).toContain(
-      '"/repos/$GITHUB_REPOSITORY/releases/$created_draft_id" --field draft=false',
-    );
-    expect(transactionBlock.indexOf("create_empty_draft")).toBeLessThan(
-      transactionBlock.indexOf("upload_asset_to_draft"),
-    );
-    expect(transactionBlock.indexOf("upload_asset_to_draft")).toBeLessThan(
-      transactionBlock.indexOf("verify_uploaded_draft"),
-    );
-    expect(transactionBlock.indexOf("verify_uploaded_draft")).toBeLessThan(
-      transactionBlock.indexOf("--field draft=false"),
-    );
-    expect(publish).toContain(
-      'status="$(curl --silent --show-error --location --request POST',
-    );
-    expect(publish).toContain(
-      '"$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases"',
-    );
-    expect(publish).toContain("jq --raw-output '.id'");
-    expect(publish).toContain("collect_releases");
-    expect(publish).toContain("?per_page=100&page=$page");
-    expect(publish).not.toContain("gh release create");
-    expect(publish).not.toContain("gh release upload");
-    expect(publish.match(/--field draft=false/gu)).toHaveLength(1);
-  });
-
-  it("never tries to discover a draft through the published-only tag endpoint", () => {
-    const capture = publish.match(
-      /capture_empty_draft_id\(\) \{[\s\S]*?\n\s+\}/u,
-    )?.[0] ?? "";
-    expect(capture).toContain("collect_releases");
-    expect(capture).not.toContain("/releases/tags/");
-    expect(publish).toContain("empty_draft_payload_ready");
-    expect(publish).toContain('status" == "201"');
-    expect(publish).toContain(
-      "link-integrity-release-candidate:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${GITHUB_SHA}",
-    );
-    expect(publish).toContain('startswith($marker + "\\n\\n")');
-  });
-
-  it("enforces history, no-overwrite, bounded retries, provenance, and final tag identity", () => {
-    expect(release).toContain("github-release-contract.mjs");
-    expect(release).toContain("previous_tag_name");
-    expect(release).toContain("immutable_releases_confirmed");
-    expect(release).toContain("protected_numeric_tags_confirmed");
-    expect(release).toContain("for attempt in 1 2 3 4 5");
-    expect(release).toContain("for attempt in 1 2 3 4 5 6 7 8 9 10");
-    expect(release).not.toContain("--clobber");
-    expect(release).not.toContain("gh release edit");
-    expect(release).not.toContain("gh release delete");
+  it("verifies published bytes and provenance", () => {
+    expect(publish).toContain("gh release download");
+    expect(publish).toContain('cmp --silent "$RUNNER_TEMP/release/$name"');
+    expect(publish).toContain("gh attestation verify");
     expect(publish).toContain("--deny-self-hosted-runners");
-    expect(publish).toContain("Verify exact candidate provenance before Release mutation");
+    expect(publish).toContain("--source-digest \"$GITHUB_SHA\"");
     expect(publish).toContain(
-      'verify_remote_release before true "$release_state_file"',
+      'select(.draft == false and .prerelease == false)',
     );
-    expect(publish).not.toContain("verify_remote_release before true ||");
-    expect(publish).not.toContain('created_draft_id="$(create_empty_draft');
-    expect(publish.match(/verify_tag_identity/gu)?.length).toBeGreaterThanOrEqual(5);
-    expect(publish).toContain("verify_remote_release final false");
-    expect(release).toContain("Verify an existing same-tag Release as a read-only no-op");
-    expect(release).toContain('echo "decision=noop" >> "$GITHUB_OUTPUT"');
-    expect(release).toContain("needs.verify-release.outputs.release_decision == 'create'");
-  });
-
-  it("builds in two independent clean source directories and checks service digests", () => {
-    expect(release).toContain('source_a="$RUNNER_TEMP/release-source-a"');
-    expect(release).toContain('source_b="$RUNNER_TEMP/release-source-b"');
-    expect(release.match(/git archive "\$GITHUB_SHA" \| tar -x -C/gu)).toHaveLength(2);
-    expect(release).toContain('cd "$source_a"');
-    expect(release).toContain('cd "$source_b"');
-    expect(release).toContain("release_asset_digests_ready");
-    expect(release).toContain('.digest == $digest');
   });
 });
 

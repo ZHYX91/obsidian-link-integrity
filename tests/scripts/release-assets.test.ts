@@ -1,12 +1,4 @@
-import {
-  copyFile,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,11 +11,6 @@ interface ReleaseAssetsModule {
     outputPath: string;
     version: string;
   }): Promise<{ outputPath: string; sha256: string; version: string }>;
-  compareExistingReleaseAssets(options: {
-    existingDirectory: string;
-    localDirectory: string;
-    version: string;
-  }): Promise<readonly string[]>;
   createDeterministicZip(
     entries: Array<{ content: Buffer | string; name: string }>,
   ): Buffer;
@@ -127,34 +114,6 @@ describe("Release candidate handoff", () => {
       directory: handoff,
       version: "0.1.0",
     })).rejects.toThrow("checksum mismatch");
-  });
-
-  it("accepts an identical four-asset immutable no-op and rejects extra assets", async () => {
-    const root = await createWorkspace();
-    const dist = await createDist(root);
-    const handoff = path.join(root, "handoff");
-    const existing = path.join(root, "existing");
-    await releaseAssets.prepareReleaseHandoff({
-      distDirectory: dist,
-      outputDirectory: handoff,
-      version: "0.1.0",
-    });
-    await mkdir(existing);
-    for (const name of releaseAssets.publicReleaseAssetNames("0.1.0")) {
-      await copyFile(path.join(handoff, name), path.join(existing, name));
-    }
-    await expect(releaseAssets.compareExistingReleaseAssets({
-      existingDirectory: existing,
-      localDirectory: handoff,
-      version: "0.1.0",
-    })).resolves.toHaveLength(4);
-
-    await writeFile(path.join(existing, "SHA256SUMS"), "must-not-be-public\n");
-    await expect(releaseAssets.compareExistingReleaseAssets({
-      existingDirectory: existing,
-      localDirectory: handoff,
-      version: "0.1.0",
-    })).rejects.toThrow("inventory");
   });
 });
 
