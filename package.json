@@ -10,7 +10,7 @@
     "build": "npm run typecheck && npm run build:bundle && npm run check:release",
     "check:runtime": "node scripts/check-runtime.mjs",
     "format:check": "node scripts/check-format.mjs",
-    "lint": "eslint main.ts src tests benchmarks scripts acceptance/**/*.mjs esbuild.config.mjs eslint.config.mjs vitest.config.mts --max-warnings 0",
+    "lint": "eslint main.ts src tests benchmarks scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

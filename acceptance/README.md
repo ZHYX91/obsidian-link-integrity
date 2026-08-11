@@ -1,6 +1,6 @@
 # Link Integrity isolated-host fixture
 
-This fixture is owned by Link Integrity and is intended only for a randomly named temporary Vault created by `obsidian-acceptance-kit`. It must never be copied into or run against a production Vault.
+This self-contained fixture is owned by Link Integrity and is intended only for an explicitly identified disposable Vault. It must never be copied into or run against an ordinary or production Vault.
 
 ## Expected initial results
 
@@ -13,4 +13,4 @@ With the packaged `link-integrity` candidate enabled and the startup scan comple
 - Markdown links and embeds, Frontmatter, Canvas file/background references, and the explicit Bases `link()` reference keep their source and target files connected;
 - the standalone dynamic Bases folder filter does not create a file edge; enabling “Show expected isolated files” raises the isolated total from four to five.
 
-The acceptance run records candidate hashes and host lifecycle through the shared kit. Product observations, screenshots, and navigation checks remain separate from the kit's infrastructure report.
+Fixture setup is not product evidence. Candidate identity, host lifecycle, product observations, screenshots, and navigation checks must be recorded as separate claims by the environment performing the run.

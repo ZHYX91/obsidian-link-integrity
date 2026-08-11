@@ -64,10 +64,9 @@ identified temporary Vaults; never point them at an ordinary or production Vault
 packaged-candidate checks, deployed-host behavior, emulator evidence, and physical-device evidence
 remain separate claims.
 
-The deterministic isolated-host fixture lives under `acceptance/`. It may be installed only into
-a randomly named temporary Vault created by `obsidian-acceptance-kit`, from a clean committed
-candidate. Never point it at an ordinary or production Vault, and never claim that the shared kit's
-infrastructure report proves Link Integrity product behavior.
+The deterministic product fixture lives under `acceptance/fixtures/`. Use it only in an explicitly
+identified disposable Vault with a clean packaged candidate. Never point it at an ordinary or
+production Vault, and never treat fixture setup as proof of Link Integrity product behavior.
 
 ## Documentation lifecycle
 
