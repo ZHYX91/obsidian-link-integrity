@@ -27,12 +27,12 @@ Resultados dinâmicos de Bases não são arestas explícitas. Se o arquivo for r
 ## Requisitos e compatibilidade
 
 - Obsidian 1.12.7 ou posterior.
-- Projetado para desktop e dispositivos móveis; cada host e dispositivo real permanece uma fronteira de aceitação distinta.
+- Compatível com o Obsidian para desktop e dispositivos móveis.
 - Diagnostica apenas o Vault atual e não verifica a Web externa.
 
 ## Instalação
 
-Após a aprovação no diretório da comunidade, instale pelo **Configurações → Plugins da comunidade → Explorar**. Você também pode baixar `link-integrity-<version>.zip` da [versão mais recente no GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+Abra **Configurações → Plugins da comunidade → Explorar**, procure **Link Integrity** e instale. Se ele não aparecer no catálogo, baixe `link-integrity-<version>.zip` da [versão mais recente no GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
 Na instalação manual, coloque `main.js`, `manifest.json` e `styles.css` em `Vault/.obsidian/plugins/link-integrity/`. Em atualizações, substitua apenas esses três arquivos e preserve `data.json`, salvo se quiser redefinir as configurações.
 
@@ -58,7 +58,6 @@ Configurações e regras ficam em `data.json`; o grafo derivado não é persisti
 - URLs externas não são consultadas pela rede.
 - Consultas dinâmicas do Bases não contam como conexões explícitas.
 - Regras Expected isolated afetam apenas a projeção de candidatos e nunca ocultam links quebrados.
-- Testes automatizados não substituem a aceitação em versões e dispositivos reais do Obsidian.
 
 ## Privacidade e segurança
 

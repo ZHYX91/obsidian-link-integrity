@@ -27,12 +27,12 @@ Bases 동적 쿼리 결과는 명시적 간선이 아닙니다. 파일은 해결
 ## 요구 사항 및 호환성
 
 - Obsidian 1.12.7 이상.
-- 데스크톱과 모바일을 대상으로 하며 실제 호스트와 장치는 각각 별도의 승인 경계입니다.
+- 데스크톱 및 모바일 Obsidian을 지원합니다.
 - 현재 Vault만 진단하고 외부 웹은 확인하지 않습니다.
 
 ## 설치
 
-커뮤니티 디렉터리 승인 후 **설정 → 커뮤니티 플러그인 → 탐색**에서 설치할 수 있습니다. [최신 GitHub 릴리스](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)에서 `link-integrity-<version>.zip`을 다운로드할 수도 있습니다.
+**설정 → 커뮤니티 플러그인 → 탐색**을 열고 **Link Integrity**를 검색해 설치하세요. 카탈로그에 표시되지 않으면 [최신 GitHub 릴리스](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)에서 `link-integrity-<version>.zip`을 다운로드하세요.
 
 수동 설치는 `main.js`, `manifest.json`, `styles.css`를 `Vault/.obsidian/plugins/link-integrity/`에 넣습니다. 업그레이드할 때는 이 세 파일만 교체하고 설정을 초기화하려는 경우가 아니면 `data.json`을 보존하세요.
 
@@ -58,7 +58,6 @@ Bases 동적 쿼리 결과는 명시적 간선이 아닙니다. 파일은 해결
 - 외부 URL을 네트워크로 검사하지 않습니다.
 - Bases 동적 쿼리는 명시적 연결로 계산하지 않습니다.
 - Expected isolated 규칙은 후보 보기에만 영향을 주며 깨진 링크를 숨기지 않습니다.
-- 자동 테스트는 실제 Obsidian 버전과 장치 승인을 대체하지 않습니다.
 
 ## 개인정보 보호 및 보안
 

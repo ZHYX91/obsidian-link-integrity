@@ -27,12 +27,12 @@ Bases 动态查询结果不算显式边。文件目标已解析但标题或块�
 ## 使用要求与兼容性
 
 - Obsidian 1.12.7 或更高版本。
-- 面向桌面端和移动端；桌面、模拟器和物理设备仍是彼此独立的真实宿主验收边界。
+- 支持桌面版和移动版 Obsidian。
 - 只诊断当前 Vault，不检查外部网站或远程资源。
 
 ## 安装
 
-社区目录审核通过后，可从 **设置 → 第三方插件 → 浏览** 安装。也可以从[最新 GitHub 版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下载 `link-integrity-<version>.zip`。
+打开 **设置 → 第三方插件 → 浏览**，搜索 **Link Integrity** 并安装。如果当前目录中尚未显示，可从[最新 GitHub 版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下载 `link-integrity-<version>.zip`。
 
 手动安装时，把 `main.js`、`manifest.json` 和 `styles.css` 放入 `Vault/.obsidian/plugins/link-integrity/`，重新加载 Obsidian 并启用插件。升级只替换这三个文件；除非明确重置设置，否则保留 `data.json`。
 
@@ -58,7 +58,6 @@ Bases 动态查询结果不算显式边。文件目标已解析但标题或块�
 - 外部 URL 明确不在范围内，插件不会通过网络请求它们。
 - Bases 动态查询结果不算显式连接，只有显式文件引用才算。
 - 预期孤立规则只影响孤立候选投影，不会隐藏无效链接，也不会移除文件对有效图的贡献。
-- 自动测试通过不能替代真实 Obsidian 版本与设备验收。
 
 ## 隐私与安全
 

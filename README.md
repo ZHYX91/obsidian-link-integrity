@@ -27,12 +27,12 @@ Dynamic Bases query results are not explicit edges. A resolved file with a missi
 ## Requirements and compatibility
 
 - Obsidian 1.12.7 or later.
-- Designed for desktop and mobile; host-specific behavior still requires separate desktop, emulator, and physical-device acceptance.
+- Supports desktop and mobile Obsidian.
 - The plugin diagnoses the current Vault only. It does not check external websites or remote resources.
 
 ## Installation
 
-After community-directory approval, install Link Integrity from **Settings → Community plugins → Browse**. You can also download `link-integrity-<version>.zip` from the [latest GitHub release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+Open **Settings → Community plugins → Browse**, search for **Link Integrity**, and install it. If it is not available in your catalog, download `link-integrity-<version>.zip` from the [latest GitHub release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
 For a manual installation, place `main.js`, `manifest.json`, and `styles.css` in `Vault/.obsidian/plugins/link-integrity/`, reload Obsidian, and enable Link Integrity. During upgrades, replace only those three files and preserve `data.json` unless you explicitly want to reset the plugin settings.
 
@@ -58,7 +58,6 @@ Settings and user-defined rules are stored in `data.json`. The derived link grap
 - External URLs are deliberately out of scope and are not requested over the network.
 - Dynamic Bases query results do not count as explicit connections; only explicit file references do.
 - Expected-isolation rules affect the isolated-candidate projection only. They never hide broken links or remove a file's valid graph contribution.
-- Real Obsidian versions and devices remain distinct acceptance boundaries even when automated tests pass.
 
 ## Privacy and security
 
@@ -76,7 +75,7 @@ Stable contracts:
 - Testing: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.zh-CN.md)
 - Release: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/release.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/release.zh-CN.md)
 
-Repository governance: [Contributing](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CONTRIBUTING.md) · [Changelog](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CHANGELOG.md) · [Security](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/SECURITY.md)
+Project links: [Contributing](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CONTRIBUTING.md) · [Changelog](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CHANGELOG.md) · [Security](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/SECURITY.md)
 
 ## Support
 

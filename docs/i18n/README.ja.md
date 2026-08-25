@@ -27,12 +27,12 @@ Bases の動的クエリ結果は明示的な辺ではありません。ファ�
 ## 要件と互換性
 
 - Obsidian 1.12.7 以降。
-- デスクトップとモバイル向けです。実際のホストや端末はそれぞれ独立した受け入れ境界です。
+- デスクトップ版とモバイル版の Obsidian に対応します。
 - 現在の Vault だけを診断し、外部 Web は検査しません。
 
 ## インストール
 
-コミュニティディレクトリで承認された後は、**設定 → コミュニティプラグイン → 閲覧** からインストールできます。[最新の GitHub リリース](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)から `link-integrity-<version>.zip` をダウンロードすることもできます。
+**設定 → コミュニティプラグイン → 閲覧** を開き、**Link Integrity** を検索してインストールします。カタログに表示されない場合は、[最新の GitHub リリース](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)から `link-integrity-<version>.zip` をダウンロードしてください。
 
 手動では `main.js`、`manifest.json`、`styles.css` を `Vault/.obsidian/plugins/link-integrity/` に配置します。更新時はこの 3 ファイルだけを置き換え、設定をリセットしない限り `data.json` を保持してください。
 
@@ -58,7 +58,6 @@ Bases の動的クエリ結果は明示的な辺ではありません。ファ�
 - 外部 URL をネットワーク経由で検査しません。
 - Bases の動的クエリは明示的接続として数えません。
 - Expected isolated ルールは候補表示だけに影響し、壊れたリンクを隠しません。
-- 自動テストは実際の Obsidian バージョンや端末での確認を置き換えません。
 
 ## プライバシーとセキュリティ
 

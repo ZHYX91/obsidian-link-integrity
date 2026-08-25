@@ -27,11 +27,9 @@ disposable Vault is preferable to a real Vault export.
 
 ## Version and response scope
 
-The repository manifest currently prepares version `0.1.2`; the highest annotated tag remains
-`0.1.1` until that release is published. These facts do not claim a particular distribution
-channel, deployment, or support lifetime. Reports should
-state the exact affected revision; fixes are evaluated against the current default branch and
-relevant tagged code.
+Reports should state the exact affected plugin version or commit. Fixes are evaluated against the
+current default branch and relevant tagged code; a repository revision does not imply availability
+in a particular distribution channel or deployment.
 
 There is no guaranteed response or remediation deadline. The maintainer will assess reproducibility,
 impact, affected revisions, disclosure timing, and whether coordinated reporting to Obsidian or a

@@ -76,10 +76,6 @@ Isolated candidates use a central file-type registry: Obsidian files (Markdown, 
 
 ## Data and safety boundaries
 
-All scanning, indexing, and rule matching runs locally. The initial version persists settings, ignore rules, and interface preferences only; it does not persist the derived link graph. A current authoritative index is rebuilt from the Vault after restart.
+All scanning, indexing, and rule matching runs locally. The plugin persists settings, ignore rules, and interface preferences only; it does not persist the derived link graph. An authoritative index is rebuilt from the Vault after restart.
 
 The plugin is diagnostic and non-destructive. Automatic deletion, bulk repair, network checks of external URLs, and inference of explicit connections from dynamic query results are not current behaviors.
-
-## Current delivery status
-
-The core semantics, query projections, full and incremental index controllers, and automated tests are implemented in the repository. The 0.1.0 candidate has passed the repository gates and the host acceptance described in the testing strategy; GitHub Release publication and community-directory approval remain separate external states. A production-Vault smoke verified the observed desktop workflow in Obsidian 1.13.4, and an isolated Android emulator verified the packaged workflow in Obsidian 1.12.7. Physical-device and broader live-event acceptance remain separate evidence boundaries; automated checks and synthetic benchmarks cannot substitute for them.

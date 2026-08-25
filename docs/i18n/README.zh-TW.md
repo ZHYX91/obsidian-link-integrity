@@ -27,12 +27,12 @@ Bases 動態查詢結果不算明確圖邊。若檔案已解析但標題或區�
 ## 使用需求與相容性
 
 - Obsidian 1.12.7 或更新版本。
-- 支援桌面與行動裝置；桌面、模擬器與實體裝置仍是分開的真實宿主驗收邊界。
+- 支援桌面版與行動版 Obsidian。
 - 僅診斷目前 Vault，不檢查外部網站或遠端資源。
 
 ## 安裝
 
-通過社群目錄審核後，可從 **設定 → 第三方外掛 → 瀏覽** 安裝。也可以從[最新 GitHub 版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下載 `link-integrity-<version>.zip`。
+開啟 **設定 → 第三方外掛 → 瀏覽**，搜尋 **Link Integrity** 並安裝。若目前目錄尚未顯示，可從[最新 GitHub 版本](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest)下載 `link-integrity-<version>.zip`。
 
 手動安裝時，將 `main.js`、`manifest.json` 與 `styles.css` 放入 `Vault/.obsidian/plugins/link-integrity/`，重新載入 Obsidian 並啟用外掛。升級只替換這三個檔案；除非要重設設定，否則保留 `data.json`。
 
@@ -58,7 +58,6 @@ Bases 動態查詢結果不算明確圖邊。若檔案已解析但標題或區�
 - 外部 URL 明確不在範圍內，外掛不會透過網路請求。
 - Bases 動態查詢結果不算明確連線，只有明確檔案引用才算。
 - 預期孤立規則只影響孤立候選投影，不會隱藏無效連結或移除檔案的有效圖貢獻。
-- 自動測試不能取代真實 Obsidian 版本與裝置驗收。
 
 ## 隱私與安全
 

@@ -27,12 +27,12 @@ Kết quả truy vấn Bases động không phải cạnh rõ ràng. Nếu tệp
 ## Yêu cầu và khả năng tương thích
 
 - Obsidian 1.12.7 trở lên.
-- Dành cho máy tính và thiết bị di động; mỗi máy chủ và thiết bị thật là một ranh giới nghiệm thu riêng.
+- Hỗ trợ Obsidian trên máy tính và thiết bị di động.
 - Chỉ chẩn đoán Vault hiện tại, không kiểm tra Web bên ngoài.
 
 ## Cài đặt
 
-Sau khi được phê duyệt trong thư mục cộng đồng, hãy cài từ **Cài đặt → Plugin cộng đồng → Duyệt**. Bạn cũng có thể tải `link-integrity-<version>.zip` từ [bản phát hành GitHub mới nhất](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+Mở **Cài đặt → Plugin cộng đồng → Duyệt**, tìm **Link Integrity** và cài đặt. Nếu plugin chưa xuất hiện trong danh mục, hãy tải `link-integrity-<version>.zip` từ [bản phát hành GitHub mới nhất](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
 Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css` vào `Vault/.obsidian/plugins/link-integrity/`. Khi nâng cấp, chỉ thay ba tệp này và giữ `data.json` trừ khi muốn đặt lại cài đặt.
 
@@ -58,7 +58,6 @@ Cài đặt và quy tắc được lưu trong `data.json`; đồ thị dẫn xu�
 - Không yêu cầu URL bên ngoài qua mạng.
 - Truy vấn Bases động không được tính là kết nối rõ ràng.
 - Quy tắc Expected isolated chỉ ảnh hưởng phép chiếu ứng viên và không bao giờ ẩn liên kết hỏng.
-- Kiểm thử tự động không thay thế nghiệm thu trên phiên bản và thiết bị Obsidian thật.
 
 ## Quyền riêng tư và bảo mật
 

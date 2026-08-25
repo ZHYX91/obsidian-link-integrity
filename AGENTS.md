@@ -38,8 +38,7 @@ tests must prove incremental results equal a clean rebuild.
 - Candidate scope, diagnostic visibility, and graph contribution are separate concerns.
 - Hidden or unselected files still contribute valid edges unless an advanced rule explicitly
   excludes graph contribution.
-- Settings, ignores, and UI preferences may persist. The derived graph does not persist in the
-  initial release.
+- Settings, ignores, and UI preferences may persist. The derived graph does not persist.
 
 ## Engineering conventions
 
@@ -78,3 +77,10 @@ The root README is English and translations live under `docs/i18n/`. Because the
 Durable rules belong only in the stable bilingual contracts. Short-lived implementation notes must
 not become an alternative authority. Root README navigation links directly to every stable pair;
 public README translations live under `docs/i18n/`.
+
+`CHANGELOG.md` is the only public document that records release history. README and user help
+describe the product as it works now: compatibility, installation, usage, settings, limitations,
+privacy, and support. Do not add version banners, dated acceptance evidence, release-status
+narratives, or superseded plans outside the changelog. Keep migration or deprecation guidance only
+when users still need to act, and state the required action directly. Engineering documents describe
+the current contract and repeatable process rather than past executions.

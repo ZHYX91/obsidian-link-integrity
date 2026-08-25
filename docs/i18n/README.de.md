@@ -27,12 +27,12 @@ Dynamische Bases-Abfragen sind keine expliziten Kanten. Ein aufgelöstes Dateizi
 ## Anforderungen und Kompatibilität
 
 - Obsidian 1.12.7 oder neuer.
-- Für Desktop und Mobilgeräte vorgesehen; reale Hosts und Geräte bleiben getrennte Abnahmegrenzen.
+- Unterstützt Obsidian auf Desktop- und Mobilgeräten.
 - Es wird nur der aktuelle Vault diagnostiziert, nicht das externe Web.
 
 ## Installation
 
-Nach der Freigabe im Community-Verzeichnis kann Link Integrity über **Einstellungen → Community-Erweiterungen → Durchsuchen** installiert werden. Alternativ steht `link-integrity-<version>.zip` im [neuesten GitHub-Release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest) bereit.
+Öffnen Sie **Einstellungen → Community-Erweiterungen → Durchsuchen**, suchen Sie nach **Link Integrity** und installieren Sie es. Falls es im Katalog nicht angezeigt wird, laden Sie `link-integrity-<version>.zip` aus dem [neuesten GitHub-Release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest) herunter.
 
 Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` nach `Vault/.obsidian/plugins/link-integrity/`. Beim Aktualisieren werden nur diese drei Dateien ersetzt; `data.json` bleibt erhalten, solange die Einstellungen nicht ausdrücklich zurückgesetzt werden sollen.
 
@@ -58,7 +58,6 @@ Einstellungen und Regeln stehen in `data.json`; der abgeleitete Graph wird nicht
 - Externe URLs werden nicht über das Netzwerk geprüft.
 - Dynamische Bases-Abfragen zählen nicht als explizite Verbindungen.
 - Regeln für erwartete Isolation beeinflussen nur die Kandidatenansicht und verbergen keine defekten Links.
-- Automatisierte Tests ersetzen keine Abnahme in realen Obsidian-Versionen und auf realen Geräten.
 
 ## Datenschutz und Sicherheit
 
