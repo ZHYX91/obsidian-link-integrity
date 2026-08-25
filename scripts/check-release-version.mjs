@@ -1,15 +1,11 @@
 import { readFile } from "node:fs/promises";
 
+import { assertLocalTagPointsToHead } from "./local-tag-contract.mjs";
 import {
   assertPackageLockContract,
   assertPackageVersionContract,
   assertReleaseTag,
 } from "./release-contract.mjs";
-
-const requested = process.argv[2];
-if (requested === undefined) {
-  throw new Error("Usage: node scripts/check-release-version.mjs <x.y.z>");
-}
 
 const [manifest, packageJson, packageLock, versions] = await Promise.all([
   readFile("manifest.json", "utf8").then(JSON.parse),
@@ -18,6 +14,8 @@ const [manifest, packageJson, packageLock, versions] = await Promise.all([
   readFile("versions.json", "utf8").then(JSON.parse),
 ]);
 const version = assertPackageVersionContract(manifest, packageJson, versions);
+const requested = process.argv[2] ?? version;
 assertPackageLockContract(packageJson, packageLock);
 assertReleaseTag(requested, version);
+await assertLocalTagPointsToHead(requested);
 process.stdout.write(`Release version contract passed for ${version}.\n`);

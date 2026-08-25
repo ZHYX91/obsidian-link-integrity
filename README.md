@@ -12,8 +12,6 @@ Review broken links and isolated files from one compact sidebar:
 
 Configure indexing, ignore rules, file types, and expected-isolation patterns in Obsidian settings:
 
-![Link Integrity isolated-file settings](https://raw.githubusercontent.com/ZHYX91/obsidian-link-integrity/main/docs/assets/link-integrity-settings-en.png)
-
 ## Features
 
 - Reports broken internal file, heading, and block references from Markdown, embeds, frontmatter, Canvas, and explicit Bases file references.
@@ -68,15 +66,17 @@ All indexing and rule evaluation runs locally. Link Integrity does not upload Va
 
 ## Development
 
-Use Node.js 24.18.0 and npm 11.16.0. Run `npm ci`, then `npm run check`.
+Use Node.js 24.19.0 and npm 11.17.0. Run `npm ci`, then `npm run check`.
 
 Stable contracts:
 
-- Product: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product.zh-CN.md)
-- UX: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux.zh-CN.md)
+- Product requirements: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product-requirements.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product-requirements.zh-CN.md)
+- UX specification: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.zh-CN.md)
 - Architecture: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.zh-CN.md)
 - Testing: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.zh-CN.md)
 - Release: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/release.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/release.zh-CN.md)
+
+Repository governance: [Contributing](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CONTRIBUTING.md) · [Changelog](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CHANGELOG.md) · [Security](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/SECURITY.md)
 
 ## Support
 

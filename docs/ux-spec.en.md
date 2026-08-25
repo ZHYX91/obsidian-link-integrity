@@ -1,3 +1,9 @@
+---
+source_language: zh-CN
+translation_of: ux-spec.zh-CN.md
+translation_status: synced
+---
+
 # Link Integrity UX contract
 
 ## 1. Interaction goals
@@ -124,7 +130,7 @@ Scan errors and settings-save errors are separate states and are presented indep
 
 ## 7. Accessibility and mobile
 
-- Tabs use `tablist`, `tab`, and `tabpanel` semantics with roving tabindex.
+- Tabs use `tablist`, `tab`, and `tabpanel` semantics with roving tabindex; the active tab combines an accent underline with a semibold label, and stable space separates the baseline from the content panel.
 - Arrow keys, Home, and End work, and focus remains sensible after switching.
 - Tabs may scroll horizontally on narrow screens; RTL keeps ordering and icon meaning correct.
 - Coarse-pointer targets are at least 44 CSS pixels.

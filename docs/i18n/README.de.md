@@ -12,8 +12,6 @@ Broken links und isolierte Dateien in einer kompakten Seitenleiste prüfen:
 
 Index, Ignorierregeln, Dateitypen und erwartete Isolation in den Obsidian-Einstellungen konfigurieren:
 
-![Link-Integrity-Einstellungen](../assets/link-integrity-settings-en.png)
-
 ## Funktionen
 
 - Meldet defekte interne Datei-, Überschriften- und Blockverweise aus Markdown, Einbettungen, Frontmatter, Canvas und expliziten Bases-Dateiverweisen.
@@ -68,9 +66,9 @@ Alles läuft lokal. Link Integrity lädt keine Vault-Inhalte hoch, benötigt kei
 
 ## Entwicklung
 
-Node.js 24.18.0 und npm 11.16.0 verwenden. `npm ci` und danach `npm run check` ausführen.
+Node.js 24.19.0 und npm 11.17.0 verwenden. `npm ci` und danach `npm run check` ausführen.
 
-Dauerhafte Verträge: [Produkt](../product.en.md), [UX](../ux.en.md), [Architektur](../architecture.en.md), [Tests](../testing-strategy.en.md) und [Release](../release.en.md). Die chinesischen Quellen liegen jeweils im selben Ordner.
+Dauerhafte Verträge: [Produkt](../product-requirements.en.md), [UX](../ux-spec.en.md), [Architektur](../architecture.en.md), [Tests](../testing-strategy.en.md) und [Release](../release.en.md). Die chinesischen Quellen liegen jeweils im selben Ordner.
 
 ## Support
 

@@ -1,3 +1,8 @@
+---
+source_language: zh-CN
+translation_status: source
+---
+
 # Link Integrity 架构
 
 本文说明 Link Integrity 当前实现的模块边界、索引不变量和一致性策略。
@@ -22,6 +27,8 @@
 
 每个来源文件对应一个完整 `SourceSnapshot`。更新来源时，索引通过同一个 reducer 整体替换快照；旧 occurrence、lookup 引用和边贡献同步移除，新内容同步加入，不做字段级拼补。
 
+持久化的 occurrence 忽略规则使用带版本的语义身份：规范化来源路径、occurrence 类型、原始文本与链接文本的哈希、重复项序号及重复集合基数。可变的行列位置与旧全局序号仅作为跳转和兼容元数据，不参与 v2 规则身份。因而在 occurrence 前插入无关内容或不同链接不会让规则失效，Vault 文件或文件夹重命名事件还会改写已保存身份中的来源部分。对于无法区分的同语义重复项，一旦重复集合基数变化，旧规则会有意匹配零项，直到用户检查设置中的匹配预览，而不会静默绑定到错误的重复项。
+
 索引维护：
 
 - 当前 `FileRecord` registry；
@@ -39,6 +46,8 @@ Obsidian 语义只在 adapter 中解析。当前 adapter 使用官方 `parseLink
 
 adapter 为每个可作为显式来源的文件构建完整快照：Markdown 和 Frontmatter 使用 Metadata Cache 并在必要时从文本降级提取；Canvas 读取显式文件节点、背景文件和文本内部链接；Bases 只提取显式文件引用。动态 Bases 查询结果不会传入图模型。无效 Canvas JSON 采用 fail-closed：当前批次不替换文件元数据或快照，已有 last-known-good 索引以过期状态继续可见，而不会把该 Canvas 错报为高置信孤立文件。
 
+Markdown 降级解析器在保留 UTF-16 源 offset 的同时屏蔽 fenced/indented code、inline code、Obsidian comment，以及支持 BOM 和 `---`/`...` 边界的 frontmatter 内 YAML comment；frontmatter value 和普通 Markdown 文本中的显式链接继续保留。Canvas text node 使用同一降级路径，因此启动期临时解析和 Canvas 诊断共用同一个 false-positive 边界。
+
 core 的规范化 lookup key 只用于命名空间变化后的保守重验证。它不替代官方 resolver，也不决定最终目标。
 
 ## 图与查询不变量
@@ -47,7 +56,7 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 边按来源、目标和 occurrence 类型计数，因此删除一个重复引用不会误删同一对文件之间的其他贡献。孤立投影检查不同文件之间的有效入邻居和出邻居均为零；无入链投影仅检查入邻居为零。
 
-候选、诊断和贡献范围分别应用于查询、可见性和图。普通筛选不触碰图。高级贡献排除由产品层注入独立的 `GraphContributionPolicy`：规则设置变化可以重新求值整张图，普通来源快照替换只对该来源的旧、新 occurrence 求值并局部维护边。显式集合型排除仍由 `GraphContributionScope` 表达，产品层负责提示高级规则可能产生的风险。
+候选、诊断和贡献范围分别应用于查询、可见性和图。普通筛选不触碰图。高级贡献排除由产品层注入独立的 `GraphContributionPolicy`：规则设置变化直接用已存储的文件 registry 与来源快照重新求值边和自链接，不重新读取或解析 Vault；普通来源快照替换只对该来源的旧、新 occurrence 求值并局部维护边。显式集合型排除仍由 `GraphContributionScope` 表达，产品层负责提示高级规则可能产生的风险。
 
 精确预期孤立路径与预期孤立规则都在查询层运行。它们只给已经孤立的候选分类，不写入 `LinkIndex` 边集合，因此不会产生日期邻接伪边。侧栏投影只生成结果和分类计数，规则命中统计仅由设置预览按需计算。精确路径在设置加载时规范化、去重；文件 rename 更新精确路径，文件夹 rename 按路径边界同步其后代精确路径、文件夹规则与周期笔记目录；缺失路径不会被静默删除。
 
@@ -55,11 +64,11 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 全量重建先从 adapter 取得当前文件 registry，再在独立 staging `LinkIndex` 中以有限并发构建来源快照。控制器同时按文件数上限和约 8 ms 主线程时间预算主动让步，并支持可注入的让步函数和节流进度回调，避免快速文件或单批解析工作长期占用渲染线程。
 
-当启动扫描、侧栏或手动重建请求 baseline 时，Vault 的 create、modify、delete、rename 事件会在首次宿主级 Metadata Cache 解析完成边界之前注册，并进入有界合并缓冲。新一轮全量 staging 开始前已经积累的事件由即将读取当前 Vault 的 baseline 吸收，不再重复回放；只有 staging 开始后到达的事件才交给协调器在 staging 上重放，追赶到当前 Vault 状态后再原子发布。Metadata Cache 的 change/delete 监听则等到首次解析完成边界（或有界兜底等待）和全量重建结束后再挂载。运行时刻意不订阅逐文件 `resolve(file)`：内容和命名空间事件已经会重验证变化来源及其引用者，而重放宿主启动期解析尾流只会重复全量扫描。
+当启动扫描、侧栏或手动重建请求 baseline 时，Vault 的 create、modify、delete、rename 事件会在首次宿主级 Metadata Cache 解析完成边界之前注册，并进入有界合并缓冲。新一轮全量 staging 开始前已经积累的事件由即将读取当前 Vault 的 baseline 吸收，不再重复回放；只有 staging 开始后到达的事件才交给协调器在 staging 上重放，追赶到当前 Vault 状态后再原子发布。Metadata Cache 的 change/delete 监听则等到首次解析完成边界（或有界兜底等待）和全量重建结束后再挂载。有界等待超时只放行 baseline，不会把缓存误标为已解析；一次性宿主级 `resolved` 监听会继续保留，若信号稍后到达则合成一次全来源重验证纠正兜底结果。运行时刻意不订阅逐文件 `resolve(file)`：内容和命名空间事件已经会重验证变化来源及其引用者，而重放宿主启动期解析尾流只会重复全量扫描。
 
 只有 staging 完整成功后，`AtomicLinkIndexStore` 才一次性发布新索引。构建失败不会改变当前索引；已有索引继续作为 last-known-good，并由应用状态标记失败或可能过期。
 
-`LinkIndexCoordinator` 在重建期间缓冲来源事件，在 staging 上重放并追赶当前 Vault 状态后再发布。已有 baseline 的重建失败时，剩余事件继续更新 last-known-good 并维持 stale 状态；首次 baseline 失败时则丢弃该批增量，不允许从局部事件制造索引，下一次重建重新读取完整 Vault。并发重建调用共享同一个 rebuild promise。插件生命周期改变时，旧重建会被取消发布，避免卸载后的异步结果覆盖状态。
+`LinkIndexCoordinator` 在重建期间缓冲来源事件，在 staging 上重放并追赶当前 Vault 状态后再发布。已有 baseline 的重建失败时，剩余事件继续更新 last-known-good 并维持 stale 状态；首次 baseline 失败时则丢弃该批增量，不允许从局部事件制造索引，下一次重建重新读取完整 Vault。同一生命周期的并发重建调用共享同一个 rebuild promise。每轮重建都有独立操作代次和取消信号；停止或重启会让旧 worker 不再领取新来源，并禁止旧 catch/finally、进度或发布触碰新生命周期。宿主读取本身不可抢占，因此取消边界是最多保留当前有限并发内已经在途的读取。
 
 ## 增量更新
 
@@ -68,11 +77,12 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 一致性保护包括：
 
 - lifecycle epoch：停止或重启后，旧生命周期结果不能发布；
+- operation generation 与取消信号：旧重建不能清理新控制器、领取更多来源或发布完成诊断；
 - path revision：每个受影响来源具有单调 revision，旧异步快照不能覆盖新 revision；
 - 有界安静窗 coalescing：同一路径重复出现的 Vault 与 Metadata Cache 回调只触发一次构建，同时连续事件流也不能无限推迟更新；
 - lookup 和 target 反向索引：命名空间或目标元数据变化时，同时重验证直接来源、解析到该目标的来源以及可能按 lookup key 重新定向的来源。
 
-create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。Vault modify 与 Metadata Cache changed 回调经过有界安静窗后重验证来源及其引用者。宿主级 `resolved` 完成信号只作为初始就绪边界，不会转成全来源失效，因为 Obsidian 在普通修改后也会再次触发它。快照和贡献范围替换会先做语义 no-op 检查；普通快照替换沿当前贡献 policy 局部更新，只有 policy 或显式贡献范围变化才重新求值整张图。全量 staging 继承协调器当前的 policy，并在发布前再次同步规则变化。
+create、delete 和 rename 会重新取得文件 registry，并比较新旧 lookup keys。删除来源时，其完整快照通过同一替换 reducer 移除。Vault modify 与 Metadata Cache changed 回调经过有界安静窗后重验证来源及其引用者。宿主级 `resolved` 通常只作为初始就绪边界；只有首次等待已超时放行 baseline 时，随后到达的第一个 `resolved` 才转换为一次全来源纠偏，之后的普通信号仍被忽略。快照和贡献范围替换会先做语义 no-op 检查；普通快照替换沿当前贡献 policy 局部更新，只有 policy 或显式贡献范围变化才重新求值整张图。全量 staging 继承协调器当前的 policy，并在发布前再次同步规则变化。
 
 无效链接与孤立文件使用相互独立的惰性结果投影，只在索引、设置或图语义改变时失效。只有当前活动页签会计算对应投影并构建排序后的分组或目录树；非活动页签显示上次已知徽标，首次查询前显示未知标记。无效链接的来源文件夹树从当前固定页的来源路径构建，计数来自完整可见投影；只有展开分支才创建后代结果 DOM，展开路径作为界面偏好持久化。进度和普通状态更新复用两类缓存，高级无入链投影未启用时不计算。渲染采用固定 100 条分页，单个视图不会把整个 Vault 实体化为 DOM。
 
@@ -86,6 +96,6 @@ create、delete 和 rename 会重新取得文件 registry，并比较新旧 look
 
 ## 当前实现边界
 
-自动测试已经覆盖核心图不变量、快照替换、graph-contribution policy 与物化排除集合等价、同步 reducer batch 预验证、同名目标重验证、随机事件差分、last-known-good、事件重放、生命周期取消和查询语义。专项 10k/50k benchmark 还约束普通单来源更新只求值该来源的旧、新 occurrence。实际解析准确性最终仍依赖运行中的 Obsidian API 和真实文件缓存。
+自动测试已经覆盖核心图不变量、快照替换、regraph 与干净物化结果的规范化差分等价、同步 reducer batch 预验证、同名目标重验证、随机事件差分、late Metadata Cache 纠偏、last-known-good、事件重放、worker 取消、操作代次隔离和查询语义。专项 10k/50k benchmark 还约束普通单来源更新只求值该来源的旧、新 occurrence。实际解析准确性最终仍依赖运行中的 Obsidian API 和真实文件缓存。
 
 当前没有派生图持久化、外部 URL 网络检查、自动删除或批量修复。正式 Vault smoke 已记录 Obsidian 1.13.4 中本次观察到的启动、侧栏和设置行为，但架构测试与该次 smoke 仍不能证明完整的 Obsidian 1.12.7/当前 1.13.x 矩阵、实时事件路径、Android 模拟器或物理设备行为；这些边界必须分别验收。

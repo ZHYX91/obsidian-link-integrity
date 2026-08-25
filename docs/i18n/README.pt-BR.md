@@ -12,8 +12,6 @@ Revise links quebrados e arquivos isolados em uma barra lateral compacta:
 
 Configure índice, regras de ignorar, tipos de arquivo e isolamento esperado nas configurações do Obsidian:
 
-![Configurações do Link Integrity](../assets/link-integrity-settings-en.png)
-
 ## Recursos
 
 - Relata referências internas quebradas para arquivos, títulos e blocos em Markdown, incorporações, Frontmatter, Canvas e referências explícitas de arquivo em Bases.
@@ -68,9 +66,9 @@ Tudo é processado localmente. Link Integrity não envia conteúdo do Vault, nã
 
 ## Desenvolvimento
 
-Use Node.js 24.18.0 e npm 11.16.0. Execute `npm ci` e depois `npm run check`.
+Use Node.js 24.19.0 e npm 11.17.0. Execute `npm ci` e depois `npm run check`.
 
-Contratos estáveis: [produto](../product.en.md), [UX](../ux.en.md), [arquitetura](../architecture.en.md), [testes](../testing-strategy.en.md) e [lançamento](../release.en.md). As fontes chinesas correspondentes ficam na mesma pasta.
+Contratos estáveis: [produto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitetura](../architecture.en.md), [testes](../testing-strategy.en.md) e [lançamento](../release.en.md). As fontes chinesas correspondentes ficam na mesma pasta.
 
 ## Suporte
 

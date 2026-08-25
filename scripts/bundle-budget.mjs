@@ -1,4 +1,4 @@
-// Measured on 2026-08-02 with Node 24.18.0 and npm 11.16.0 after
+// Measured on 2026-08-02 with Node 24.19.0 and npm 11.17.0 after
 // `npm ci && npm run build:bundle`; then
 // `node -p "require('node:fs').statSync('dist/main.js').size"` printed 280147
 // after all eleven catalogs became independently complete.

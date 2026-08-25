@@ -12,8 +12,6 @@ Link Integrity 是完全本地、只读的 Obsidian 诊断插件，用于查找 
 
 在 Obsidian 设置中配置索引、忽略规则、文件类型和预期孤立模式：
 
-![Link Integrity 孤立文件设置](../assets/link-integrity-settings-en.png)
-
 ## 功能特性
 
 - 报告 Markdown 正文、嵌入、Frontmatter、Canvas 和 Bases 显式文件引用中的无效文件、标题与块链接。
@@ -68,12 +66,12 @@ Bases 动态查询结果不算显式边。文件目标已解析但标题或块�
 
 ## 开发
 
-使用 Node.js 24.18.0 和 npm 11.16.0。运行 `npm ci`，然后运行 `npm run check`。
+使用 Node.js 24.19.0 和 npm 11.17.0。运行 `npm ci`，然后运行 `npm run check`。
 
 常驻规范：
 
-- 产品：[English](../product.en.md) · [简体中文](../product.zh-CN.md)
-- UX：[English](../ux.en.md) · [简体中文](../ux.zh-CN.md)
+- 产品需求：[English](../product-requirements.en.md) · [简体中文](../product-requirements.zh-CN.md)
+- UX 规范：[English](../ux-spec.en.md) · [简体中文](../ux-spec.zh-CN.md)
 - 架构：[English](../architecture.en.md) · [简体中文](../architecture.zh-CN.md)
 - 测试：[English](../testing-strategy.en.md) · [简体中文](../testing-strategy.zh-CN.md)
 - 发布：[English](../release.en.md) · [简体中文](../release.zh-CN.md)

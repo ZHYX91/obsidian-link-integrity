@@ -1,3 +1,8 @@
+---
+source_language: zh-CN
+translation_status: source
+---
+
 # Link Integrity UX 规范
 
 ## 1. 交互目标
@@ -124,7 +129,7 @@ Link Integrity 是只读诊断工具。界面应让用户先理解问题、再�
 
 ## 7. 可访问性与移动端
 
-- 页签使用 `tablist`、`tab`、`tabpanel` 语义以及 roving tabindex。
+- 页签使用 `tablist`、`tab`、`tabpanel` 语义以及 roving tabindex；活动页签同时使用强调色下划线和半粗字重，页签基线与内容面板之间保留稳定间距。
 - 支持左右方向键、Home、End，切换后保持合理焦点。
 - 窄屏页签可横向滚动；RTL 布局保持顺序和图标含义正确。
 - 粗指针目标至少 44 CSS 像素。

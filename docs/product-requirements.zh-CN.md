@@ -1,3 +1,8 @@
+---
+source_language: zh-CN
+translation_status: source
+---
+
 # Link Integrity 产品语义
 
 本文定义 Link Integrity 当前产品行为。它描述用户能够依赖的诊断语义，不是进度清单或未来路线图。

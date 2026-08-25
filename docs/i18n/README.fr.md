@@ -12,8 +12,6 @@ Examiner les liens invalides et les fichiers isolés dans une barre latérale co
 
 Configurer l’index, les règles d’exclusion, les types de fichiers et l’isolation attendue dans les paramètres Obsidian :
 
-![Paramètres Link Integrity](../assets/link-integrity-settings-en.png)
-
 ## Fonctionnalités
 
 - Signale les références internes invalides vers des fichiers, titres et blocs depuis Markdown, les incorporations, le Frontmatter, Canvas et les références de fichiers explicites de Bases.
@@ -68,9 +66,9 @@ Tout s’exécute localement. Link Integrity ne téléverse pas le contenu du Va
 
 ## Développement
 
-Utilisez Node.js 24.18.0 et npm 11.16.0. Exécutez `npm ci`, puis `npm run check`.
+Utilisez Node.js 24.19.0 et npm 11.17.0. Exécutez `npm ci`, puis `npm run check`.
 
-Contrats stables : [produit](../product.en.md), [UX](../ux.en.md), [architecture](../architecture.en.md), [tests](../testing-strategy.en.md) et [publication](../release.en.md). Les sources chinoises correspondantes sont dans le même dossier.
+Contrats stables : [produit](../product-requirements.en.md), [UX](../ux-spec.en.md), [architecture](../architecture.en.md), [tests](../testing-strategy.en.md) et [publication](../release.en.md). Les sources chinoises correspondantes sont dans le même dossier.
 
 ## Assistance
 

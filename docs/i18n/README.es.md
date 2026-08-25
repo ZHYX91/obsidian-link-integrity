@@ -12,8 +12,6 @@ Revisa enlaces rotos y archivos aislados en una barra lateral compacta:
 
 Configura el índice, las reglas de exclusión, los tipos de archivo y el aislamiento esperado en los ajustes de Obsidian:
 
-![Ajustes de Link Integrity](../assets/link-integrity-settings-en.png)
-
 ## Funciones
 
 - Informa referencias internas rotas a archivos, encabezados y bloques desde Markdown, incrustaciones, Frontmatter, Canvas y referencias explícitas de archivo en Bases.
@@ -68,9 +66,9 @@ Todo se procesa localmente. Link Integrity no sube el contenido del Vault, no re
 
 ## Desarrollo
 
-Usa Node.js 24.18.0 y npm 11.16.0. Ejecuta `npm ci` y después `npm run check`.
+Usa Node.js 24.19.0 y npm 11.17.0. Ejecuta `npm ci` y después `npm run check`.
 
-Contratos estables: [producto](../product.en.md), [UX](../ux.en.md), [arquitectura](../architecture.en.md), [pruebas](../testing-strategy.en.md) y [publicación](../release.en.md). Las fuentes chinas correspondientes están en la misma carpeta.
+Contratos estables: [producto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitectura](../architecture.en.md), [pruebas](../testing-strategy.en.md) y [publicación](../release.en.md). Las fuentes chinas correspondientes están en la misma carpeta.
 
 ## Soporte
 

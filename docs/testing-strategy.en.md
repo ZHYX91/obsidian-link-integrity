@@ -1,3 +1,9 @@
+---
+source_language: zh-CN
+translation_of: testing-strategy.zh-CN.md
+translation_status: synced
+---
+
 # Link Integrity Testing Strategy
 
 The Link Integrity testing strategy prioritizes diagnostic correctness and index consistency while keeping automated gates, packaged candidates, real hosts, emulators, and physical-device evidence strictly separate.
@@ -22,9 +28,12 @@ Pure fixtures should cover:
 - successful, missing, pending, and unsupported heading or block states;
 - retention of a file-level edge when the file exists but its subpath is missing;
 - Markdown, embed, Frontmatter, Canvas, and Bases explicit source kinds;
+- fallback-parser exclusion of fenced and indented code plus frontmatter YAML comments, while retaining links in frontmatter values and paragraph continuations;
 - self-links, external URLs, and repeated occurrences;
 - absence of explicit edges from dynamic Bases results;
 - separation of candidate, diagnostic, and contribution scopes.
+
+Occurrence-identity regressions prove that unrelated text and unrelated links inserted before a saved occurrence preserve its ignore match, while file and folder rename events migrate the persisted source identity. Inserting an indistinguishable duplicate must change duplicate-set cardinality and make the old rule match zero results, which the rule preview exposes, rather than matching a different occurrence. Workflow-contract syntax validation concatenates the extracted shell blocks into one `bash -n` process so the Windows gate does not pay one Git Bash startup per block.
 
 File-type registry tests cover the classification hierarchy, extension aliases, casing, overlapping media classifications such as WebM, PDF under fixed-layout files, and custom extensions.
 
@@ -52,13 +61,13 @@ A clean rebuild is the correctness oracle for the incremental implementation. Te
 2. rebuild a clean index from the current virtual Vault;
 3. compare normalized files, snapshots, occurrence statuses, edge counts, and self-links.
 
-Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, absorption of pre-scan event storms by the new baseline without duplicate snapshot work, buffered replay of create/modify/delete/rename after a scan has begun, global metadata-resolved handling, and bounded concurrency.
+Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, absorption of pre-scan event storms by the new baseline without duplicate snapshot work, buffered replay of create/modify/delete/rename after a scan has begun, one late host-wide `resolved` correction after a Metadata Cache timeout, and bounded concurrency. Graph-contribution rule tests use the same normalized state as a stable differential fingerprint to prove that regraph equals a clean materialization under the new policy without increasing adapter-read or source-parse counts.
 
 ## Rebuild and failure tests
 
 Transactional tests verify that staging is invisible before completion and is published atomically only after success. On build failure, the store retains the same last-known-good object and generation.
 
-Coordinator tests cover buffering and replay during rebuild, single-flight concurrent rebuilds, lifecycle recovery after pre-rebuild incremental failure, and prevention of an obsolete rebuild publishing after stop. Yield tests inject `yieldControl` and a controlled clock to verify both file-count and main-thread-time budgets; progress tests verify throttling and final progress.
+Coordinator tests cover buffering and replay during rebuild, single-flight concurrent rebuilds within one lifecycle, lifecycle recovery after pre-rebuild incremental failure, prevention of an obsolete rebuild from publishing or claiming more sources after stop, and prevention of an old operation finalizer from cleaning up a new controller after stop→start. Yield tests inject `yieldControl` and a controlled clock to verify both file-count and main-thread-time budgets; progress tests verify throttling and final progress.
 
 Failure tests should assert more than an exception: they must verify whether a trustworthy index remains, whether queued events can continue, and whether status honestly becomes failed or stale. Targeted synchronous-reducer fault injection makes a later source in one batch introduce a cross-source occurrence-ID collision and asserts that batch prevalidation fails before any file metadata or snapshot is published.
 
@@ -78,7 +87,7 @@ The i18n gate checks 11 complete independent catalogs, compile-time exact key co
 
 Synthetic benchmarks record file count, occurrence count, source-kind distribution, environment, and elapsed time. A quick gate may use 10k files; 50k and, where necessary, 100k must be explicitly executed as separate scales and must not be reported if a script argument silently falls back to a smaller run.
 
-Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, duplicate Vault/Metadata Cache callback bursts, dormant startup with scanning disabled, ignored startup `resolve(file)` storms, independent active-tab queries, rule previews, and bounded sidebar DOM. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
+Performance acceptance observes at least full construction, one-file modification, namespace create/delete/rename, duplicate Vault/Metadata Cache callback bursts, dormant startup with scanning disabled, ignored startup `resolve(file)` storms, the one-shot host-wide `resolved` correction after a timeout, zero-parse regraph for graph-only rule changes, independent active-tab queries, rule previews, and bounded sidebar DOM. Thresholds detect regressions and are not real-device promises; mobile devices require separate measurements.
 
 The local synthetic 10k and explicit 50k modes have been run for the current implementation. On the exact runtime, the 2026-08-02 candidate built the 10k graph and isolated projection in 116.9 ms; explicit 50k mode took 606.0 ms and the complete guarded 50k benchmark test took 955 ms. A 100k claim remains unverified and must not be inferred from the 50k result.
 
@@ -96,6 +105,8 @@ Stable repository documentation records the repeatable matrix and evidence bound
 machine-specific paths, run IDs, screenshots, hashes, or dated execution logs. Release decisions
 must use a separately retained record for the exact candidate and host without promoting a smoke
 check into navigation, live-event, emulator, or physical-device evidence.
+
+The isolated-host record for the 0.1.3 candidate covers desktop Obsidian 1.13.7 and Obsidian 1.12.7 on an Android API 35 emulator. The desktop run verified plugin loading, Follow Obsidian, four broken links, four unexpected isolated files, explicit links and optional Canvas nodes, zero-parse regraph for a graph-contribution rule, and restart persistence; controlled injection separately verified fast Metadata Cache readiness, exactly one late-resolved correction after timeout, and that an obsolete rebuild generation cannot overwrite a new instance after unload/restart. The Android run verified the same candidate hashes, the complete settings page, an 11-file/10-reference index, the same 4/4 query results, and app-restart persistence. This record makes no claim for a physical Android device, iOS, a production Vault, or production deployment.
 
 ## Completion criteria
 

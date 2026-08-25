@@ -12,8 +12,6 @@ Link Integrity는 Broken links와 Isolated files를 찾는 로컬 전용 읽기 
 
 Obsidian 설정에서 인덱스, 무시 규칙, 파일 형식과 예상 고립을 구성합니다.
 
-![Link Integrity 설정](../assets/link-integrity-settings-en.png)
-
 ## 기능
 
 - Markdown, 임베드, Frontmatter, Canvas와 Bases의 명시적 파일 참조에서 깨진 파일·제목·블록 링크를 보고합니다.
@@ -68,9 +66,9 @@ Bases 동적 쿼리 결과는 명시적 간선이 아닙니다. 파일은 해결
 
 ## 개발
 
-Node.js 24.18.0과 npm 11.16.0을 사용합니다. `npm ci` 다음 `npm run check`를 실행하세요.
+Node.js 24.19.0과 npm 11.17.0을 사용합니다. `npm ci` 다음 `npm run check`를 실행하세요.
 
-안정 계약: [제품](../product.en.md), [UX](../ux.en.md), [아키텍처](../architecture.en.md), [테스트](../testing-strategy.en.md), [릴리스](../release.en.md). 해당 중국어 원본은 같은 폴더에 있습니다.
+안정 계약: [제품](../product-requirements.en.md), [UX](../ux-spec.en.md), [아키텍처](../architecture.en.md), [테스트](../testing-strategy.en.md), [릴리스](../release.en.md). 해당 중국어 원본은 같은 폴더에 있습니다.
 
 ## 지원
 

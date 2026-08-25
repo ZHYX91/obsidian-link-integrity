@@ -1,3 +1,9 @@
+---
+source_language: zh-CN
+translation_of: product-requirements.zh-CN.md
+translation_status: synced
+---
+
 # Link Integrity Product Semantics
 
 This document defines the current product behavior of Link Integrity. It describes diagnostic semantics that users can rely on, not a progress checklist or a future roadmap.

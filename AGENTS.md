@@ -3,10 +3,10 @@
 ## Authority and scope
 
 This repository contains the Link Integrity Obsidian plugin. Stable authority lives in the paired
-product, UX, architecture, testing, and release contracts under `docs/`; Simplified Chinese is the
-source language and each `.zh-CN.md` file has an English `.en.md` counterpart. Historical Link
-Integrity plan and review files in the parent workspace are non-normative and must not be copied
-as requirements.
+product requirements, UX specification, architecture, testing, and release contracts under
+`docs/`; Simplified Chinese is the source language and each `.zh-CN.md` file has an English `.en.md`
+counterpart. Planning and review notes outside those stable contracts are non-normative and must
+not be copied as requirements.
 
 Link Integrity reports broken internal links and isolated Vault files. It is diagnostic and
 non-destructive by default. Do not add deletion, bulk rewriting, network link checking, or
@@ -70,8 +70,9 @@ production Vault, and never treat fixture setup as proof of Link Integrity produ
 
 ## Documentation lifecycle
 
-Simplified Chinese is the source language for stable product, UX, architecture, and testing
-documents. Pair stable `.zh-CN.md` documents with structurally matching `.en.md` translations.
+Simplified Chinese is the source language for stable product requirements, UX specification,
+architecture, testing, and release documents. Pair stable `.zh-CN.md` documents with structurally
+matching `.en.md` translations and the canonical frontmatter enforced by `check:docs-i18n`.
 The root README is English and translations live under `docs/i18n/`. Because the Obsidian plugin catalog renders only the English root README without rewriting repository-relative URLs, root navigation and repository-document links use canonical GitHub `blob/main` URLs and root images use canonical `raw.githubusercontent.com` URLs. Translated READMEs use repository-relative navigation, document, image, and license targets. Release, Issues, Security, and other external resources remain absolute HTTPS URLs in every language. `npm run check:readme-i18n` enforces this split offline, including exact language navigation, section order, target existence, and repository-boundary checks.
 
 Durable rules belong only in the stable bilingual contracts. Short-lived implementation notes must

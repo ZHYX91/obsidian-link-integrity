@@ -12,8 +12,6 @@ Xem liên kết hỏng và tệp cô lập trong thanh bên gọn nhẹ:
 
 Cấu hình chỉ mục, quy tắc bỏ qua, loại tệp và trạng thái cô lập dự kiến trong cài đặt Obsidian:
 
-![Cài đặt Link Integrity](../assets/link-integrity-settings-en.png)
-
 ## Tính năng
 
 - Báo cáo tham chiếu nội bộ hỏng tới tệp, tiêu đề và khối từ Markdown, nội dung nhúng, Frontmatter, Canvas và tham chiếu tệp rõ ràng của Bases.
@@ -68,9 +66,9 @@ Mọi xử lý diễn ra cục bộ. Link Integrity không tải nội dung Vaul
 
 ## Phát triển
 
-Dùng Node.js 24.18.0 và npm 11.16.0. Chạy `npm ci`, sau đó `npm run check`.
+Dùng Node.js 24.19.0 và npm 11.17.0. Chạy `npm ci`, sau đó `npm run check`.
 
-Hợp đồng ổn định: [sản phẩm](../product.en.md), [UX](../ux.en.md), [kiến trúc](../architecture.en.md), [kiểm thử](../testing-strategy.en.md) và [phát hành](../release.en.md). Nguồn tiếng Trung tương ứng nằm trong cùng thư mục.
+Hợp đồng ổn định: [sản phẩm](../product-requirements.en.md), [UX](../ux-spec.en.md), [kiến trúc](../architecture.en.md), [kiểm thử](../testing-strategy.en.md) và [phát hành](../release.en.md). Nguồn tiếng Trung tương ứng nằm trong cùng thư mục.
 
 ## Hỗ trợ
 

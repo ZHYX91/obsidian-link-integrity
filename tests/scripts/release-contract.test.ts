@@ -19,7 +19,7 @@ const manifest = {
   version: "0.1.0",
 };
 const packageJson = {
-  engines: { node: "24.18.0" },
+  engines: { node: "24.19.0" },
   name: "obsidian-link-integrity",
   version: "0.1.0",
 };
@@ -27,7 +27,7 @@ const packageLock = {
   name: "obsidian-link-integrity",
   packages: {
     "": {
-      engines: { node: "24.18.0" },
+      engines: { node: "24.19.0" },
       name: "obsidian-link-integrity",
       version: "0.1.0",
     },

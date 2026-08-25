@@ -12,8 +12,6 @@ Link Integrity 是完全本機、唯讀的 Obsidian 診斷外掛，用於 Broken
 
 在 Obsidian 設定中配置索引、忽略規則、檔案類型與預期孤立模式：
 
-![Link Integrity 孤立檔案設定](../assets/link-integrity-settings-en.png)
-
 ## 功能特性
 
 - 報告 Markdown、嵌入、Frontmatter、Canvas 與 Bases 明確檔案引用中的無效檔案、標題及區塊連結。
@@ -68,12 +66,12 @@ Bases 動態查詢結果不算明確圖邊。若檔案已解析但標題或區�
 
 ## 開發
 
-使用 Node.js 24.18.0 與 npm 11.16.0。執行 `npm ci`，再執行 `npm run check`。
+使用 Node.js 24.19.0 與 npm 11.17.0。執行 `npm ci`，再執行 `npm run check`。
 
 常駐規範：
 
-- 產品：[English](../product.en.md) · [简体中文](../product.zh-CN.md)
-- UX：[English](../ux.en.md) · [简体中文](../ux.zh-CN.md)
+- 產品需求：[English](../product-requirements.en.md) · [简体中文](../product-requirements.zh-CN.md)
+- UX 規範：[English](../ux-spec.en.md) · [简体中文](../ux-spec.zh-CN.md)
 - 架構：[English](../architecture.en.md) · [简体中文](../architecture.zh-CN.md)
 - 測試：[English](../testing-strategy.en.md) · [简体中文](../testing-strategy.zh-CN.md)
 - 發佈：[English](../release.en.md) · [简体中文](../release.zh-CN.md)

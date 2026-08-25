@@ -12,8 +12,6 @@ Link Integrity は Broken links と Isolated files を検出する、ローカ�
 
 Obsidian の設定でインデックス、除外ルール、ファイル形式、想定された孤立を構成できます。
 
-![Link Integrity 設定](../assets/link-integrity-settings-en.png)
-
 ## 機能
 
 - Markdown、埋め込み、Frontmatter、Canvas、Bases の明示的ファイル参照にある壊れたファイル・見出し・ブロックリンクを報告します。
@@ -68,9 +66,9 @@ Bases の動的クエリ結果は明示的な辺ではありません。ファ�
 
 ## 開発
 
-Node.js 24.18.0 と npm 11.16.0 を使用し、`npm ci` の後に `npm run check` を実行します。
+Node.js 24.19.0 と npm 11.17.0 を使用し、`npm ci` の後に `npm run check` を実行します。
 
-安定した契約：[製品](../product.en.md)、[UX](../ux.en.md)、[アーキテクチャ](../architecture.en.md)、[テスト](../testing-strategy.en.md)、[リリース](../release.en.md)。対応する中国語ソースは同じフォルダーにあります。
+安定した契約：[製品](../product-requirements.en.md)、[UX](../ux-spec.en.md)、[アーキテクチャ](../architecture.en.md)、[テスト](../testing-strategy.en.md)、[リリース](../release.en.md)。対応する中国語ソースは同じフォルダーにあります。
 
 ## サポート
 

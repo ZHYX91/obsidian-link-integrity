@@ -1,3 +1,8 @@
+---
+source_language: zh-CN
+translation_status: source
+---
+
 # Link Integrity 测试策略
 
 Link Integrity 的测试策略优先证明诊断正确性和索引一致性，并严格区分自动门禁、打包候选、真实宿主、模拟器和物理设备证据。
@@ -22,9 +27,12 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 - 标题和块成功、缺失、等待或无法验证状态；
 - 文件存在但子路径缺失时仍保留文件级边；
 - Markdown、嵌入、Frontmatter、Canvas 和 Bases 显式来源类型；
+- 降级解析器屏蔽 fenced/indented code 和 frontmatter YAML comment，同时保留 frontmatter value 与 paragraph continuation 中的链接；
 - 自链接、外部 URL 和重复 occurrence；
 - Bases 动态结果不形成显式边；
 - 候选、诊断和贡献范围互不污染。
+
+Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文本或无关链接后，其忽略匹配仍然保持；文件与文件夹重命名事件会迁移持久化身份中的来源部分。插入无法区分的同语义重复项时，重复集合基数必须变化，并让旧规则匹配零个结果，由规则预览明确呈现，而不是误匹配另一处 occurrence。Workflow contract 的语法验证会把提取出的 shell 片段合并后交给单个 `bash -n` 进程，避免 Windows 门禁为每个代码块重复承担 Git Bash 启动开销。
 
 文件类型 registry 测试覆盖分类层级、扩展名别名、大小写、WebM 等重叠媒体分类、PDF 的版式文件归属和自定义扩展名。
 
@@ -52,13 +60,13 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 2. 从当前虚拟 Vault 重新构建干净索引；
 3. 比较文件、快照、occurrence 状态、边计数和自链接的规范化状态。
 
-固定种子的随机事件序列用于重复验证差分等价。专项竞态测试覆盖同名文件出现后的有效与无效引用重验证、旧异步快照不能覆盖新 revision、重复事件合并、扫描前事件风暴由新 baseline 吸收且不重复建快照、扫描开始后的 create/modify/delete/rename 缓冲重放、全局 metadata-resolved 和有限并发。
+固定种子的随机事件序列用于重复验证差分等价。专项竞态测试覆盖同名文件出现后的有效与无效引用重验证、旧异步快照不能覆盖新 revision、重复事件合并、扫描前事件风暴由新 baseline 吸收且不重复建快照、扫描开始后的 create/modify/delete/rename 缓冲重放、Metadata Cache 超时后的 late `resolved` 单次全局纠偏和有限并发。图贡献规则测试使用同一规范化状态作为稳定差分指纹，证明 regraph 与新 policy 下的干净物化结果相同，同时不增加 adapter 读取或来源解析计数。
 
 ## 重建与故障测试
 
 事务测试验证 staging 在完成前不可见，只有成功后才原子发布。构建失败时，store 保留相同的 last-known-good 对象和 generation。
 
-协调器测试覆盖重建期间事件缓冲与重放、并发 rebuild single-flight、预重建增量失败后的生命周期恢复，以及 stop 后旧重建不能发布。时间片测试使用可注入 `yieldControl` 与可控时钟，分别验证文件数上限和主线程时间预算都会触发让步；进度测试验证节流和最终进度。
+协调器测试覆盖重建期间事件缓冲与重放、同生命周期并发 rebuild single-flight、预重建增量失败后的生命周期恢复、stop 后旧重建不能发布或继续领取来源，以及 stop→start 后旧操作 finalizer 不能清理新控制器。时间片测试使用可注入 `yieldControl` 与可控时钟，分别验证文件数上限和主线程时间预算都会触发让步；进度测试验证节流和最终进度。
 
 故障测试不应只断言抛错，还要断言可信索引是否保留、待处理事件能否继续处理，以及状态是否诚实标记为 failed 或 stale。同步 reducer 的定向 fault injection 会让同一批次的后一个来源制造跨来源 occurrence ID 冲突，并断言 batch 预验证在任何文件元数据或快照发布前失败。
 
@@ -78,7 +86,7 @@ i18n 门禁检查 11 个完整且独立的 catalog、编译期精确键覆盖、
 
 合成基准分别记录文件数量、occurrence 数量、来源类型分布、环境和耗时。快速门禁可以使用 10k 文件；50k 和必要时 100k 必须是明确运行的独立规模，不能因脚本参数失效而误报。
 
-性能验收至少观察全量构建、单文件修改、命名空间 create/delete/rename、重复 Vault/Metadata Cache 回调突发、关闭启动扫描时的休眠状态、被忽略的启动期 `resolve(file)` 风暴、相互独立的活动页签查询、规则预览和有界侧栏 DOM。阈值用于发现回归，不代表真实设备承诺；移动设备必须单独测量。
+性能验收至少观察全量构建、单文件修改、命名空间 create/delete/rename、重复 Vault/Metadata Cache 回调突发、关闭启动扫描时的休眠状态、被忽略的启动期 `resolve(file)` 风暴、超时后 host-wide `resolved` 的一次性纠偏、仅图规则变更的零解析 regraph、相互独立的活动页签查询、规则预览和有界侧栏 DOM。阈值用于发现回归，不代表真实设备承诺；移动设备必须单独测量。
 
 当前实现已经运行本地合成 10k 和显式 50k 模式。2026-08-02 的本轮候选在精确 runtime 上以 116.9 ms 完成 10k 建图与孤立投影；显式 50k 模式为 606.0 ms，包含 guardrail 的完整 50k 基准测试为 955 ms。100k 尚未验证，不能从 50k 结果推断。
 
@@ -93,6 +101,8 @@ i18n 门禁检查 11 个完整且独立的 catalog、编译期精确键覆盖、
 真实桌面宿主矩阵应至少覆盖 Obsidian 1.12.7 和当前 1.13.x，验证 Metadata Cache 边界、官方 resolver 结果、实时事件、精确导航、主题、窄侧栏、键盘和 RTL。移动验收另行覆盖触摸目标、后台/恢复、旋转、窄屏和较大 Vault 响应。
 
 稳定仓库文档只记录可重复执行的矩阵和证据边界，不保存机器专有路径、run ID、截图、哈希或按日期累积的执行日志。发布判断必须另行保留精确候选与宿主记录，且不得把 smoke 检查升级描述为导航、实时事件、模拟器或物理设备证据。
+
+0.1.3 候选的隔离宿主记录覆盖了桌面 Obsidian 1.13.7 与 Android API 35 模拟器上的 Obsidian 1.12.7。桌面运行验证插件加载、Follow Obsidian、4 条无效链接、4 个非预期孤立文件、显式链接与可选 Canvas 节点、图贡献规则的零解析 regraph，以及重启持久化；受控注入另行验证 Metadata Cache 快速就绪、超时后仅一次 late-resolved 纠偏，以及卸载/重启后旧重建代次不能覆盖新实例。Android 运行验证相同候选哈希、完整设置页、11 文件/10 引用索引、相同 4/4 查询结果和应用重启持久化。该记录不声称物理 Android 设备、iOS、正式 Vault 或生产部署已经通过。
 
 ## 完成判定
 
