@@ -3,6 +3,7 @@ import type { FileRecord } from "../../core/model";
 import type { GraphContributionPolicy } from "../../core/scopes";
 import { AtomicLinkIndexStore } from "./atomic-store";
 import type { LinkIndexPort } from "./ports";
+import { raceWithAbort, throwIfAborted } from "./cancellation";
 
 export interface FullRebuildOptions {
   readonly concurrency?: number;
@@ -40,10 +41,12 @@ export class FullRebuildController {
 
   public async buildStaging(
     contributionPolicy: GraphContributionPolicy = this.store.current.graphContributionPolicy,
+    signal?: AbortSignal,
   ): Promise<LinkIndex> {
-    const files = await this.port.listFiles();
+    const files = await raceWithAbort(this.port.listFiles(), signal);
+    throwIfAborted(signal);
     const staging = new LinkIndex(files, { contributionPolicy });
-    await this.populate(staging, files);
+    await this.populate(staging, files, signal);
     return staging;
   }
 
@@ -57,13 +60,18 @@ export class FullRebuildController {
     };
   }
 
-  public async rebuild(): Promise<FullRebuildResult> {
-    return this.publish(await this.buildStaging());
+  public async rebuild(signal?: AbortSignal): Promise<FullRebuildResult> {
+    return this.publish(await this.buildStaging(undefined, signal));
   }
 
-  private async populate(index: LinkIndex, files: readonly FileRecord[]): Promise<void> {
+  private async populate(
+    index: LinkIndex,
+    files: readonly FileRecord[],
+    signal?: AbortSignal,
+  ): Promise<void> {
     let nextIndex = 0;
     let completed = 0;
+    let failed = false;
     let lastProgressAt = Number.NEGATIVE_INFINITY;
     const now = this.options.now ?? Date.now;
     let lastYieldAt = now();
@@ -78,26 +86,41 @@ export class FullRebuildController {
     };
     reportProgress(true);
     const worker = async (): Promise<void> => {
-      while (nextIndex < files.length) {
-        if (pendingYield !== null) await pendingYield;
-        const fileIndex = nextIndex;
-        nextIndex += 1;
-        const file = files[fileIndex];
-        if (file === undefined) continue;
-        const snapshot = await this.port.buildSourceSnapshot(file.path);
-        if (snapshot !== null) index.replaceSourceSnapshot(file.path, snapshot);
-        completed += 1;
-        reportProgress(completed === files.length);
-        const currentTime = now();
-        const countBudgetReached = completed % this.yieldEvery === 0;
-        const timeBudgetReached = currentTime - lastYieldAt >= this.yieldIntervalMs;
-        if (completed < files.length && (countBudgetReached || timeBudgetReached)) {
-          pendingYield ??= this.yieldControl().finally(() => {
-            lastYieldAt = now();
-            pendingYield = null;
-          });
-          await pendingYield;
+      try {
+        while (!failed && nextIndex < files.length) {
+          throwIfAborted(signal);
+          if (pendingYield !== null) {
+            await raceWithAbort(pendingYield, signal);
+            throwIfAborted(signal);
+          }
+          if (failed) return;
+          const fileIndex = nextIndex;
+          nextIndex += 1;
+          const file = files[fileIndex];
+          if (file === undefined) continue;
+          const snapshot = await raceWithAbort(
+            this.port.buildSourceSnapshot(file.path),
+            signal,
+          );
+          throwIfAborted(signal);
+          if (snapshot !== null) index.replaceSourceSnapshot(file.path, snapshot);
+          completed += 1;
+          reportProgress(completed === files.length);
+          const currentTime = now();
+          const countBudgetReached = completed % this.yieldEvery === 0;
+          const timeBudgetReached = currentTime - lastYieldAt >= this.yieldIntervalMs;
+          if (completed < files.length && (countBudgetReached || timeBudgetReached)) {
+            pendingYield ??= this.yieldControl().finally(() => {
+              lastYieldAt = now();
+              pendingYield = null;
+            });
+            await raceWithAbort(pendingYield, signal);
+            throwIfAborted(signal);
+          }
         }
+      } catch (error) {
+        failed = true;
+        throw error;
       }
     };
     await Promise.all(Array.from(

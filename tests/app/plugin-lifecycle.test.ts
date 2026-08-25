@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import LinkIntegrityPlugin from "../../src/app/plugin";
 import { createInitialSidebarState } from "../../src/app/sidebar-view";
+import {
+  createOccurrenceId,
+  occurrenceIdMatches,
+} from "../../src/core/occurrence-identity";
 import { createDefaultSettings } from "../../src/shared/settings";
 import type { IndexStatus, SidebarViewState } from "../../src/ui/sidebar";
 
@@ -47,6 +51,17 @@ describe("plugin index lifecycle", () => {
     vi.spyOn(plugin, "loadData").mockResolvedValue({
       ...defaults,
       general: { ...defaults.general, scanOnStartup: false },
+      ignoreRules: [{
+        id: "dormant-occurrence",
+        enabled: true,
+        scope: "ignore-occurrence",
+        matcher: {
+          kind: "occurrence-id",
+          value: testOccurrenceId("Dormant.md", "2:0", 1),
+        },
+        createdAt: 1,
+        note: "",
+      }],
     });
 
     await plugin.onload();
@@ -58,10 +73,17 @@ describe("plugin index lifecycle", () => {
     expect(metadataEvents.listenerCount("changed")).toBe(0);
     expect(metadataEvents.listenerCount("deleted")).toBe(0);
     expect(vaultEvents.listenerCount("modify")).toBe(0);
+    expect(vaultEvents.listenerCount("rename")).toBe(1);
 
     const runtime = plugin as unknown as PluginRuntimeInspection;
     expect(runtime.query.getSnapshot().status.state).toBe("idle");
     expect(runtime.coordinator.store.generation).toBe(0);
+    vaultEvents.emit("rename", createMockFile("Moved.md", 2), "Dormant.md");
+    const dormantRule = plugin.getSettings().ignoreRules[0];
+    expect(occurrenceIdMatches(
+      dormantRule?.matcher.value ?? "",
+      testOccurrenceId("Moved.md", "12:0", 7),
+    )).toBe(true);
     vaultEvents.emit("modify", file);
     await Promise.resolve();
     expect(snapshotBuildCount).toBe(0);
@@ -79,6 +101,22 @@ describe("plugin index lifecycle", () => {
     expect(snapshotBuildCount).toBeGreaterThanOrEqual(1);
     expect(metadataEvents.listenerCount("changed")).toBe(1);
     expect(metadataEvents.listenerCount("deleted")).toBe(1);
+
+    const rebuildSpy = vi.spyOn(plugin, "rebuild");
+    const buildsBeforeRegraph = snapshotBuildCount;
+    plugin.updateSettings({
+      ...plugin.getSettings(),
+      ignoreRules: [{
+        id: "graph-rule",
+        enabled: true,
+        scope: "exclude-graph-contribution",
+        matcher: { kind: "source-path", value: "A.md" },
+        createdAt: 1,
+        note: "",
+      }],
+    }, "regraph");
+    expect(rebuildSpy).not.toHaveBeenCalled();
+    expect(snapshotBuildCount).toBe(buildsBeforeRegraph);
 
     runtime.setExpectedFile("A.md", true, document);
     expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["A.md"]);
@@ -112,6 +150,7 @@ describe("plugin index lifecycle", () => {
       folder: { path: "Archive", mode: "recursive" as const },
       namingPatterns: [],
     };
+    const folderOccurrenceId = testOccurrenceId("Archive/Single.md", "3:0", 2);
     plugin.updateSettings({
       ...plugin.getSettings(),
       isolatedFiles: {
@@ -119,6 +158,17 @@ describe("plugin index lifecycle", () => {
         expectedFilePaths: ["Archive/Single.md"],
         expectedRules: [disabledFolderRule],
       },
+      ignoreRules: [
+        ...plugin.getSettings().ignoreRules,
+        {
+          id: "folder-occurrence",
+          enabled: true,
+          scope: "ignore-occurrence",
+          matcher: { kind: "occurrence-id", value: folderOccurrenceId },
+          createdAt: 1,
+          note: "",
+        },
+      ],
     }, "query-only");
     runtime.addExpectedFolderRule("Archive", "recursive", document);
     expect(plugin.getSettings().isolatedFiles.expectedRules).toEqual([
@@ -132,6 +182,13 @@ describe("plugin index lifecycle", () => {
     vaultEvents.emit("rename", createMockFolder("Stored"), "Archive");
     expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["Stored/Single.md"]);
     expect(plugin.getSettings().isolatedFiles.expectedRules[0]?.folder?.path).toBe("Stored");
+    const renamedFolderRule = plugin.getSettings().ignoreRules
+      .find(({ id }) => id === "folder-occurrence");
+    expect(renamedFolderRule?.matcher.kind).toBe("occurrence-id");
+    expect(occurrenceIdMatches(
+      renamedFolderRule?.matcher.value ?? "",
+      testOccurrenceId("Stored/Single.md", "18:0", 9),
+    )).toBe(true);
 
     let queryNotifications = 0;
     const unsubscribe = runtime.query.subscribe(() => {
@@ -164,26 +221,33 @@ describe("plugin index lifecycle", () => {
     plugin.onunload();
   });
 
-  it("ignores late per-file resolve storms after the startup metadata fallback", async () => {
+  it("revalidates all sources once when host metadata resolves after the startup fallback", async () => {
     vi.useFakeTimers();
-    const file = createMockFile("A.md", 1);
+    const source = createMockFile("Source.md", 1);
+    const target = createMockFile("Target.md", 2);
     const vaultEvents = new TestEvents();
     const metadataEvents = new TestEvents();
     let layoutReady: (() => void) | null = null;
     let snapshotBuildCount = 0;
+    let metadataReady = false;
     const app = {
       vault: {
-        cachedRead: async () => "",
-        getFileByPath: (path: string) => path === file.path ? file : null,
-        getFiles: () => [file],
+        cachedRead: async (file: TFile) => file.path === source.path ? "[[Target]]" : "",
+        getFileByPath: (path: string) => [source, target]
+          .find((file) => file.path === path) ?? null,
+        getFiles: () => [source, target],
         on: vaultEvents.on,
       },
       metadataCache: {
-        getFileCache: () => {
+        getFileCache: (file: TFile) => {
           snapshotBuildCount += 1;
-          return { links: [], embeds: [], frontmatterLinks: [] };
+          if (!metadataReady) return null;
+          return file.path === source.path
+            ? { links: [reference("Target", "[[Target]]")] }
+            : { links: [], embeds: [], frontmatterLinks: [] };
         },
-        getFirstLinkpathDest: () => null,
+        getFirstLinkpathDest: (linkpath: string) =>
+          metadataReady && linkpath === "Target" ? target : null,
         on: metadataEvents.on,
         offref: metadataEvents.offref,
       },
@@ -211,25 +275,72 @@ describe("plugin index lifecycle", () => {
     await vi.advanceTimersByTimeAsync(1_000);
     await runtime.coordinator.whenIdle();
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
-    expect(snapshotBuildCount).toBe(1);
-    expect(metadataEvents.listenerCount("resolved")).toBe(0);
+    expect(runtime.coordinator.index.getOutgoingNeighborCount(source.path)).toBe(0);
+    expect(metadataEvents.listenerCount("resolved")).toBe(1);
     expect(metadataEvents.listenerCount("resolve")).toBe(0);
     expect(metadataEvents.listenerCount("changed")).toBe(1);
     expect(metadataEvents.listenerCount("deleted")).toBe(1);
 
-    let queryNotifications = 0;
-    const unsubscribe = runtime.query.subscribe(() => {
-      queryNotifications += 1;
-    });
-    for (let count = 0; count < 100; count += 1) metadataEvents.emit("resolve", file);
-    await vi.runOnlyPendingTimersAsync();
+    const fallbackBuildCount = snapshotBuildCount;
+    metadataReady = true;
+    metadataEvents.emit("resolved");
+    await vi.advanceTimersByTimeAsync(100);
     await runtime.coordinator.whenIdle();
     await Promise.resolve();
 
-    expect(snapshotBuildCount).toBe(1);
-    expect(queryNotifications).toBe(0);
-    unsubscribe();
+    expect(runtime.coordinator.index.getOutgoingNeighborCount(source.path)).toBe(1);
+    expect(snapshotBuildCount).toBeGreaterThan(fallbackBuildCount);
+    expect(metadataEvents.listenerCount("resolved")).toBe(0);
+    const correctedBuildCount = snapshotBuildCount;
+    metadataEvents.emit("resolved");
+    for (let count = 0; count < 100; count += 1) metadataEvents.emit("resolve", source);
+    await vi.runOnlyPendingTimersAsync();
+    await runtime.coordinator.whenIdle();
+    expect(snapshotBuildCount).toBe(correctedBuildCount);
     plugin.onunload();
+  });
+
+  it("detaches the initial metadata gate and settles an in-flight scan on unload", async () => {
+    vi.useFakeTimers();
+    const file = createMockFile("A.md", 1);
+    const vaultEvents = new TestEvents();
+    const metadataEvents = new TestEvents();
+    let layoutReady: (() => void) | null = null;
+    const app = {
+      vault: {
+        cachedRead: async () => "",
+        getFileByPath: (path: string) => path === file.path ? file : null,
+        getFiles: () => [file],
+        on: vaultEvents.on,
+      },
+      metadataCache: {
+        getFileCache: () => null,
+        getFirstLinkpathDest: () => null,
+        on: metadataEvents.on,
+        offref: metadataEvents.offref,
+      },
+      workspace: {
+        getLeavesOfType: () => [],
+        onLayoutReady: (callback: () => void) => {
+          layoutReady = callback;
+        },
+      },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+
+    await plugin.onload();
+    (layoutReady as (() => void) | null)?.();
+    const indexing = plugin.ensureIndex();
+    expect(metadataEvents.listenerCount("resolved")).toBe(1);
+
+    plugin.onunload();
+    expect(metadataEvents.listenerCount("resolved")).toBe(0);
+    await expect(indexing).resolves.toBeUndefined();
+    await vi.runOnlyPendingTimersAsync();
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    expect(runtime.initialMetadataState).toBe("dormant");
   });
 
   it("absorbs pre-scan Vault events into the startup baseline without replaying them", async () => {
@@ -275,6 +386,17 @@ describe("plugin index lifecycle", () => {
         ...defaults.isolatedFiles,
         expectedFilePaths: [fileB.path],
       },
+      ignoreRules: [{
+        id: "file-occurrence",
+        enabled: true,
+        scope: "ignore-occurrence",
+        matcher: {
+          kind: "occurrence-id",
+          value: testOccurrenceId(fileB.path, "4:0", 3),
+        },
+        createdAt: 1,
+        note: "",
+      }],
     });
 
     await plugin.onload();
@@ -297,6 +419,11 @@ describe("plugin index lifecycle", () => {
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
     expect(runtime.coordinator.index.files.map(({ path }) => path)).toEqual(["C.md"]);
     expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["C.md"]);
+    const renamedFileRule = plugin.getSettings().ignoreRules[0];
+    expect(occurrenceIdMatches(
+      renamedFileRule?.matcher.value ?? "",
+      testOccurrenceId("C.md", "7:0", 5),
+    )).toBe(true);
     expect(snapshotBuildCount).toBe(1);
     plugin.onunload();
   });
@@ -468,7 +595,7 @@ describe("plugin index lifecycle", () => {
     const statuses: Array<{ readonly state: string; readonly invalidate: boolean }> = [];
     Object.assign(plugin, {
       runtimeStarted: true,
-      initialMetadataReady: true,
+      initialMetadataState: "resolved",
       metadataEventsRegistered: true,
       coordinator: {
         state: "stale",
@@ -493,7 +620,21 @@ describe("plugin index lifecycle", () => {
   });
 });
 
+function testOccurrenceId(sourcePath: string, location: string, legacyOrdinal: number): string {
+  return createOccurrenceId({
+    sourcePath,
+    kind: "markdown-link",
+    raw: "[[Missing]]",
+    linktext: "Missing",
+    duplicateIndex: 0,
+    duplicateCount: 1,
+    location,
+    legacyOrdinal,
+  });
+}
+
 interface PluginRuntimeInspection {
+  readonly initialMetadataState: "dormant" | "waiting" | "fallback" | "resolved";
   readonly query: {
     readonly getSnapshot: () => { readonly status: IndexStatus };
     readonly subscribe: (listener: () => void) => () => void;
@@ -566,4 +707,15 @@ function createMockFile(path: string, modifiedAt: number): TFile {
 function createMockFolder(path: string): TFolder {
   const MockTFolder = TFolder as unknown as new (path: string) => TFolder;
   return new MockTFolder(path);
+}
+
+function reference(link: string, original: string) {
+  return {
+    link,
+    original,
+    position: {
+      start: { line: 0, col: 0, offset: 0 },
+      end: { line: 0, col: original.length, offset: original.length },
+    },
+  };
 }

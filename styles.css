@@ -77,8 +77,7 @@
   color: var(--text-warning);
 }
 
-.link-integrity-tabs,
-.link-integrity-settings-tabs {
+.link-integrity-tabs {
   display: flex;
   overflow-x: auto;
   border-block-end: 1px solid var(--background-modifier-border);
@@ -91,8 +90,7 @@
   overflow-x: visible;
 }
 
-.link-integrity-sidebar button.link-integrity-tab,
-.link-integrity-settings button.link-integrity-settings-tab {
+.link-integrity-sidebar button.link-integrity-tab {
   display: inline-flex;
   min-inline-size: max-content;
   flex: 1 0 auto;
@@ -115,25 +113,21 @@
   white-space: normal;
 }
 
-.link-integrity-sidebar button.link-integrity-tab:hover,
-.link-integrity-settings button.link-integrity-settings-tab:hover {
+.link-integrity-sidebar button.link-integrity-tab:hover {
   background-color: var(--background-modifier-hover);
   box-shadow: none;
 }
 
-.link-integrity-sidebar button.link-integrity-tab.is-active,
-.link-integrity-settings button.link-integrity-settings-tab.is-active {
+.link-integrity-sidebar button.link-integrity-tab.is-active {
   box-shadow: inset 0 -2px var(--interactive-accent);
   color: var(--text-normal);
 }
 
-.link-integrity-sidebar button.link-integrity-tab:focus-visible,
-.link-integrity-settings button.link-integrity-settings-tab:focus-visible {
+.link-integrity-sidebar button.link-integrity-tab:focus-visible {
   box-shadow: inset 0 0 0 2px var(--background-modifier-border-focus);
 }
 
-.link-integrity-sidebar button.link-integrity-tab.is-active:focus-visible,
-.link-integrity-settings button.link-integrity-settings-tab.is-active:focus-visible {
+.link-integrity-sidebar button.link-integrity-tab.is-active:focus-visible {
   box-shadow:
     inset 0 -2px var(--interactive-accent),
     inset 0 0 0 2px var(--background-modifier-border-focus);
@@ -912,20 +906,6 @@
 }
 
 @container link-integrity-settings (max-width: 420px) {
-  .link-integrity-settings-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    overflow-x: visible;
-  }
-
-  .link-integrity-settings button.link-integrity-settings-tab {
-    block-size: auto;
-    height: auto;
-    min-inline-size: 0;
-    overflow-wrap: anywhere;
-    white-space: normal;
-  }
-
   .link-integrity-file-format {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -950,58 +930,63 @@
 
 /* Shared settings navigation contract used across the plugin family. */
 .link-integrity-settings-tabs {
-  align-items: flex-end;
+  align-items: stretch;
+  border-block-end: 1px solid var(--background-modifier-border);
   display: flex;
   flex-wrap: nowrap;
-  gap: 2px;
-  max-width: 100%;
-  margin: 0 0 22px;
+  gap: var(--size-2-1);
+  max-inline-size: 100%;
+  margin: 0;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
   padding: 0;
-  border-bottom: 1px solid var(--background-modifier-border);
   scrollbar-width: thin;
 }
 
-.link-integrity-settings button.link-integrity-settings-tab {
+.link-integrity-settings-tabs > button.link-integrity-settings-tab {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-block-end: 2px solid transparent !important;
+  border-radius: 0 !important;
   box-sizing: border-box;
-  block-size: 34px;
-  min-block-size: 34px;
-  min-inline-size: max-content;
-  flex: 0 0 auto;
-  padding: 0 12px;
-  margin-block-end: -1px;
-  border: 1px solid transparent;
-  border-block-end: 2px solid transparent;
-  border-radius: 5px 5px 0 0;
-  background: transparent;
   box-shadow: none !important;
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
+  color: var(--text-muted) !important;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-family: inherit !important;
+  font-size: var(--font-ui-small) !important;
+  font-weight: inherit;
+  block-size: auto;
+  min-block-size: 34px;
+  margin: 0 0 -1px !important;
+  padding: 7px 12px !important;
   white-space: nowrap;
 }
 
-.link-integrity-settings button.link-integrity-settings-tab:hover {
-  border-color: var(--background-modifier-border);
-  background: var(--interactive-hover);
-  color: var(--text-normal);
+.link-integrity-settings-tabs > button.link-integrity-settings-tab:hover {
+  background: transparent !important;
+  color: var(--text-normal) !important;
 }
 
-.link-integrity-settings button.link-integrity-settings-tab.is-active,
-.link-integrity-settings button.link-integrity-settings-tab.is-active:hover {
-  border-color: var(--background-modifier-border);
-  border-block-end-color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
-  box-shadow: none !important;
-  color: var(--text-normal);
+.link-integrity-settings-tabs > button.link-integrity-settings-tab.is-active,
+.link-integrity-settings-tabs > button.link-integrity-settings-tab.is-active:hover {
+  background: transparent !important;
+  border-block-end-color: var(--interactive-accent) !important;
+  color: var(--text-normal) !important;
+  font-weight: var(--font-semibold) !important;
 }
 
-.link-integrity-settings button.link-integrity-settings-tab:focus-visible,
-.link-integrity-settings button.link-integrity-settings-tab.is-active:focus-visible {
+.link-integrity-settings-tabs > button.link-integrity-settings-tab:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: -2px;
-  box-shadow: none !important;
+}
+
+.link-integrity-settings-panel {
+  margin-block-start: var(--size-4-5);
+  padding-block-start: 0;
 }
 
 .link-integrity-index-details {
@@ -1040,13 +1025,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-@media (pointer: coarse) {
-  .link-integrity-settings button.link-integrity-settings-tab {
-    block-size: 44px;
-    min-block-size: 44px;
-  }
-}
-
 @container link-integrity-settings (max-width: 420px) {
   .link-integrity-settings-tabs {
     display: flex;
@@ -1054,8 +1032,6 @@
   }
 
   .link-integrity-settings button.link-integrity-settings-tab {
-    block-size: 34px;
-    min-block-size: 34px;
     min-inline-size: max-content;
     white-space: nowrap;
   }
@@ -1074,7 +1050,6 @@
   }
 
   .link-integrity-settings button.link-integrity-settings-tab {
-    block-size: 44px;
     min-block-size: 44px;
   }
 }

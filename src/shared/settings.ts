@@ -88,7 +88,7 @@ export type SettingsChangeImpact =
   | "query-only"
   | "revalidate"
   | "partial-reindex"
-  | "full-rebuild";
+  | "regraph";
 
 export type SettingsControlKey =
   | "general.locale"
@@ -301,7 +301,7 @@ export function classifySettingChange(
   keyOrRule: SettingsControlKey | Pick<IgnoreRule, "scope">,
 ): SettingsChangeImpact {
   if (typeof keyOrRule !== "string") {
-    return keyOrRule.scope === "exclude-graph-contribution" ? "full-rebuild" : "query-only";
+    return keyOrRule.scope === "exclude-graph-contribution" ? "regraph" : "query-only";
   }
   if (keyOrRule.startsWith("brokenLinks.diagnostics.")) return "revalidate";
   return "query-only";

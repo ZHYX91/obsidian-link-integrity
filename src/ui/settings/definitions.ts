@@ -40,7 +40,7 @@ export type SettingsItemDefinition =
   };
 
 export interface SettingsSectionDefinition {
-  readonly heading: string;
+  readonly heading?: string;
   readonly items: readonly SettingsItemDefinition[];
 }
 
@@ -67,7 +67,6 @@ export function getSettingsPageDefinitions(
       id: "general",
       label: t("settings.tab.general"),
       sections: [{
-        heading: t("settings.tab.general"),
         items: [
           dropdown(
             "general.locale",
@@ -124,7 +123,6 @@ export function getSettingsPageDefinitions(
           ],
         },
         {
-          heading: t("settings.ignore.title"),
           items: [custom("broken-ignore-rules", t("settings.ignore.title"))],
         },
       ],
@@ -134,7 +132,6 @@ export function getSettingsPageDefinitions(
       label: t("settings.tab.isolated"),
       sections: [
         {
-          heading: t("settings.isolated.candidates"),
           items: [custom(
             "isolated-candidate-types",
             t("settings.isolated.candidates"),
@@ -183,7 +180,6 @@ export function getSettingsPageDefinitions(
           ],
         },
         {
-          heading: t("settings.ignore.title"),
           items: [custom("isolated-ignore-rules", t("settings.ignore.title"))],
         },
       ],
@@ -197,12 +193,18 @@ export function getDeclarativeSettingDefinitions(
   return getSettingsPageDefinitions(context).map((page) => ({
     type: "page",
     name: page.label,
-    items: page.sections.map((section) => ({
-      type: "group",
-      heading: section.heading,
-      items: section.items.map((item) => toDeclarativeItem(item, context)),
-    })),
+    items: page.sections.flatMap((section) => toDeclarativeSection(section, context)),
   }));
+}
+
+function toDeclarativeSection(
+  section: SettingsSectionDefinition,
+  context: SettingsUiContext,
+): SettingDefinitionItem<SettingsControlKey>[] {
+  const items = section.items.map((item) => toDeclarativeItem(item, context));
+  return section.heading === undefined
+    ? items
+    : [{ type: "group", heading: section.heading, items }];
 }
 
 function toDeclarativeItem(

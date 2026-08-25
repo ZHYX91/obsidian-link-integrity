@@ -150,17 +150,39 @@ function maskMarkdownNonContent(source: string): string {
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.
   const characters = source.split("");
-  maskDelimitedBlocks(characters, source, /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[^\n]*(?:\n|$)/gu);
-  maskPairs(characters, source, "%%", "%%", true);
-  maskInlineCode(characters, source);
+  const fencedRanges = maskDelimitedBlocks(
+    characters,
+    source,
+    /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[^\n]*(?:\n|$)/gu,
+  );
+  const frontmatterRange = findMarkdownFrontmatterRange(source);
+  if (frontmatterRange !== null) {
+    maskYamlCommentRanges(
+      characters,
+      source,
+      frontmatterRange.start,
+      frontmatterRange.end,
+    );
+  }
+  maskIndentedCodeBlocks(characters, source, [
+    ...fencedRanges,
+    ...(frontmatterRange === null ? [] : [frontmatterRange]),
+  ]);
+  maskInlineCodeAndComments(characters, source, fencedRanges);
   return characters.join("");
+}
+
+interface MaskedRange {
+  readonly start: number;
+  readonly end: number;
 }
 
 function maskDelimitedBlocks(
   characters: string[],
   source: string,
   openingPattern: RegExp,
-): void {
+): MaskedRange[] {
+  const ranges: MaskedRange[] = [];
   openingPattern.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = openingPattern.exec(source)) !== null) {
@@ -175,91 +197,133 @@ function maskDelimitedBlocks(
     const closing = closingPattern.exec(source);
     const end = closing == null ? source.length : closing.index + closing[0].length;
     maskRange(characters, match.index, end);
+    ranges.push({ start: match.index, end });
     openingPattern.lastIndex = end;
   }
+  return ranges;
 }
 
-function maskPairs(
+function findUnmaskedDelimiter(
+  characters: readonly string[],
+  source: string,
+  delimiter: string,
+  start: number,
+): number {
+  let cursor = start;
+  while (cursor < source.length) {
+    const index = source.indexOf(delimiter, cursor);
+    if (index < 0) return -1;
+    let unmasked = true;
+    for (let offset = 0; offset < delimiter.length; offset += 1) {
+      if (characters[index + offset] !== delimiter[offset]) {
+        unmasked = false;
+        break;
+      }
+    }
+    if (unmasked) return index;
+    cursor = index + delimiter.length;
+  }
+  return -1;
+}
+
+function maskInlineCodeAndComments(
   characters: string[],
   source: string,
-  opening: string,
-  closing: string,
-  multiline: boolean,
+  fencedRanges: readonly MaskedRange[],
 ): void {
-  let cursor = 0;
-  while (cursor < source.length) {
-    const start = source.indexOf(opening, cursor);
-    if (start < 0) return;
-    const end = source.indexOf(closing, start + opening.length);
-    if (end < 0 || (!multiline && source.slice(start, end).includes("\n"))) {
-      cursor = start + opening.length;
-      continue;
+  const runs = [...source.matchAll(/`+/gu)].filter((run) => {
+    const start = run.index;
+    return start !== undefined && characters[start] === "`";
+  });
+  const runSegments: number[] = [];
+  let fencedRangeIndex = 0;
+  for (const run of runs) {
+    const start = run.index;
+    if (start === undefined) continue;
+    while (true) {
+      const fencedRange = fencedRanges[fencedRangeIndex];
+      if (fencedRange === undefined || fencedRange.end > start) break;
+      fencedRangeIndex += 1;
     }
-    maskRange(characters, start, end + closing.length);
-    cursor = end + closing.length;
+    runSegments.push(fencedRangeIndex);
   }
-}
-
-function maskInlineCode(characters: string[], source: string): void {
-  const runs = [...source.matchAll(/`+/gu)];
-  const runLines = lineNumbersForMatches(source, runs);
   const nextMatchingRun: Array<number | null> = Array.from({ length: runs.length }, () => null);
   const nextByLength = new Map<number, number>();
-  let currentLine = -1;
+  const runIndexByStart = new Map<number, number>();
+  let segment = -1;
   for (let index = runs.length - 1; index >= 0; index -= 1) {
-    const line = runLines[index];
-    if (line !== currentLine) {
+    const run = runs[index];
+    if (run === undefined || run.index === undefined) continue;
+    const runSegment = runSegments[index] ?? -1;
+    if (runSegment !== segment) {
       nextByLength.clear();
-      currentLine = line ?? -1;
+      segment = runSegment;
     }
-    const length = runs[index]?.[0].length;
-    if (length === undefined) continue;
+    const length = run[0].length;
     nextMatchingRun[index] = nextByLength.get(length) ?? null;
     nextByLength.set(length, index);
+    runIndexByStart.set(run.index, index);
   }
-  for (let index = 0; index + 1 < runs.length; index += 1) {
-    const opening = runs[index];
-    if (opening === undefined) continue;
-    const openingText = opening[0];
-    if (openingText.length >= 3) continue;
-    const closingIndex = nextMatchingRun[index];
-    if (closingIndex == null) continue;
-    const closing = runs[closingIndex];
-    if (closing === undefined) continue;
-    maskRange(
-      characters,
-      opening.index ?? 0,
-      (closing.index ?? 0) + closing[0].length,
-    );
-    index = closingIndex;
-  }
-}
 
-function lineNumbersForMatches(
-  source: string,
-  matches: readonly RegExpMatchArray[],
-): readonly number[] {
-  const result: number[] = [];
-  let line = 0;
-  let nextLineBreak = source.indexOf("\n");
-  for (const match of matches) {
-    const offset = match.index ?? 0;
-    while (nextLineBreak >= 0 && nextLineBreak < offset) {
-      line += 1;
-      nextLineBreak = source.indexOf("\n", nextLineBreak + 1);
+  let cursor = 0;
+  while (cursor < source.length) {
+    if (characters[cursor] !== source[cursor]) {
+      cursor += 1;
+      continue;
     }
-    result.push(line);
+    if (source.startsWith("%%", cursor)) {
+      const closing = findUnmaskedDelimiter(characters, source, "%%", cursor + 2);
+      if (closing < 0) {
+        cursor += 2;
+        continue;
+      }
+      maskRange(characters, cursor, closing + 2);
+      cursor = closing + 2;
+      continue;
+    }
+    if (source[cursor] !== "`") {
+      cursor += 1;
+      continue;
+    }
+    const openingIndex = runIndexByStart.get(cursor);
+    const opening = openingIndex === undefined ? undefined : runs[openingIndex];
+    if (opening === undefined || openingIndex === undefined) {
+      cursor += 1;
+      continue;
+    }
+    const closingIndex = nextMatchingRun[openingIndex];
+    if (closingIndex == null) {
+      cursor += opening[0].length;
+      continue;
+    }
+    const closing = runs[closingIndex];
+    if (closing === undefined || closing.index === undefined) {
+      cursor += opening[0].length;
+      continue;
+    }
+    const end = closing.index + closing[0].length;
+    maskRange(characters, cursor, end);
+    cursor = end;
   }
-  return result;
 }
 
 function maskYamlComments(source: string): string {
   const characters = source.split("");
+  maskYamlCommentRanges(characters, source, 0, source.length);
+  return characters.join("");
+}
+
+function maskYamlCommentRanges(
+  characters: string[],
+  source: string,
+  start: number,
+  end: number,
+): void {
   let quote: "'" | '"' | null = null;
   let escaped = false;
-  for (let index = 0; index < source.length; index += 1) {
+  for (let index = start; index < end; index += 1) {
     const character = source[index];
-    if (character === "\n") {
+    if (character === "\n" || character === "\r") {
       quote = null;
       escaped = false;
       continue;
@@ -281,12 +345,77 @@ function maskYamlComments(source: string): string {
       quote == null &&
       (index === 0 || /[\s,:[\]{}]/u.test(source[index - 1] ?? ""))
     ) {
-      const end = source.indexOf("\n", index);
-      maskRange(characters, index, end < 0 ? source.length : end);
-      index = end < 0 ? source.length : end - 1;
+      const newline = source.indexOf("\n", index);
+      const commentEnd = Math.min(newline < 0 ? end : newline, end);
+      maskRange(characters, index, commentEnd);
+      index = commentEnd - 1;
     }
   }
-  return characters.join("");
+}
+
+function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
+  const lines = sourceLineRanges(source);
+  const first = lines[0];
+  if (first === undefined) return null;
+  const firstText = source.slice(first.start, first.contentEnd).replace(/^\uFEFF/u, "").trim();
+  if (firstText !== "---") return null;
+  for (const line of lines.slice(1)) {
+    const text = source.slice(line.start, line.contentEnd).trim();
+    if (text === "---" || text === "...") {
+      return { start: first.start, end: line.end };
+    }
+  }
+  return { start: first.start, end: source.length };
+}
+
+function maskIndentedCodeBlocks(
+  characters: string[],
+  source: string,
+  excludedRanges: readonly MaskedRange[],
+): void {
+  let inBlock = false;
+  let previousBlank = true;
+  for (const line of sourceLineRanges(source)) {
+    const content = source.slice(line.start, line.contentEnd);
+    const blank = content.trim().length === 0;
+    const excluded = excludedRanges.some((range) =>
+      line.start >= range.start && line.start < range.end);
+    const indented = /^(?: {4,}| {0,3}\t)/u.test(content);
+    if (excluded) {
+      inBlock = false;
+    } else if (inBlock) {
+      if (indented) maskRange(characters, line.start, line.contentEnd);
+      else if (!blank) inBlock = false;
+    } else if (indented && previousBlank) {
+      inBlock = true;
+      maskRange(characters, line.start, line.contentEnd);
+    }
+    previousBlank = blank;
+  }
+}
+
+interface SourceLineRange {
+  readonly start: number;
+  readonly contentEnd: number;
+  readonly end: number;
+}
+
+function sourceLineRanges(source: string): SourceLineRange[] {
+  const ranges: SourceLineRange[] = [];
+  let start = 0;
+  while (start < source.length) {
+    let contentEnd = start;
+    while (contentEnd < source.length && source[contentEnd] !== "\n" && source[contentEnd] !== "\r") {
+      contentEnd += 1;
+    }
+    let end = contentEnd;
+    if (source[end] === "\r" && source[end + 1] === "\n") end += 2;
+    else if (source[end] === "\r" || source[end] === "\n") end += 1;
+    ranges.push({ start, contentEnd, end });
+    start = end;
+  }
+  if (source.length === 0) ranges.push({ start: 0, contentEnd: 0, end: 0 });
+  return ranges;
 }
 
 function readWikiLinktext(content: string): string {

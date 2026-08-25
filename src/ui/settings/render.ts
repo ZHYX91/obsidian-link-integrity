@@ -92,9 +92,11 @@ export function renderImperativeSettings(
   for (const section of activePage.sections) {
     const sectionElement = panel.ownerDocument.createElement("section");
     sectionElement.className = "link-integrity-settings-section";
-    const heading = panel.ownerDocument.createElement("h3");
-    heading.textContent = section.heading;
-    sectionElement.append(heading);
+    if (section.heading !== undefined) {
+      const heading = panel.ownerDocument.createElement("h3");
+      heading.textContent = section.heading;
+      sectionElement.append(heading);
+    }
     for (const item of section.items) {
       const cleanup = renderItem(sectionElement, item, context);
       if (cleanup !== undefined) cleanups.push(cleanup);

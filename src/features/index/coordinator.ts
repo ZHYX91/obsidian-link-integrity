@@ -57,6 +57,9 @@ export class LinkIndexCoordinator {
   private stateValue: LinkIndexCoordinatorState = "idle";
   private errorValue: unknown = null;
   private rebuildPromise: Promise<FullRebuildResult> | null = null;
+  private rebuildEpoch = -1;
+  private rebuildOperation = 0;
+  private rebuildAbortController: AbortController | null = null;
   private readonly incrementalOptions: IncrementalIndexOptions;
   private readonly now: () => number;
   private lifecycleEpoch = 0;
@@ -109,6 +112,10 @@ export class LinkIndexCoordinator {
     this.store.current.setGraphContributionPolicy(policy);
   }
 
+  public regraph(policy: GraphContributionPolicy): void {
+    this.setGraphContributionPolicy(policy);
+  }
+
   public start(): void {
     if (this.active) return;
     this.active = true;
@@ -119,8 +126,10 @@ export class LinkIndexCoordinator {
   public stop(): void {
     this.active = false;
     this.lifecycleEpoch += 1;
+    this.rebuildAbortController?.abort(new RebuildCancelledError());
     this.incremental.stop();
     this.bufferedEvents = [];
+    this.rebuilding = false;
     this.stateValue = "idle";
   }
 
@@ -132,15 +141,31 @@ export class LinkIndexCoordinator {
 
   public rebuild(): Promise<FullRebuildResult> {
     if (!this.active) throw new Error("Link index coordinator is not active.");
-    if (this.rebuildPromise !== null) return this.rebuildPromise;
-    this.rebuildPromise = this.performRebuild().finally(() => {
-      this.rebuildPromise = null;
-    });
-    return this.rebuildPromise;
+    if (this.rebuildPromise !== null) {
+      if (this.rebuildEpoch === this.lifecycleEpoch) return this.rebuildPromise;
+      const obsolete = this.rebuildPromise;
+      return obsolete.catch(() => undefined).then(() => this.rebuild());
+    }
+    const epoch = this.lifecycleEpoch;
+    const operation = this.rebuildOperation + 1;
+    this.rebuildOperation = operation;
+    const abortController = new AbortController();
+    this.rebuildEpoch = epoch;
+    this.rebuildAbortController = abortController;
+    const request = this.performRebuild(operation, epoch, abortController.signal);
+    this.rebuildPromise = request;
+    void request.then(
+      () => this.finishRebuildOperation(request, operation),
+      () => this.finishRebuildOperation(request, operation),
+    );
+    return request;
   }
 
-  private async performRebuild(): Promise<FullRebuildResult> {
-    const epoch = this.lifecycleEpoch;
+  private async performRebuild(
+    operation: number,
+    epoch: number,
+    signal: AbortSignal,
+  ): Promise<FullRebuildResult> {
     const startedAt = this.now();
     this.rebuilding = true;
     this.stateValue = "rebuilding";
@@ -149,9 +174,9 @@ export class LinkIndexCoordinator {
       await this.incremental.whenIdle();
       this.incremental.stop();
       this.assertCurrentLifecycle(epoch);
-      const staging = await this.rebuildController.buildStaging();
+      const staging = await this.rebuildController.buildStaging(undefined, signal);
       this.assertCurrentLifecycle(epoch);
-      await this.replayBufferedEvents(staging);
+      await this.replayBufferedEvents(staging, signal);
       this.assertCurrentLifecycle(epoch);
       staging.setGraphContributionPolicy(this.store.current.graphContributionPolicy);
       const result = this.rebuildController.publish(staging);
@@ -169,27 +194,33 @@ export class LinkIndexCoordinator {
       return result;
     } catch (error) {
       if (error instanceof RebuildCancelledError) {
-        this.errorValue = null;
-        this.stateValue = this.store.generation > 0 ? "ready" : "idle";
+        if (this.isCurrentOperation(operation, epoch)) {
+          this.errorValue = null;
+          this.stateValue = this.store.generation > 0 ? "ready" : "idle";
+        }
         throw error;
       }
-      this.errorValue = error;
-      this.stateValue = this.store.generation > 0 ? "stale" : "failed";
+      if (this.isCurrentOperation(operation, epoch)) {
+        this.errorValue = error;
+        this.stateValue = this.store.generation > 0 ? "stale" : "failed";
+      }
       throw error;
     } finally {
-      const remaining = this.bufferedEvents;
-      this.bufferedEvents = [];
-      this.rebuilding = false;
-      this.incremental.stop();
-      this.incremental = this.createIncrementalController();
-      if (this.active) {
-        this.incremental.start();
-        // A failed first baseline has no trustworthy graph onto which events
-        // can be applied. The next rebuild reads current Vault state in full.
-        // With a published baseline, remaining events still update the
-        // last-known-good index while its status remains stale.
-        if (this.store.generation > 0 || this.stateValue !== "failed") {
-          for (const event of remaining) this.incremental.enqueue(event);
+      if (this.isCurrentOperation(operation, epoch)) {
+        const remaining = this.bufferedEvents;
+        this.bufferedEvents = [];
+        this.rebuilding = false;
+        this.incremental.stop();
+        this.incremental = this.createIncrementalController();
+        if (this.active) {
+          this.incremental.start();
+          // A failed first baseline has no trustworthy graph onto which events
+          // can be applied. The next rebuild reads current Vault state in full.
+          // With a published baseline, remaining events still update the
+          // last-known-good index while its status remains stale.
+          if (this.store.generation > 0 || this.stateValue !== "failed") {
+            for (const event of remaining) this.incremental.enqueue(event);
+          }
         }
       }
     }
@@ -199,7 +230,10 @@ export class LinkIndexCoordinator {
     await this.incremental.whenIdle();
   }
 
-  private async replayBufferedEvents(staging: LinkIndex): Promise<void> {
+  private async replayBufferedEvents(
+    staging: LinkIndex,
+    signal: AbortSignal,
+  ): Promise<void> {
     const stagingStore = new AtomicLinkIndexStore(staging);
     const replay = new IncrementalIndexController(
       this.port,
@@ -208,21 +242,39 @@ export class LinkIndexCoordinator {
         ...(this.incrementalOptions.concurrency === undefined
           ? {}
           : { concurrency: this.incrementalOptions.concurrency }),
+        signal,
         now: this.incrementalOptions.now ?? this.now,
       },
     );
     replay.start();
-    while (this.bufferedEvents.length > 0) {
-      const events = this.bufferedEvents;
-      this.bufferedEvents = [];
-      for (const event of events) replay.enqueue(event);
-      await replay.whenIdle();
+    try {
+      while (this.bufferedEvents.length > 0) {
+        const events = this.bufferedEvents;
+        this.bufferedEvents = [];
+        for (const event of events) replay.enqueue(event);
+        await replay.whenIdle();
+      }
+    } finally {
+      replay.stop();
     }
-    replay.stop();
   }
 
   private assertCurrentLifecycle(epoch: number): void {
     if (!this.active || this.lifecycleEpoch !== epoch) throw new RebuildCancelledError();
+  }
+
+  private isCurrentOperation(operation: number, epoch: number): boolean {
+    return this.active && this.lifecycleEpoch === epoch &&
+      this.rebuildOperation === operation;
+  }
+
+  private finishRebuildOperation(
+    request: Promise<FullRebuildResult>,
+    operation: number,
+  ): void {
+    if (this.rebuildPromise !== request || this.rebuildOperation !== operation) return;
+    this.rebuildPromise = null;
+    this.rebuildAbortController = null;
   }
 
   private createIncrementalController(): IncrementalIndexController {

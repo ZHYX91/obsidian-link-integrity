@@ -7,7 +7,7 @@ import type { SettingsUiContext } from "../../src/ui/settings/types";
 
 vi.mock("../../src/ui/settings/definitions", () => ({
   getSettingsPageDefinitions: () => [
-    { id: "general", label: "General", sections: [] },
+    { id: "general", label: "General", sections: [{ items: [] }] },
     { id: "broken-links", label: "Broken links", sections: [] },
     { id: "isolated-files", label: "Isolated files", sections: [] },
   ],
@@ -143,6 +143,23 @@ describe("imperative settings tab reveal", () => {
 
     expect(onSelectTab).toHaveBeenCalledOnce();
     expect(onSelectTab).toHaveBeenCalledWith("isolated-files", true);
+    cleanup();
+  });
+
+  it("does not render an empty duplicate heading for an unlabelled section", () => {
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(14);
+    const container = document.createElement("div");
+    const cleanup = renderImperativeSettings(
+      container,
+      context("en", "en"),
+      {
+        activeTab: "general",
+        onSelectTab: vi.fn(),
+      },
+    );
+
+    expect(container.querySelector(".link-integrity-settings-section")).not.toBeNull();
+    expect(container.querySelector(".link-integrity-settings-section > h3")).toBeNull();
     cleanup();
   });
 });

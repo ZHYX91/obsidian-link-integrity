@@ -979,7 +979,7 @@ function renderIgnoreRule(
     commitSettings(context, {
       ...current,
       ignoreRules: current.ignoreRules.filter(({ id }) => id !== rule.id),
-    }, rule.scope === "exclude-graph-contribution" ? "full-rebuild" : "query-only");
+    }, rule.scope === "exclude-graph-contribution" ? "regraph" : "query-only");
   });
   remove.className = "mod-warning";
   disableControls(details, context.writeProtected);
@@ -1003,7 +1003,7 @@ function replaceIgnoreRule(context: SettingsUiContext, rule: IgnoreRule): void {
   commitSettings(context, {
     ...settings,
     ignoreRules: settings.ignoreRules.map((candidate) => candidate.id === rule.id ? rule : candidate),
-  }, graphChanged ? "full-rebuild" : "query-only");
+  }, graphChanged ? "regraph" : "query-only");
 }
 
 function updatePeriodicPreset(

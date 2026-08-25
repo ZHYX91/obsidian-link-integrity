@@ -19,6 +19,10 @@ import {
 } from "../../core";
 import type { LinkIndexPort } from "../../features/index";
 import {
+  createOccurrenceId,
+  occurrenceSemanticKey,
+} from "../../core/occurrence-identity";
+import {
   extractBasesExplicitReferences,
   extractMarkdownExplicitReferences,
   isExternalReference,
@@ -44,6 +48,11 @@ interface OccurrenceInput {
   readonly kind: LinkOccurrenceKind;
   readonly position: SourcePosition | null;
   readonly ordinal: number;
+}
+
+interface OccurrenceIdentityOrdinal {
+  readonly duplicateIndex: number;
+  readonly duplicateCount: number;
 }
 
 export class ObsidianLinkIndexPort implements LinkIndexPort {
@@ -197,20 +206,36 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     sourcePath: string,
     inputs: readonly OccurrenceInput[],
   ): SourceSnapshot {
+    const semanticKeys = inputs.map(occurrenceSemanticKey);
+    const totals = new Map<string, number>();
+    for (const key of semanticKeys) totals.set(key, (totals.get(key) ?? 0) + 1);
+    const seen = new Map<string, number>();
     return {
       sourcePath,
-      occurrences: inputs.map((input) => this.resolveOccurrence(sourcePath, input)),
+      occurrences: inputs.map((input, index) => {
+        const key = semanticKeys[index] ?? occurrenceSemanticKey(input);
+        const duplicateIndex = seen.get(key) ?? 0;
+        seen.set(key, duplicateIndex + 1);
+        return this.resolveOccurrence(sourcePath, input, {
+          duplicateIndex,
+          duplicateCount: totals.get(key) ?? 1,
+        });
+      }),
     };
   }
 
-  private resolveOccurrence(sourcePath: string, input: OccurrenceInput): LinkOccurrence {
+  private resolveOccurrence(
+    sourcePath: string,
+    input: OccurrenceInput,
+    identity: OccurrenceIdentityOrdinal,
+  ): LinkOccurrence {
     const external = isExternalReference(input.linktext);
     let parsed: { path: string; subpath: string };
     try {
       parsed = parseLinktext(input.linktext);
     } catch {
       return {
-        id: occurrenceId(sourcePath, input),
+        id: occurrenceId(sourcePath, input, identity),
         sourcePath,
         raw: input.raw,
         linkpath: input.linktext,
@@ -229,7 +254,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     const lookupLinkpath = linkpath.length === 0 ? sourcePath : linkpath;
     if (external) {
       return {
-        id: occurrenceId(sourcePath, input),
+        id: occurrenceId(sourcePath, input, identity),
         sourcePath,
         raw: input.raw,
         linkpath,
@@ -248,7 +273,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       : this.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
     if (target === null) {
       return {
-        id: occurrenceId(sourcePath, input),
+        id: occurrenceId(sourcePath, input, identity),
         sourcePath,
         raw: input.raw,
         linkpath,
@@ -263,7 +288,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       };
     }
     return {
-      id: occurrenceId(sourcePath, input),
+      id: occurrenceId(sourcePath, input, identity),
       sourcePath,
       raw: input.raw,
       linkpath,
@@ -369,10 +394,23 @@ function offsetToLineColumn(
   return { line, column: offset - (lineStarts[line] ?? 0) };
 }
 
-function occurrenceId(sourcePath: string, input: OccurrenceInput): string {
+function occurrenceId(
+  sourcePath: string,
+  input: OccurrenceInput,
+  identity: OccurrenceIdentityOrdinal,
+): string {
   const location = input.position?.canvasNodeId ??
     `${String(input.position?.line ?? "-")}:${String(input.position?.column ?? "-")}`;
-  return `${sourcePath}\u0000${input.kind}\u0000${location}\u0000${input.ordinal}`;
+  return createOccurrenceId({
+    sourcePath,
+    kind: input.kind,
+    raw: input.raw,
+    linktext: input.linktext,
+    duplicateIndex: identity.duplicateIndex,
+    duplicateCount: identity.duplicateCount,
+    location,
+    legacyOrdinal: input.ordinal,
+  });
 }
 
 function parseCanvas(source: string): { readonly nodes: readonly CanvasNode[] } | null {
@@ -384,6 +422,7 @@ function parseCanvas(source: string): { readonly nodes: readonly CanvasNode[] } 
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const document = value as CanvasDocument;
+  if (document.nodes === undefined) return { nodes: [] };
   if (!Array.isArray(document.nodes)) return null;
   return {
     nodes: document.nodes.filter((node): node is CanvasNode =>

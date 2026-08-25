@@ -9,6 +9,33 @@ import {
 } from "../../src/ui/settings";
 
 describe("settings definitions", () => {
+  it("does not repeat page labels or single custom-setting names as section headings", () => {
+    const pages = getSettingsPageDefinitions(settingsContext());
+    const general = pages.find(({ id }) => id === "general");
+    const broken = pages.find(({ id }) => id === "broken-links");
+    const isolated = pages.find(({ id }) => id === "isolated-files");
+
+    expect(general?.sections[0]?.heading).toBeUndefined();
+    expect(broken?.sections.find(({ items }) =>
+      items.some((item) => item.kind === "custom" && item.id === "broken-ignore-rules"),
+    )?.heading).toBeUndefined();
+    expect(isolated?.sections.find(({ items }) =>
+      items.some((item) => item.kind === "custom" && item.id === "isolated-candidate-types"),
+    )?.heading).toBeUndefined();
+    expect(isolated?.sections.find(({ items }) =>
+      items.some((item) => item.kind === "custom" && item.id === "isolated-ignore-rules"),
+    )?.heading).toBeUndefined();
+
+    const declarativePages = getDeclarativeSettingDefinitions(settingsContext());
+    const declarativeGeneral = declarativePages[0];
+    expect(declarativeGeneral).toMatchObject({ type: "page", name: "General" });
+    if (declarativeGeneral !== undefined
+      && "type" in declarativeGeneral
+      && declarativeGeneral.type === "page") {
+      expect(declarativeGeneral.items?.[0]).not.toMatchObject({ type: "group" });
+    }
+  });
+
   it("uses one three-page definition source for imperative and declarative UI", () => {
     const context = settingsContext();
     const pages = getSettingsPageDefinitions(context);

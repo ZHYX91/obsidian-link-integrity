@@ -123,7 +123,7 @@ describe("settings", () => {
     expect(classifySettingChange("brokenLinks.diagnostics.missingFiles"))
       .toBe("revalidate");
     expect(classifySettingChange({ scope: "exclude-graph-contribution" }))
-      .toBe("full-rebuild");
+      .toBe("regraph");
     expect(() => applySettingValue(defaults, "general.locale", "unknown"))
       .toThrow(TypeError);
   });

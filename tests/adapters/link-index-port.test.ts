@@ -6,6 +6,7 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
+import { occurrenceIdMatches } from "../../src/core/occurrence-identity";
 
 interface FakeFile {
   readonly path: string;
@@ -105,6 +106,36 @@ describe("ObsidianLinkIndexPort", () => {
     expect(snapshot?.occurrences[0]?.position?.canvasNodeId).toBe("file-1");
   });
 
+  it.each([
+    ["an empty document", "{}"],
+    ["an edges-only document", JSON.stringify({ edges: [] })],
+  ])("accepts %s when Canvas nodes are omitted", async (_name, source) => {
+    const canvas = fakeFile("Empty.canvas");
+    const { port } = createPort([canvas], {
+      content: { [canvas.path]: source },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    await expect(port.buildSourceSnapshot(canvas.path)).resolves.toEqual({
+      sourcePath: canvas.path,
+      occurrences: [],
+    });
+  });
+
+  it("fails closed when Canvas nodes are present but not an array", async () => {
+    const canvas = fakeFile("Broken.canvas");
+    const { port } = createPort([canvas], {
+      content: { [canvas.path]: JSON.stringify({ nodes: {} }) },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    await expect(port.buildSourceSnapshot(canvas.path)).rejects.toThrow(
+      "Cannot parse Canvas source: Broken.canvas",
+    );
+  });
+
   it("fails closed when Canvas JSON cannot be parsed", async () => {
     const canvas = fakeFile("Broken.canvas");
     const { port } = createPort([canvas], {
@@ -163,6 +194,74 @@ describe("ObsidianLinkIndexPort", () => {
       expect.objectContaining({ line: 1, column: 0, endLine: 1, endColumn: 9 }),
       expect.objectContaining({ line: 3, column: 7, endLine: 3, endColumn: 17 }),
     ]);
+  });
+
+  it("keeps fallback diagnostics out of code blocks and frontmatter comments", async () => {
+    const sourceFile = fakeFile("Source.md");
+    const source = [
+      "---",
+      "related: '[[Real property link]]' # [[Fake YAML comment]]",
+      "---",
+      "",
+      "    [[Fake code link]]",
+      "",
+      "[[Real body link]]",
+    ].join("\n");
+    const { port } = createPort([sourceFile], {
+      content: { [sourceFile.path]: source },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    const snapshot = await port.buildSourceSnapshot(sourceFile.path);
+
+    expect(snapshot?.occurrences.map(({ linkpath }) => linkpath)).toEqual([
+      "Real property link",
+      "Real body link",
+    ]);
+  });
+
+  it("keeps a persisted occurrence identity across unrelated content inserted before it", async () => {
+    const sourceFile = fakeFile("Source.md");
+    const before = createPort([sourceFile], {
+      content: { [sourceFile.path]: "preface\n[[Missing]]\n" },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+    const after = createPort([sourceFile], {
+      content: { [sourceFile.path]: "[[Unrelated]]\npreface\n[[Missing]]\n" },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    const savedId = (await before.port.buildSourceSnapshot(sourceFile.path))?.occurrences
+      .find(({ linkpath }) => linkpath === "Missing")?.id;
+    const currentId = (await after.port.buildSourceSnapshot(sourceFile.path))?.occurrences
+      .find(({ linkpath }) => linkpath === "Missing")?.id;
+    expect(savedId).toBeDefined();
+    expect(currentId).toBeDefined();
+    expect(savedId).not.toBe(currentId);
+    expect(occurrenceIdMatches(savedId ?? "", currentId)).toBe(true);
+  });
+
+  it("fails an old identity closed when an indistinguishable duplicate is inserted", async () => {
+    const sourceFile = fakeFile("Source.md");
+    const before = createPort([sourceFile], {
+      content: { [sourceFile.path]: "preface\n[[Missing]]\n" },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+    const after = createPort([sourceFile], {
+      content: { [sourceFile.path]: "[[Missing]]\npreface\n[[Missing]]\n" },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+
+    const savedId = (await before.port.buildSourceSnapshot(sourceFile.path))?.occurrences[0]?.id ?? "";
+    const currentIds = (await after.port.buildSourceSnapshot(sourceFile.path))?.occurrences
+      .map(({ id }) => id) ?? [];
+    expect(currentIds).toHaveLength(2);
+    expect(currentIds.some((id) => occurrenceIdMatches(savedId, id))).toBe(false);
   });
 });
 

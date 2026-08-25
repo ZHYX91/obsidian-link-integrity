@@ -31,6 +31,7 @@ import { queryBrokenLinks } from "../features/queries";
 import { createTranslator } from "../shared/i18n";
 import {
   IgnoreService,
+  renameOccurrenceRuleSources,
   type IgnoreEvaluationContext,
   type IgnoreMatcherKind,
   type IgnoreRule,
@@ -66,6 +67,8 @@ import {
   LinkIntegritySidebarView,
 } from "./sidebar-view";
 
+type InitialMetadataState = "dormant" | "waiting" | "fallback" | "resolved";
+
 export default class LinkIntegrityPlugin extends Plugin {
   public override settings!: LinkIntegritySettings;
   private settingsWriteProtected = false;
@@ -78,8 +81,12 @@ export default class LinkIntegrityPlugin extends Plugin {
   private runtimeStarted = false;
   private coordinatorStarted = false;
   private layoutReady = false;
-  private initialMetadataReady = false;
+  private initialMetadataState: InitialMetadataState = "dormant";
   private initialMetadataPromise: Promise<void> | null = null;
+  private initialMetadataEventRef: EventRef | null = null;
+  private initialMetadataTimeout: number | null = null;
+  private initialMetadataGateResolve: (() => void) | null = null;
+  private lifecycleGeneration = 0;
   private metadataEventsRegistered = false;
   private baselineAvailable = false;
   private rebuildPromise: Promise<void> | null = null;
@@ -90,6 +97,8 @@ export default class LinkIntegrityPlugin extends Plugin {
   private eventMaxFlushTimer: number | null = null;
 
   public override async onload(): Promise<void> {
+    this.unloaded = false;
+    this.lifecycleGeneration += 1;
     const loaded = loadSettings(await this.loadData());
     this.settings = loaded.settings;
     this.settingsWriteProtected = loaded.writeProtected;
@@ -132,6 +141,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       onActionError: (error) => this.reportError(error),
     }));
     this.addSettingTab(new LinkIntegritySettingTab(this.app, this));
+    this.registerVaultRenameEvent();
 
     this.refreshEntrypoints();
     this.app.workspace.onLayoutReady(() => {
@@ -146,9 +156,11 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   public override onunload(): void {
     this.unloaded = true;
+    this.lifecycleGeneration += 1;
     this.runtimeStarted = false;
     this.layoutReady = false;
-    this.initialMetadataReady = false;
+    this.disposeInitialMetadataWait();
+    this.initialMetadataState = "dormant";
     this.initialMetadataPromise = null;
     this.metadataEventsRegistered = false;
     this.baselineAvailable = false;
@@ -209,14 +221,12 @@ export default class LinkIntegrityPlugin extends Plugin {
     const scanOnStartupWasEnabled = this.settings.general.scanOnStartup;
     this.settings = normalizeSettings(settings);
     if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
-    if (impact === "full-rebuild") this.updateGraphContributionPolicy();
+    if (impact === "regraph") this.updateGraphContributionPolicy();
     this.refreshEntrypoints();
     this.query.notify();
     const shouldStartOnDemandRuntime = !scanOnStartupWasEnabled &&
       this.settings.general.scanOnStartup && this.layoutReady;
-    if (impact === "full-rebuild" && this.runtimeStarted) {
-      void this.rebuild().catch((error: unknown) => this.reportError(error));
-    } else if (shouldStartOnDemandRuntime && !this.baselineAvailable) {
+    if (shouldStartOnDemandRuntime && !this.baselineAvailable) {
       void this.ensureIndex().catch((error: unknown) => this.reportError(error));
     }
   }
@@ -314,6 +324,9 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.registerEvent(this.app.vault.on("delete", (file) => {
       if (file instanceof TFile) this.enqueue({ type: "delete", path: file.path });
     }));
+  }
+
+  private registerVaultRenameEvent(): void {
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
       if (file instanceof TFile) {
         this.renameExpectedFilePath(oldPath, file.path);
@@ -336,29 +349,74 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private waitForInitialMetadataResolution(maxWaitMs = 1_000): Promise<void> {
+    const generation = this.lifecycleGeneration;
+    this.initialMetadataState = "waiting";
     return new Promise((resolve) => {
-      let eventRef: EventRef | null = null;
-      let timeout: number | null = null;
-      const finish = (): void => {
-        if (eventRef !== null) this.app.metadataCache.offref(eventRef);
-        if (timeout !== null) window.clearTimeout(timeout);
-        resolve();
+      this.initialMetadataGateResolve = resolve;
+      const resolved = (): void => {
+        this.handleInitialMetadataResolved(generation);
       };
-      eventRef = this.app.metadataCache.on("resolved", finish);
-      timeout = window.setTimeout(finish, maxWaitMs);
+      this.initialMetadataEventRef = this.app.metadataCache.on("resolved", resolved);
+      this.initialMetadataTimeout = window.setTimeout(() => {
+        if (!this.isCurrentLifecycle(generation) || this.initialMetadataState !== "waiting") {
+          return;
+        }
+        this.initialMetadataState = "fallback";
+        this.initialMetadataTimeout = null;
+        this.initialMetadataGateResolve = null;
+        resolve();
+      }, maxWaitMs);
     });
   }
 
   private async ensureInitialMetadataResolution(): Promise<void> {
-    if (this.initialMetadataReady) return;
-    this.initialMetadataPromise ??= this.waitForInitialMetadataResolution()
-      .then(() => {
-        this.initialMetadataReady = true;
-      })
-      .finally(() => {
-        this.initialMetadataPromise = null;
+    if (this.initialMetadataState === "fallback" ||
+      this.initialMetadataState === "resolved") return;
+    if (this.initialMetadataPromise === null) {
+      const request = this.waitForInitialMetadataResolution();
+      const tracked = request.finally(() => {
+        if (this.initialMetadataPromise === tracked) this.initialMetadataPromise = null;
       });
+      this.initialMetadataPromise = tracked;
+    }
     await this.initialMetadataPromise;
+  }
+
+  private handleInitialMetadataResolved(generation: number): void {
+    if (!this.isCurrentLifecycle(generation)) return;
+    const needsCorrection = this.initialMetadataState === "fallback";
+    if (!needsCorrection && this.initialMetadataState !== "waiting") return;
+    this.initialMetadataState = "resolved";
+    this.detachInitialMetadataListener();
+    if (this.initialMetadataTimeout !== null) {
+      window.clearTimeout(this.initialMetadataTimeout);
+      this.initialMetadataTimeout = null;
+    }
+    const resolve = this.initialMetadataGateResolve;
+    this.initialMetadataGateResolve = null;
+    resolve?.();
+    if (needsCorrection) this.enqueue({ type: "metadata-resolved", path: null });
+  }
+
+  private disposeInitialMetadataWait(): void {
+    this.detachInitialMetadataListener();
+    if (this.initialMetadataTimeout !== null) {
+      window.clearTimeout(this.initialMetadataTimeout);
+      this.initialMetadataTimeout = null;
+    }
+    const resolve = this.initialMetadataGateResolve;
+    this.initialMetadataGateResolve = null;
+    resolve?.();
+  }
+
+  private detachInitialMetadataListener(): void {
+    if (this.initialMetadataEventRef === null) return;
+    this.app.metadataCache.offref(this.initialMetadataEventRef);
+    this.initialMetadataEventRef = null;
+  }
+
+  private isCurrentLifecycle(generation: number): boolean {
+    return !this.unloaded && this.lifecycleGeneration === generation;
   }
 
   private enqueueMetadata(event: SourceEvent): void {
@@ -694,15 +752,23 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private renameExpectedFilePath(oldPath: string, newPath: string): void {
-    if (!this.settings.isolatedFiles.expectedFilePaths.includes(oldPath)) return;
+    const currentPaths = this.settings.isolatedFiles.expectedFilePaths;
+    const expectedFilePaths = currentPaths.includes(oldPath)
+      ? currentPaths.map((path) => path === oldPath ? newPath : path)
+      : currentPaths;
+    const isolatedFiles = expectedFilePaths === currentPaths
+      ? this.settings.isolatedFiles
+      : { ...this.settings.isolatedFiles, expectedFilePaths };
+    const ignoreRules = renameOccurrenceRuleSources(this.settings.ignoreRules, oldPath, newPath);
+    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === this.settings.ignoreRules) return;
     this.updateSettings({
       ...this.settings,
-      isolatedFiles: {
-        ...this.settings.isolatedFiles,
-        expectedFilePaths: this.settings.isolatedFiles.expectedFilePaths
-          .map((path) => path === oldPath ? newPath : path),
-      },
-    }, "query-only");
+      isolatedFiles,
+      ignoreRules,
+    }, ignoreRules !== this.settings.ignoreRules &&
+        ignoreRules.some(({ scope }) => scope === "exclude-graph-contribution")
+      ? "regraph"
+      : "query-only");
   }
 
   private renameExpectedFolderPath(oldPath: string, newPath: string): void {
@@ -711,8 +777,13 @@ export default class LinkIntegrityPlugin extends Plugin {
       oldPath,
       newPath,
     );
-    if (isolatedFiles === this.settings.isolatedFiles) return;
-    this.updateSettings({ ...this.settings, isolatedFiles }, "query-only");
+    const ignoreRules = renameOccurrenceRuleSources(this.settings.ignoreRules, oldPath, newPath);
+    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === this.settings.ignoreRules) return;
+    this.updateSettings({ ...this.settings, isolatedFiles, ignoreRules },
+      ignoreRules !== this.settings.ignoreRules &&
+          ignoreRules.some(({ scope }) => scope === "exclude-graph-contribution")
+        ? "regraph"
+        : "query-only");
   }
 
   private addIgnoreRule(
@@ -827,7 +898,7 @@ export default class LinkIntegrityPlugin extends Plugin {
           });
         },
       };
-    this.coordinator.setGraphContributionPolicy(policy);
+    this.coordinator.regraph(policy);
   }
 
   private getIgnorePreviewContexts(rule: IgnoreRule): readonly IgnoreEvaluationContext[] {

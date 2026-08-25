@@ -53,7 +53,8 @@ describe("LinkIntegritySettingTab", () => {
     expect(settings.general.scanOnStartup).toBe(true);
     writeProtected = false;
 
-    expect(tab.getSettingDefinitions()).not.toHaveLength(0);
+    expect(tab.getSettingDefinitions()).toEqual([]);
+    expect(tab.getDeclarativeSettingDefinitions()).not.toHaveLength(0);
     const context = (tab as unknown as { createContext(): SettingsUiContext }).createContext();
     expect(context.getSettings!()).toBe(settings);
     expect(context.createId!("expected-rule")).toMatch(/^expected-rule:/u);

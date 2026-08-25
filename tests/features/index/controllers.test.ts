@@ -83,6 +83,34 @@ describe("full rebuild", () => {
 
     expect(yields).toBe(2);
   });
+
+  it("stops workers from claiming more files after cancellation", async () => {
+    const files = Array.from({ length: 8 }, (_, index) =>
+      createFileRecord(`Note-${index}.md`));
+    const gate = deferred<void>();
+    const bothStarted = deferred<void>();
+    let buildCount = 0;
+    const controller = new FullRebuildController({
+      listFiles: async () => files,
+      getFileRecord: async () => null,
+      buildSourceSnapshot: async (path) => {
+        buildCount += 1;
+        if (buildCount === 2) bothStarted.resolve();
+        await gate.promise;
+        return snapshot(path, []);
+      },
+    }, new AtomicLinkIndexStore(), { concurrency: 2 });
+    const abort = new AbortController();
+
+    const rebuilding = controller.rebuild(abort.signal);
+    await bothStarted.promise;
+    abort.abort(new Error("cancelled fixture"));
+
+    await expect(rebuilding).rejects.toThrow("cancelled fixture");
+    gate.resolve();
+    await Promise.resolve();
+    expect(buildCount).toBe(2);
+  });
 });
 
 describe("incremental indexing", () => {
@@ -356,7 +384,7 @@ describe("index coordinator", () => {
     coordinator.stop();
   });
 
-  it("keeps graph contribution policy across rebuild and incremental updates", async () => {
+  it("regraphs stored snapshots without adapter reads and matches a clean materialization", async () => {
     const vault = new VirtualVault({
       "Source.md": ["Target"],
       "Target.md": [],
@@ -370,14 +398,24 @@ describe("index coordinator", () => {
       },
     };
     const coordinator = new LinkIndexCoordinator(vault);
-    coordinator.setGraphContributionPolicy(policy);
     coordinator.start();
 
     await coordinator.rebuild();
+    const snapshots = coordinator.index.snapshots;
+    const buildCount = vault.buildCount;
+    const listFilesCallCount = vault.listFilesCallCount;
+    const oracle = new LinkIndex(coordinator.index.files, { contributionPolicy: policy });
+    for (const sourceSnapshot of snapshots) {
+      oracle.replaceSourceSnapshot(sourceSnapshot.sourcePath, sourceSnapshot);
+    }
+
+    coordinator.regraph(policy);
+
+    expect(vault.buildCount).toBe(buildCount);
+    expect(vault.listFilesCallCount).toBe(listFilesCallCount);
+    expect(coordinator.index.snapshots).toEqual(snapshots);
     expect(coordinator.index.getOutgoingNeighborCount("Source.md")).toBe(0);
-    expect(coordinator.index.toCanonicalState()).toEqual(
-      (await buildOracle(vault, policy)).toCanonicalState(),
-    );
+    expect(coordinator.index.toCanonicalState()).toEqual(oracle.toCanonicalState());
 
     evaluationCount = 0;
     vault.setLinks("Source.md", ["Other"]);
@@ -386,6 +424,41 @@ describe("index coordinator", () => {
 
     expect(evaluationCount).toBe(2);
     expect(coordinator.index.getOutgoingEdges("Source.md")[0]?.targetPath).toBe("Other.md");
+    expect(coordinator.index.toCanonicalState()).toEqual(
+      (await buildOracle(vault, policy)).toCanonicalState(),
+    );
+  });
+
+  it("publishes the latest regraph policy when it changes during staging", async () => {
+    const vault = new VirtualVault({
+      "Source.md": ["Target"],
+      "Target.md": [],
+    });
+    const gate = deferred<void>();
+    const started = deferred<void>();
+    const baseBuild = vault.buildSourceSnapshot;
+    let held = false;
+    vault.buildSourceSnapshot = async (path) => {
+      if (!held) {
+        held = true;
+        started.resolve();
+        await gate.promise;
+      }
+      return baseBuild(path);
+    };
+    const policy: GraphContributionPolicy = {
+      allows: () => false,
+    };
+    const coordinator = new LinkIndexCoordinator(vault);
+    coordinator.start();
+
+    const rebuilding = coordinator.rebuild();
+    await started.promise;
+    coordinator.regraph(policy);
+    gate.resolve();
+    await rebuilding;
+
+    expect(coordinator.index.getOutgoingNeighborCount("Source.md")).toBe(0);
     expect(coordinator.index.toCanonicalState()).toEqual(
       (await buildOracle(vault, policy)).toCanonicalState(),
     );
@@ -418,12 +491,16 @@ describe("index coordinator", () => {
   });
 
   it("does not publish an obsolete rebuild after lifecycle stop", async () => {
-    const vault = new VirtualVault({ "A.md": [] });
+    const vault = new VirtualVault(Object.fromEntries(
+      Array.from({ length: 8 }, (_, index) => [`Note-${index}.md`, []]),
+    ));
     const gate = deferred<void>();
     const started = deferred<void>();
     const baseBuild = vault.buildSourceSnapshot;
+    let activeBuilds = 0;
     vault.buildSourceSnapshot = async (path) => {
-      started.resolve();
+      activeBuilds += 1;
+      if (activeBuilds === 4) started.resolve();
       await gate.promise;
       return baseBuild(path);
     };
@@ -433,11 +510,46 @@ describe("index coordinator", () => {
     const rebuilding = coordinator.rebuild();
     await started.promise;
     coordinator.stop();
-    gate.resolve();
     await expect(rebuilding).rejects.toThrow("lifecycle change");
+    gate.resolve();
+    await Promise.resolve();
+    expect(vault.buildCount).toBe(4);
     expect(coordinator.index).toBe(initial);
     expect(coordinator.store.generation).toBe(0);
     expect(coordinator.state).toBe("idle");
+  });
+
+  it("isolates an obsolete rebuild finalizer from a restarted lifecycle", async () => {
+    const vault = new VirtualVault({ "A.md": [] });
+    const gate = deferred<void>();
+    const started = deferred<void>();
+    const baseBuild = vault.buildSourceSnapshot;
+    let held = false;
+    vault.buildSourceSnapshot = async (path) => {
+      if (!held) {
+        held = true;
+        started.resolve();
+        await gate.promise;
+      }
+      return baseBuild(path);
+    };
+    const coordinator = new LinkIndexCoordinator(vault);
+    coordinator.start();
+    const obsolete = coordinator.rebuild();
+    await started.promise;
+
+    coordinator.stop();
+    coordinator.start();
+    const restarted = coordinator.rebuild();
+    await expect(obsolete).rejects.toBeInstanceOf(Error);
+    gate.resolve();
+    await restarted;
+
+    vault.setLinks("A.md", []);
+    coordinator.enqueue({ type: "modify", path: "A.md" });
+    await coordinator.whenIdle();
+    expect(coordinator.state).toBe("ready");
+    expect(coordinator.index.toCanonicalState()).toEqual((await buildOracle(vault)).toCanonicalState());
   });
 
   it("replays events buffered during rebuild and makes concurrent rebuild calls single-flight", async () => {

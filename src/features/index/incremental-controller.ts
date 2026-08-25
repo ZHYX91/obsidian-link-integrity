@@ -5,6 +5,7 @@ import {
 } from "../../core/model";
 import { AtomicLinkIndexStore } from "./atomic-store";
 import type { LinkIndexPort, SourceEvent } from "./ports";
+import { raceWithAbort } from "./cancellation";
 
 interface CoalescedEvents {
   readonly directPaths: ReadonlySet<string>;
@@ -27,6 +28,7 @@ interface SnapshotBuild {
 
 export interface IncrementalIndexOptions {
   readonly concurrency?: number;
+  readonly signal?: AbortSignal;
   readonly now?: () => number;
   readonly onPendingEventCountChange?: (count: number) => void;
   readonly onBatchComplete?: (diagnostics: IncrementalBatchDiagnostics) => void;
@@ -149,7 +151,7 @@ export class IncrementalIndexController {
 
     if (events.namespaceChanged) {
       const previousFiles = index.files;
-      nextFiles = await this.port.listFiles();
+      nextFiles = await raceWithAbort(this.port.listFiles(), this.options.signal);
       if (!this.isCurrentEpoch(epoch)) return null;
       const changedLookupKeys = getChangedLookupKeys(previousFiles, nextFiles);
       addAll(affectedPaths, index.getSourcePathsByLookupKeys(changedLookupKeys));
@@ -159,10 +161,12 @@ export class IncrementalIndexController {
         }
       }
     } else if (events.modifiedPaths.size > 0) {
-      fileRecordUpdates = await Promise.all(Array.from(events.modifiedPaths, async (path) => ({
-        path,
-        file: await this.port.getFileRecord(path),
-      })));
+      fileRecordUpdates = await raceWithAbort(Promise.all(
+        Array.from(events.modifiedPaths, async (path) => ({
+          path,
+          file: await this.port.getFileRecord(path),
+        })),
+      ), this.options.signal);
       if (!this.isCurrentEpoch(epoch)) return null;
       for (const update of fileRecordUpdates) {
         const before = index.getFile(update.path);
@@ -190,7 +194,11 @@ export class IncrementalIndexController {
         else availableSourcePaths.add(update.file.path);
       }
     }
-    const builds = await this.buildSnapshots(Array.from(affectedPaths), availableSourcePaths);
+    const builds = await this.buildSnapshots(
+      Array.from(affectedPaths),
+      availableSourcePaths,
+      epoch,
+    );
     if (!this.isCurrentEpoch(epoch)) return null;
     const currentBuilds = builds.filter((build) =>
       this.getRevision(build.sourcePath) === build.revision);
@@ -233,19 +241,24 @@ export class IncrementalIndexController {
   private async buildSnapshots(
     sourcePaths: readonly string[],
     availableSourcePaths: ReadonlySet<string>,
+    epoch: number,
   ): Promise<readonly SnapshotBuild[]> {
     const builds: SnapshotBuild[] = [];
     let nextIndex = 0;
     const worker = async (): Promise<void> => {
-      while (nextIndex < sourcePaths.length) {
+      while (this.isCurrentEpoch(epoch) && nextIndex < sourcePaths.length) {
         const pathIndex = nextIndex;
         nextIndex += 1;
         const sourcePath = sourcePaths[pathIndex];
         if (sourcePath === undefined) continue;
         const revision = this.getRevision(sourcePath);
         const built = availableSourcePaths.has(sourcePath)
-          ? await this.port.buildSourceSnapshot(sourcePath)
+          ? await raceWithAbort(
+            this.port.buildSourceSnapshot(sourcePath),
+            this.options.signal,
+          )
           : null;
+        if (!this.isCurrentEpoch(epoch)) return;
         builds[pathIndex] = { sourcePath, revision, snapshot: built };
       }
     };
@@ -290,7 +303,8 @@ export class IncrementalIndexController {
   }
 
   private isCurrentEpoch(epoch: number): boolean {
-    return this.active && this.lifecycleEpoch === epoch;
+    return this.active && this.lifecycleEpoch === epoch &&
+      this.options.signal?.aborted !== true;
   }
 }
 

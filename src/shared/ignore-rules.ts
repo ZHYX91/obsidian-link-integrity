@@ -178,12 +178,28 @@ function ignoreMatcherMatches(
       return context.targetPath !== null && context.targetPath !== undefined &&
         normalizePath(context.targetPath) === expected;
     case "occurrence-id":
-      return context.occurrenceId === rule.matcher.value;
+      return occurrenceIdMatches(rule.matcher.value, context.occurrenceId);
     case "format-family":
       return context.formatFamilyIds?.includes(rule.matcher.value) ?? false;
     case "extension":
       return resolveContextExtension(context) === normalizeExtension(rule.matcher.value);
   }
+}
+
+export function renameOccurrenceRuleSources(
+  rules: readonly IgnoreRule[],
+  oldPath: string,
+  newPath: string,
+): readonly IgnoreRule[] {
+  let changed = false;
+  const renamed = rules.map((rule) => {
+    if (rule.matcher.kind !== "occurrence-id") return rule;
+    const value = renameOccurrenceIdSource(rule.matcher.value, oldPath, newPath);
+    if (value === rule.matcher.value) return rule;
+    changed = true;
+    return { ...rule, matcher: { ...rule.matcher, value } };
+  });
+  return changed ? renamed : rules;
 }
 
 export function previewIgnoreRule(
@@ -257,3 +273,7 @@ function normalizeTimestamp(value: unknown): number {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+import {
+  occurrenceIdMatches,
+  renameOccurrenceIdSource,
+} from "../core/occurrence-identity";

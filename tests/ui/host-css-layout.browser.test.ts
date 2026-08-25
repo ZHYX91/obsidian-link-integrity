@@ -53,6 +53,14 @@ interface LayoutMeasurements {
     readonly clientWidth: number;
     readonly scrollWidth: number;
   };
+  readonly settingsTabs: {
+    readonly background: string;
+    readonly borderRadius: string;
+    readonly clientWidth: number;
+    readonly minHeight: number;
+    readonly scrollWidth: number;
+    readonly shadow: string;
+  };
   readonly summaryDisplay: string;
   readonly surfaces: {
     readonly resultBackground: string;
@@ -110,6 +118,16 @@ describe("Obsidian host CSS layout contract", () => {
     expect(measurements.surfaces.resultShadow).toBe("none");
     expect(measurements.surfaces.tabBackground).toBe("rgba(0, 0, 0, 0)");
     expect(measurements.surfaces.tabShadow).toBe("none");
+    expect(measurements.settingsTabs.background).toBe("rgba(0, 0, 0, 0)");
+    expect(measurements.settingsTabs.shadow).toBe("none");
+    expect(measurements.settingsTabs.borderRadius).toBe("0px");
+  });
+
+  it("keeps settings tabs scrollable and comfortably sized", () => {
+    expect(measurements.settingsTabs.scrollWidth).toBeGreaterThan(
+      measurements.settingsTabs.clientWidth,
+    );
+    expect(measurements.settingsTabs.minHeight).toBeGreaterThanOrEqual(34);
   });
 
   it("contains narrow sidebar and rule editor content", () => {
@@ -220,6 +238,8 @@ function createLayoutDocument(pluginCss: string): string {
   --color-cyan: #53c9d8;
   --color-orange: #f0a54a;
   --font-monospace: monospace;
+  --font-interface: sans-serif;
+  --font-normal: 400;
   --font-ui-medium: 16px;
   --font-ui-small: 14px;
   --font-ui-smaller: 12px;
@@ -239,6 +259,7 @@ function createLayoutDocument(pluginCss: string): string {
   --size-4-2: 8px;
   --size-4-3: 12px;
   --size-4-4: 16px;
+  --size-4-5: 20px;
   --size-4-6: 24px;
   --size-4-8: 32px;
   --text-faint: #7f8792;
@@ -353,6 +374,13 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
     <label class="link-integrity-file-format"><input type="checkbox"><span>JPEG</span></label>
   </div>
 </section>
+<section class="link-integrity-settings" id="settings-fixture" style="width: 220px">
+  <div class="link-integrity-settings-tabs" id="settings-tabs">
+    <button class="link-integrity-settings-tab" id="settings-tab" type="button">General preferences</button>
+    <button class="link-integrity-settings-tab is-active" type="button">Broken links</button>
+    <button class="link-integrity-settings-tab" type="button">Isolated files</button>
+  </div>
+</section>
 <pre id="layout-results"></pre>
 <script>
   const resultMain = document.getElementById("result-main");
@@ -370,6 +398,8 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const listSegment = document.getElementById("list-segment").getBoundingClientRect();
   const customSettingBody = document.getElementById("custom-setting-body").getBoundingClientRect();
   const folderAction = document.querySelector(".link-integrity-isolated-folder-summary > .link-integrity-more-button").getBoundingClientRect();
+  const settingsTabs = document.getElementById("settings-tabs");
+  const settingsTabStyle = getComputedStyle(document.getElementById("settings-tab"));
   const measurements = {
     checkbox: {
       height: checkbox.height,
@@ -399,6 +429,14 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
       paddingInlineStart: Number.parseFloat(rtlStyle.paddingInlineStart),
     },
     rule: { clientWidth: rule.clientWidth, scrollWidth: rule.scrollWidth },
+    settingsTabs: {
+      background: settingsTabStyle.backgroundColor,
+      borderRadius: settingsTabStyle.borderRadius,
+      clientWidth: settingsTabs.clientWidth,
+      minHeight: document.getElementById("settings-tab").getBoundingClientRect().height,
+      scrollWidth: settingsTabs.scrollWidth,
+      shadow: settingsTabStyle.boxShadow,
+    },
     summaryDisplay: getComputedStyle(document.getElementById("category-summary")).display,
     surfaces: {
       resultBackground: resultStyle.backgroundColor,
