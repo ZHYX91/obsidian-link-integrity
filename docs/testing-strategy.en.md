@@ -20,6 +20,8 @@ Different evidence answers different questions and cannot substitute for another
 
 A green build is not real-host acceptance, and an emulator is not physical-device evidence. A production Vault is not used for destructive or first-time acceptance experiments.
 
+Every mobile candidate's shared release closure requires desktop and current Android-emulator product evidence. Physical Android is optional enhanced evidence: report it separately when available, report its absence as unverified, and never promote it into a plugin-specific release prerequisite. iOS is outside the shared acceptance scope.
+
 ## Core semantic tests
 
 Pure fixtures should cover:
