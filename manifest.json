@@ -1,7 +1,7 @@
 {
   "id": "link-integrity",
   "name": "Link Integrity",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minAppVersion": "1.12.7",
   "description": "Continuously find broken internal links and isolated files across your Vault.",
   "author": "ZhengYX",

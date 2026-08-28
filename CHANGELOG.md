@@ -7,6 +7,18 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-28
+
+### Changed
+
+- Refreshed public documentation and Community Directory screenshots to match the current plugin,
+  installation path, and release boundaries without embedding stale candidate evidence.
+- Clarified that Link Integrity keeps its three-tab imperative settings surface and that mobile
+  release acceptance requires current Android emulator evidence while treating physical-device
+  evidence as a separate optional claim.
+- Strengthened local release-version validation so an existing version tag must point to the exact
+  candidate revision, and reduced routine dependency-update noise.
+
 ## [0.2.0] - 2026-08-25
 
 ### Added
@@ -57,7 +69,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.1...HEAD
+[0.2.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.1
 [0.1.0]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.0
