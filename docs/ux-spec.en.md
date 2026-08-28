@@ -4,7 +4,7 @@ translation_of: ux-spec.zh-CN.md
 translation_status: synced
 ---
 
-# Link Integrity UX contract
+# Link Integrity — UX specification
 
 ## 1. Interaction goals
 
@@ -75,7 +75,7 @@ After filtering, the count is shown as “visible / configured-scope total” so
 
 ## 4. Settings interface
 
-Settings contain three tabs: General, Broken links, and Isolated files. The imperative Obsidian 1.12 UI and the declarative/searchable 1.13+ UI share one set of definitions, value sources, and side effects; they cannot become separate products.
+Settings use the imperative top-tab surface on every supported Obsidian version and contain three tabs: General, Broken links, and Isolated files. Declarative settings remain disabled because they bypass this layout. All tabs share one settings model, value sources, and side effects.
 
 ### 4.1 General
 

@@ -3,7 +3,7 @@ source_language: zh-CN
 translation_status: source
 ---
 
-# Link Integrity 发布合同
+# Link Integrity — 发布流程
 
 ## 1. 范围
 

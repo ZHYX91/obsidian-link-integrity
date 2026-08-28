@@ -42,8 +42,9 @@ const SETTINGS_CONTROL_KEYS = new Set<SettingsControlKey>([
   "isolatedFiles.showIgnored",
 ]);
 
-// Obsidian 1.13 bypasses display() for non-empty definitions. Temporarily keep
-// the established top-tab settings surface while retaining the definitions.
+// Declarative settings are intentionally inactive. Obsidian 1.13 bypasses
+// display() for non-empty definitions, removing the established top-tab surface
+// and degrading the settings experience. Retain dormant definitions for tests only.
 const ENABLE_DECLARATIVE_SETTINGS = false;
 
 export class LinkIntegritySettingTab extends PluginSettingTab {

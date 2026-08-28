@@ -3,7 +3,7 @@ source_language: zh-CN
 translation_status: source
 ---
 
-# Link Integrity 测试策略
+# Link Integrity — 测试策略
 
 Link Integrity 的测试策略优先证明诊断正确性和索引一致性，并严格区分自动门禁、打包候选、真实宿主、模拟器和物理设备证据。
 
@@ -76,9 +76,9 @@ Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文
 
 规范检查 `npm run check` 必须执行覆盖率阈值；发布检查还必须实际执行快速与 5 万文件规模基准。大型来源文本基准覆盖显式链接位置换算与行内代码屏蔽，避免按链接数或反引号数退化为二次复杂度。
 
-设置测试覆盖 schema 归一化、迁移、未来 schema 写保护、串行合并保存、失败待重试，以及 1.12 imperative 与 1.13 declarative 定义共用同一数据来源。键盘测试覆盖 tablist 角色、roving tabindex、方向键、Home/End、焦点保持和 RTL；DOM 测试不能代替真实 Obsidian 的样式和焦点验收。
+设置测试覆盖 schema 归一化、迁移、未来 schema 写保护、串行合并保存、失败待重试，以及所有受支持 Obsidian 版本共用的 imperative 顶部页签实现。测试还必须证明 declarative definitions 保持为空，避免 Obsidian 绕过页签布局。键盘测试覆盖 tablist 角色、roving tabindex、方向键、Home/End、焦点保持和 RTL；DOM 测试不能代替真实 Obsidian 的样式和焦点验收。
 
-宿主样式几何回归通过无额外依赖的真实 Chrome/Chromium 进程加载仓库中的实际 `styles.css` 和一份最小 Obsidian 宿主样式合同。它测量多行结果的行盒与溢出、长俄文徽标、宿主复选框的方形外观与至少 34px 的独立点击目标、原生 disclosure marker、对宿主按钮背景/阴影的覆盖、禁用 container query 时仍不溢出的 220px 侧栏回退、450px declarative 自定义设置正文，以及 RTL 逻辑缩进。该测试属于自动浏览器证据并进入常规测试门禁；运行环境必须提供 Chrome/Chromium，或通过 `LINK_INTEGRITY_CHROME_PATH` 指定可执行文件。它不能替代真实主题、系统缩放、真实 RTL、粗指针设备或移动宿主验收。
+宿主样式几何回归通过无额外依赖的真实 Chrome/Chromium 进程加载仓库中的实际 `styles.css` 和一份最小 Obsidian 宿主样式合同。它测量多行结果的行盒与溢出、长俄文徽标、宿主复选框的方形外观与至少 34px 的独立点击目标、原生 disclosure marker、对宿主按钮背景/阴影的覆盖、禁用 container query 时仍不溢出的 220px 侧栏回退、450px 自定义设置正文，以及 RTL 逻辑缩进。该测试属于自动浏览器证据并进入常规测试门禁；运行环境必须提供 Chrome/Chromium，或通过 `LINK_INTEGRITY_CHROME_PATH` 指定可执行文件。它不能替代真实主题、系统缩放、真实 RTL、粗指针设备或移动宿主验收。
 
 i18n 门禁检查 11 个完整且独立的 catalog、编译期精确键覆盖、插值、复数、语言自称、“跟随 Obsidian”术语、稳定中英文文档结构和退役术语。稳定 catalog 不允许通过展开英文对象补齐缺失翻译。
 

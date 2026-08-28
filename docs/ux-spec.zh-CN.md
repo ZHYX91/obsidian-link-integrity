@@ -3,7 +3,7 @@ source_language: zh-CN
 translation_status: source
 ---
 
-# Link Integrity UX 规范
+# Link Integrity — 交互规范
 
 ## 1. 交互目标
 
@@ -74,7 +74,7 @@ Link Integrity 是只读诊断工具。界面应让用户先理解问题、再�
 
 ## 4. 设置界面
 
-设置分为三个页签：常规、无效链接、孤立文件。Obsidian 1.12 的命令式设置 UI 与 1.13 及之后的声明式/可搜索设置 UI 共用同一组定义、值来源和副作用，不允许形成两套语义。
+所有受支持 Obsidian 版本都使用 imperative 顶部页签设置界面，并分为三个页签：常规、无效链接、孤立文件。声明式设置保持关闭，因为它会绕过这套布局。所有页签共用同一设置模型、值来源和副作用。
 
 ### 4.1 常规
 

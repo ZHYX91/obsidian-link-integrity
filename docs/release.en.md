@@ -4,7 +4,7 @@ translation_of: release.zh-CN.md
 translation_status: synced
 ---
 
-# Link Integrity release contract
+# Link Integrity — Release procedure
 
 ## 1. Scope
 

@@ -4,7 +4,7 @@ translation_of: architecture.zh-CN.md
 translation_status: synced
 ---
 
-# Link Integrity Architecture
+# Link Integrity — Architecture
 
 This document describes the current module boundaries, index invariants, and consistency strategy of Link Integrity.
 
@@ -28,7 +28,7 @@ Each `LinkOccurrence` stores a stable ID, source path, raw text, linkpath, subpa
 
 Each source file owns one complete `SourceSnapshot`. When a source changes, the index replaces the entire snapshot through the same reducer. Old occurrences, lookup references, and edge contributions are removed together, and the new contents are added together; fields are not patched individually.
 
-Persisted occurrence-ignore rules use a versioned semantic identity: normalized source path, occurrence kind, a hash of the raw/link text, duplicate index, and duplicate-set cardinality. Mutable line/column and legacy global ordinal remain navigation and compatibility metadata, not v2 rule identity. Unrelated content or a different link inserted before an occurrence therefore does not invalidate its rule, and Vault file/folder rename events rewrite the saved source component. For indistinguishable duplicates, changing the duplicate-set cardinality deliberately makes the old rule match zero occurrences until its settings preview is reviewed, instead of silently rebinding it to the wrong duplicate.
+Persisted occurrence-ignore rules use a versioned semantic identity: normalized source path, occurrence kind, a hash of the raw/link text, duplicate index, and duplicate-set cardinality. Mutable line/column and the global ordinal remain navigation and migration metadata, not part of semantic rule identity. Unrelated content or a different link inserted before an occurrence therefore does not invalidate its rule, and Vault file/folder rename events rewrite the saved source component. For indistinguishable duplicates, changing the duplicate-set cardinality deliberately makes an existing rule match zero occurrences until its settings preview is reviewed, instead of silently rebinding it to the wrong duplicate.
 
 The index maintains:
 
@@ -99,4 +99,4 @@ Scan on startup is disabled by default. While it remains disabled and the sideba
 
 Automated tests cover core graph invariants, snapshot replacement, normalized differential equality between regraph and a clean materialization, synchronous reducer-batch prevalidation, same-name target revalidation, random-event differential equality, late Metadata Cache correction, last-known-good retention, event replay, worker cancellation, operation-generation isolation, and query semantics. A dedicated 10k/50k benchmark also constrains ordinary single-source updates to evaluating only that source's old and new occurrences. Actual resolution accuracy ultimately depends on the live Obsidian APIs and real file caches.
 
-There is currently no derived-graph persistence, external-URL network checking, automatic deletion, or bulk repair. A formal-Vault smoke records the observed Obsidian 1.13.4 startup, sidebar, and settings behavior, but architecture tests and that smoke do not establish the full Obsidian 1.12.7/current 1.13.x matrix, live-event paths, Android emulator behavior, or physical-device behavior; those boundaries require separate acceptance.
+There is currently no derived-graph persistence, external-URL network checking, automatic deletion, or bulk repair. Architecture tests do not establish the required Obsidian 1.12.7/current 1.13.x host matrix, live-event paths, Android emulator behavior, or physical-device behavior; those boundaries require separate acceptance.
