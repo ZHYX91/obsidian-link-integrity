@@ -10,12 +10,12 @@ translation_status: synced
 
 This document defines the blocking path from a tagged Link Integrity source revision to a GitHub Release. Repository checks, packaged-candidate validation, real Obsidian acceptance, GitHub publication, and Obsidian community-directory approval remain separate evidence boundaries.
 
-The release workflow separates authority. Before tagging, a manually dispatched read-only preflight
-verifies the current remote default-branch HEAD, version, full gate, and unused tag/Release. A
-read-only verification job produces one exact handoff, and a write-capable publication job consumes
-only that handoff. The workflow does not preflight repository-governance settings. Tag rulesets
-remain optional protection, but a successful publication requires the created Release to report
-`immutable: true` during bounded final readback.
+The release workflow separates authority. A read-only verification job reproduces one exact
+digest-bound handoff. Only a manual `publish` dispatch with a passing acceptance closure and a
+separate, exact single-candidate authorization can start the write-capable job. Tag creation and
+push are separate actions and do not trigger publication. The workflow does not preflight
+repository-governance settings. Tag rulesets remain optional protection, but a successful
+publication requires the created Release to report `immutable: true` during final readback.
 
 ## 2. Identity, version, and source
 
@@ -28,7 +28,11 @@ remain optional protection, but a successful publication requires the created Re
 
 ## 3. Blocking gate
 
-Before publication, `npm run release:check` first validates the manifest, package, lockfile root, and `versions.json`, using the manifest version when no explicit tag is supplied. A missing local same-version tag is allowed; an existing tag must resolve exactly to `HEAD`, so a tag from another commit cannot be reused. The command then runs the runtime, lint, formatting, documentation, TypeScript, test, coverage, production-bundle, release-contract, and 10,000/50,000-file performance gates.
+`npm run check` runs runtime, lint, formatting, documentation, TypeScript, coverage, production
+bundle, and common vendored-core validation of metadata and exact asset inventory.
+`npm run release:check` adds the 10,000/50,000-file performance gates and tag-aware validation.
+A missing local same-version tag is allowed while preparing a candidate; an existing tag must
+resolve exactly to `HEAD`, so a tag from another commit cannot be reused.
 
 ## 4. Release assets
 
@@ -39,13 +43,27 @@ The public Release contains exactly:
 - `styles.css`
 - `link-integrity-<version>.zip`
 
-The workflow handoff additionally contains `SHA256SUMS`; it is not a public Release asset. The deterministic ZIP contains a single `link-integrity/` installation directory and the same three loose assets byte for byte.
+The workflow handoff additionally contains `candidate.json` and `SHA256SUMS`; neither is a
+public Release asset. The deterministic ZIP contains a single `link-integrity/` installation
+directory and the same three loose assets byte for byte.
 
 Candidate validation rejects missing or extra files, symbolic links, unsafe ZIP paths, identity or version mismatches, and checksum mismatches.
 
 ## 5. Handoff and publication
 
-The verification job uploads one artifact named with the current run ID and attempt. It records the exact artifact ID and server digest. The publication job does not checkout the repository, install dependencies, build, or execute repository scripts. It downloads the artifact by ID, verifies its identity, digest, inventory, checksums, and manifest version, then creates a Release for the existing tag with generated notes.
+The manual workflow defaults to `verify`. Its read-only job checks the exact candidate commit,
+numeric tag, default-branch ancestry, pinned toolchain, complete gate, and reproduced
+`candidate.json` digest, then uploads one artifact named by the stable workspace release-run ID.
+It records the exact artifact ID and server digest.
+
+The `publish` job checks out only the same candidate commit without persisted credentials and
+does not install dependencies or rebuild. It downloads the artifact by ID, decodes the exact
+portable closure and authorization bytes, verifies their independent digests and bindings, and
+runs the vendored core publication boundary. Before any remote write, a read-only GitHub preflight
+permits staging, attestation, and creation only when the Release is missing. An exact existing
+Release whose bytes and provenance pass every check is a zero-write safe rerun; any conflict fails
+before those writes, and `publish-github` repeats the check. A separate post-verification job
+redownloads the same artifact and checks the hosted immutable state.
 
 An existing same-tag Release is accepted as a successful safe-rerun no-op only when it is stable,
 immutable, contains exactly the four public assets, matches the current candidate byte for byte,
