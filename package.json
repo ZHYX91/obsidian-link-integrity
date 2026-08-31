@@ -25,6 +25,8 @@
     "release:post-verify": "node scripts/release.mjs post-verify",
     "bench:index": "vitest run --config vitest.performance.config.mts --mode quick --reporter=verbose",
     "bench:index:large": "vitest run --config vitest.performance.config.mts --mode large --reporter=verbose",
+    "clean": "node scripts/clean.mjs",
+    "clean:deps": "node scripts/clean.mjs --deps",
     "check": "npm run check:runtime && npm run lint && npm run format:check && npm run check:readme-i18n && npm run check:docs-i18n && npm run typecheck && npm run test:coverage && npm run build:bundle && npm run check:production && npm run release:validate",
     "release:check": "npm run check && npm run bench:index && npm run bench:index:large && npm run release:validate-tag"
   },
