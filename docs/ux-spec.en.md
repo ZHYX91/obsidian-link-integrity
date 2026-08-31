@@ -137,4 +137,4 @@ Scan errors and settings-save errors are separate states and are presented indep
 - State never relies on color alone; badges and text communicate together.
 - Result menus, checkboxes, and disclosure controls have readable labels.
 
-A real desktop host, Android emulator, and physical device are distinct acceptance boundaries. Automated DOM tests cannot substitute for any real-host conclusion.
+Release acceptance always requires a real desktop host; a candidate with `isDesktopOnly: false` also requires current Android-emulator evidence. Android physical devices and iOS are out of scope; historical physical-device evidence is supplemental only and never a release gate. Automated DOM tests cannot substitute for desktop-host or Android-emulator conclusions.

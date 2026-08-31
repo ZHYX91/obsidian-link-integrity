@@ -81,4 +81,4 @@ Creating a GitHub Release does not publish the plugin in Obsidian's community di
 
 ## 8. Evidence record
 
-Each release retains the aggregate-gate logs, exact runtime, bundle budget result, candidate artifact ID and digest, four public asset checksums, attestations, final Release readback, and tag identity. A green workflow proves the release transaction; it does not replace physical-device or broader production-Vault acceptance.
+Each release retains the aggregate-gate logs, exact runtime, bundle budget result, candidate artifact ID and digest, four public asset checksums, attestations, final Release readback, and tag identity. A green workflow proves the release transaction; it does not replace desktop/Android-emulator or broader production-Vault acceptance. Android physical devices and iOS are out of scope.

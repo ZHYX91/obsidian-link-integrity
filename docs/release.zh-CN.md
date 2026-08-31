@@ -72,4 +72,4 @@ GitHub attestations 覆盖四个公共附件。发布后，workflow 在有限重
 
 ## 8. 证据记录
 
-每次发布保留总门禁日志、精确 runtime、bundle budget 结果、候选 artifact ID 与 digest、四个公共附件 checksum、attestations、最终 Release 回读和 tag 身份。绿色 workflow 只证明发布事务成功，不能替代物理设备或更广泛的正式 Vault 验收。
+每次发布保留总门禁日志、精确 runtime、bundle budget 结果、候选 artifact ID 与 digest、四个公共附件 checksum、attestations、最终 Release 回读和 tag 身份。绿色 workflow 只证明发布事务成功，不能替代桌面端/Android 模拟器或更广泛的正式 Vault 验收。Android 真机和 iOS 不在范围内。

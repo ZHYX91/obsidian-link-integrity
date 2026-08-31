@@ -67,8 +67,8 @@ commas in multiline structures. Keep Obsidian APIs behind adapters. Use Vitest f
 Conventional Commit subjects for local commits.
 
 Before handoff, run `npm run check` and the explicit scale benchmark required by the change.
-Automated checks, packaged-candidate checks, real Obsidian host acceptance, emulator evidence,
-and physical-device evidence are separate claims.
+Automated checks, packaged-candidate checks, real Obsidian host acceptance, and Android emulator
+evidence are separate claims. Android physical devices and iOS are out of scope.
 
 ## Deployment and host acceptance
 
@@ -80,8 +80,9 @@ reset, and verify the installed hashes after copying.
 
 Acceptance fixtures, cleanup scripts, and destructive test operations may target only explicitly
 identified temporary Vaults; never point them at an ordinary or production Vault. Source checks,
-packaged-candidate checks, deployed-host behavior, emulator evidence, and physical-device evidence
-remain separate claims.
+packaged-candidate checks, deployed-host behavior, and Android emulator evidence remain separate
+claims. Because this plugin is mobile-capable, an exact release candidate requires current desktop
+and Android emulator passes.
 
 The deterministic product fixture lives under `acceptance/fixtures/`. Use it only in an explicitly
 identified disposable Vault with a clean packaged candidate. Never point it at an ordinary or

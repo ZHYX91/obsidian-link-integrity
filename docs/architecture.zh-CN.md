@@ -98,4 +98,4 @@ create、delete 和 rename 会重新取得文件 registry，并比较新旧 look
 
 自动测试已经覆盖核心图不变量、快照替换、regraph 与干净物化结果的规范化差分等价、同步 reducer batch 预验证、同名目标重验证、随机事件差分、late Metadata Cache 纠偏、last-known-good、事件重放、worker 取消、操作代次隔离和查询语义。专项 10k/50k benchmark 还约束普通单来源更新只求值该来源的旧、新 occurrence。实际解析准确性最终仍依赖运行中的 Obsidian API 和真实文件缓存。
 
-当前没有派生图持久化、外部 URL 网络检查、自动删除或批量修复。架构测试不能证明所需的 Obsidian 1.12.7/当前 1.13.x 宿主矩阵、实时事件路径、Android 模拟器或物理设备行为；这些边界必须分别验收。
+当前没有派生图持久化、外部 URL 网络检查、自动删除或批量修复。架构测试不能证明所需的 Obsidian 1.12.7/当前 1.13.x 桌面宿主矩阵、实时事件路径或 Android 模拟器行为；桌面宿主始终需要独立验收，`isDesktopOnly: false` 的候选还需要当前 Android 模拟器证据。Android 真机和 iOS 不在验收范围内；历史真机证据仅作补充，不构成发布门槛。

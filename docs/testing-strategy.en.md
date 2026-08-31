@@ -6,7 +6,7 @@ translation_status: synced
 
 # Link Integrity — Testing strategy
 
-The Link Integrity testing strategy prioritizes diagnostic correctness and index consistency while keeping automated gates, packaged candidates, real hosts, emulators, and physical-device evidence strictly separate.
+The Link Integrity testing strategy prioritizes diagnostic correctness and index consistency while keeping automated gates, packaged candidates, real hosts, and emulator evidence strictly separate.
 
 ## Evidence levels
 
@@ -15,12 +15,11 @@ Different evidence answers different questions and cannot substitute for another
 1. static and automated tests prove types, pure semantics, controllers, and deterministic contracts;
 2. packaged-candidate checks prove the actual install assets and version contract;
 3. an isolated real Obsidian Vault proves host APIs, navigation, and interface behavior;
-4. an Android emulator proves layout and host behavior in one simulated mobile environment;
-5. a physical device proves real touch, performance, filesystem, and lifecycle behavior.
+4. an Android emulator proves layout and host behavior in the supported mobile acceptance environment.
 
-A green build is not real-host acceptance, and an emulator is not physical-device evidence. A production Vault is not used for destructive or first-time acceptance experiments.
+A green build is not real-host acceptance. A production Vault is not used for destructive or first-time acceptance experiments.
 
-Every mobile candidate's shared release closure requires desktop and current Android-emulator product evidence. Physical Android is optional enhanced evidence: report it separately when available, report its absence as unverified, and never promote it into a plugin-specific release prerequisite. iOS is outside the shared acceptance scope.
+Every mobile candidate's shared release closure requires desktop and current Android-emulator product evidence. Android physical devices and iOS are outside the shared acceptance scope.
 
 ## Core semantic tests
 
@@ -104,10 +103,10 @@ The real desktop host matrix should cover at least Obsidian 1.12.7 and the curre
 Stable repository documentation records the repeatable matrix and evidence boundaries, not
 machine-specific paths, run IDs, screenshots, hashes, or dated execution logs. Release decisions
 must use a separately retained record for the exact candidate and host without promoting a smoke
-check into navigation, live-event, emulator, or physical-device evidence.
+check into navigation, live-event, or emulator evidence.
 
 ## Completion criteria
 
-A candidate may make a claim only when evidence exists separately for that fact: automated gates pass, the candidate asset contract passes, the target Obsidian version passes in an isolated Vault, the emulator passes, or a physical device passes. Missing evidence at one level does not invalidate lower-level evidence, but lower-level evidence must never be promoted into a higher-level acceptance claim.
+A candidate may make a claim only when evidence exists separately for that fact: automated gates pass, the candidate asset contract passes, the target Obsidian version passes in an isolated Vault, or the emulator passes. Android physical devices and iOS are not acceptance levels for this project. Missing evidence at one supported level does not invalidate lower-level evidence, but lower-level evidence must never be promoted into a higher-level acceptance claim.
 
 When a failure is found, record the smallest reproduction, the affected semantic invariant, the last-known-good state, and the regression test added after repair. Any production Vault deployment requires separate authorization after isolated acceptance is complete.
