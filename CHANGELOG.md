@@ -7,6 +7,11 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+### Changed
+
+- Emphasized the active Broken links or Isolated files sidebar tab with a semibold label while
+  preserving its accent underline.
+
 ## [0.2.1] - 2026-08-28
 
 ### Changed
