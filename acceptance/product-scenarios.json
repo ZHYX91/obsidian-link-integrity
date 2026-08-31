@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "obsidian-plugin/product-scenarios-v1",
+  "pluginId": "link-integrity",
+  "materializer": {
+    "kind": "copy-v1",
+    "roots": [
+      {
+        "source": "acceptance/fixtures",
+        "target": ""
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "graph-classification-and-navigation",
+      "title": "Broken-link and isolated-file classification",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "steps": [
+        "Wait for the startup scan and inspect both business tabs",
+        "Toggle expected isolated files and navigate every reported source",
+        "Modify one link and confirm the incremental projection equals a clean rebuild"
+      ],
+      "expected": [
+        "The deterministic fixture reports four broken diagnostics and four default isolated files",
+        "Expected periodic isolation is separated from the default count",
+        "Markdown, embeds, frontmatter, Canvas, and explicit Bases links contribute the documented edges"
+      ]
+    }
+  ]
+}
