@@ -7,6 +7,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-08-31
+
 ### Changed
 
 - Emphasized the active Broken links or Isolated files sidebar tab with a semibold label while
@@ -74,7 +76,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.1...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.2...HEAD
+[0.2.2]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.1
