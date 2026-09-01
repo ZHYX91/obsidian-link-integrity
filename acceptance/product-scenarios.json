@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "kind": "obsidian-plugin/product-scenarios-v1",
+  "schemaVersion": 2,
+  "kind": "obsidian-plugin/product-scenarios-v2",
   "pluginId": "link-integrity",
   "materializer": {
     "kind": "copy-v1",
@@ -19,6 +19,10 @@
         "desktop",
         "android-emulator"
       ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
       "steps": [
         "Wait for the startup scan and inspect both business tabs",
         "Toggle expected isolated files and navigate every reported source",
