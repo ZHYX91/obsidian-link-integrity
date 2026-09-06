@@ -71,7 +71,7 @@ Tout s’exécute localement. Link Integrity ne téléverse pas le contenu du Va
 
 Utilisez Node.js 24.19.0 et npm 11.17.0. Exécutez `npm ci`, puis `npm run check`.
 
-Contrats stables : [produit](../product-requirements.en.md), [UX](../ux-spec.en.md), [architecture](../architecture.en.md), [tests](../testing-strategy.en.md) et [publication](../release.en.md). Les sources chinoises correspondantes sont dans le même dossier.
+Contrats stables : [produit](../product-requirements.en.md), [UX](../ux-spec.en.md), [architecture](../architecture.en.md), [tests](../testing-strategy.en.md). Les sources chinoises correspondantes sont dans le même dossier.
 
 ## Assistance
 

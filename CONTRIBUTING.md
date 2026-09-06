@@ -35,7 +35,6 @@ Stable requirements live in these synchronized pairs:
 - `docs/ux-spec.{zh-CN,en}.md`
 - `docs/architecture.{zh-CN,en}.md`
 - `docs/testing-strategy.{zh-CN,en}.md`
-- `docs/release.{zh-CN,en}.md`
 
 Simplified Chinese is the source language. Update the `.zh-CN.md` source first, update its English
 translation in the same change, preserve matching heading structure, and keep the canonical

@@ -77,7 +77,6 @@ Bases 动态查询结果不算显式边。文件目标已解析但标题或块�
 - UX 规范：[English](../ux-spec.en.md) · [简体中文](../ux-spec.zh-CN.md)
 - 架构：[English](../architecture.en.md) · [简体中文](../architecture.zh-CN.md)
 - 测试：[English](../testing-strategy.en.md) · [简体中文](../testing-strategy.zh-CN.md)
-- 发布：[English](../release.en.md) · [简体中文](../release.zh-CN.md)
 
 ## 支持
 

@@ -77,7 +77,6 @@ Bases 動態查詢結果不算明確圖邊。若檔案已解析但標題或區�
 - UX 規範：[English](../ux-spec.en.md) · [简体中文](../ux-spec.zh-CN.md)
 - 架構：[English](../architecture.en.md) · [简体中文](../architecture.zh-CN.md)
 - 測試：[English](../testing-strategy.en.md) · [简体中文](../testing-strategy.zh-CN.md)
-- 發佈：[English](../release.en.md) · [简体中文](../release.zh-CN.md)
 
 ## 支援
 

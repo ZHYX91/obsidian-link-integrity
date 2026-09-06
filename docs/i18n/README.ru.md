@@ -71,7 +71,7 @@ Link Integrity — локальный диагностический плаги�
 
 Используйте Node.js 24.19.0 и npm 11.17.0. Выполните `npm ci`, затем `npm run check`.
 
-Постоянные контракты: [продукт](../product-requirements.en.md), [UX](../ux-spec.en.md), [архитектура](../architecture.en.md), [тестирование](../testing-strategy.en.md) и [выпуск](../release.en.md). Соответствующие китайские источники находятся в той же папке.
+Постоянные контракты: [продукт](../product-requirements.en.md), [UX](../ux-spec.en.md), [архитектура](../architecture.en.md), [тестирование](../testing-strategy.en.md). Соответствующие китайские источники находятся в той же папке.
 
 ## Поддержка
 

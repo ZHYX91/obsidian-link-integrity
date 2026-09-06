@@ -77,7 +77,6 @@ Stable contracts:
 - UX specification: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.zh-CN.md)
 - Architecture: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.zh-CN.md)
 - Testing: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.zh-CN.md)
-- Release: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/release.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/release.zh-CN.md)
 
 Project links: [Contributing](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CONTRIBUTING.md) · [Changelog](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CHANGELOG.md) · [Security](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/SECURITY.md)
 

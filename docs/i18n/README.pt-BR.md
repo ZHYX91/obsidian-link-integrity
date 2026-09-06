@@ -71,7 +71,7 @@ Tudo é processado localmente. Link Integrity não envia conteúdo do Vault, nã
 
 Use Node.js 24.19.0 e npm 11.17.0. Execute `npm ci` e depois `npm run check`.
 
-Contratos estáveis: [produto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitetura](../architecture.en.md), [testes](../testing-strategy.en.md) e [lançamento](../release.en.md). As fontes chinesas correspondentes ficam na mesma pasta.
+Contratos estáveis: [produto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitetura](../architecture.en.md), [testes](../testing-strategy.en.md). As fontes chinesas correspondentes ficam na mesma pasta.
 
 ## Suporte
 

@@ -71,7 +71,7 @@ Bases の動的クエリ結果は明示的な辺ではありません。ファ�
 
 Node.js 24.19.0 と npm 11.17.0 を使用し、`npm ci` の後に `npm run check` を実行します。
 
-安定した契約：[製品](../product-requirements.en.md)、[UX](../ux-spec.en.md)、[アーキテクチャ](../architecture.en.md)、[テスト](../testing-strategy.en.md)、[リリース](../release.en.md)。対応する中国語ソースは同じフォルダーにあります。
+安定した契約：[製品](../product-requirements.en.md)、[UX](../ux-spec.en.md)、[アーキテクチャ](../architecture.en.md)、[テスト](../testing-strategy.en.md)。対応する中国語ソースは同じフォルダーにあります。
 
 ## サポート
 

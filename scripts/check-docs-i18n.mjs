@@ -8,7 +8,6 @@ const DOCUMENTS = Object.freeze([
   "ux-spec",
   "architecture",
   "testing-strategy",
-  "release",
 ]);
 const LEGACY_DOCUMENTS = Object.freeze([
   "docs/product.en.md",

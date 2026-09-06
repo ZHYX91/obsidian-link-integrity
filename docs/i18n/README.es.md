@@ -71,7 +71,7 @@ Todo se procesa localmente. Link Integrity no sube el contenido del Vault, no re
 
 Usa Node.js 24.19.0 y npm 11.17.0. Ejecuta `npm ci` y después `npm run check`.
 
-Contratos estables: [producto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitectura](../architecture.en.md), [pruebas](../testing-strategy.en.md) y [publicación](../release.en.md). Las fuentes chinas correspondientes están en la misma carpeta.
+Contratos estables: [producto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitectura](../architecture.en.md), [pruebas](../testing-strategy.en.md). Las fuentes chinas correspondientes están en la misma carpeta.
 
 ## Soporte
 

@@ -71,7 +71,7 @@ Mọi xử lý diễn ra cục bộ. Link Integrity không tải nội dung Vaul
 
 Dùng Node.js 24.19.0 và npm 11.17.0. Chạy `npm ci`, sau đó `npm run check`.
 
-Hợp đồng ổn định: [sản phẩm](../product-requirements.en.md), [UX](../ux-spec.en.md), [kiến trúc](../architecture.en.md), [kiểm thử](../testing-strategy.en.md) và [phát hành](../release.en.md). Nguồn tiếng Trung tương ứng nằm trong cùng thư mục.
+Hợp đồng ổn định: [sản phẩm](../product-requirements.en.md), [UX](../ux-spec.en.md), [kiến trúc](../architecture.en.md), [kiểm thử](../testing-strategy.en.md). Nguồn tiếng Trung tương ứng nằm trong cùng thư mục.
 
 ## Hỗ trợ
 

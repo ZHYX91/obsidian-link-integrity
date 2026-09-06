@@ -71,7 +71,7 @@ Alles läuft lokal. Link Integrity lädt keine Vault-Inhalte hoch, benötigt kei
 
 Node.js 24.19.0 und npm 11.17.0 verwenden. `npm ci` und danach `npm run check` ausführen.
 
-Dauerhafte Verträge: [Produkt](../product-requirements.en.md), [UX](../ux-spec.en.md), [Architektur](../architecture.en.md), [Tests](../testing-strategy.en.md) und [Release](../release.en.md). Die chinesischen Quellen liegen jeweils im selben Ordner.
+Dauerhafte Verträge: [Produkt](../product-requirements.en.md), [UX](../ux-spec.en.md), [Architektur](../architecture.en.md), [Tests](../testing-strategy.en.md). Die chinesischen Quellen liegen jeweils im selben Ordner.
 
 ## Support
 
