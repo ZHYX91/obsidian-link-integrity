@@ -7,6 +7,17 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-06
+
+### Fixed
+
+- Keep sidebar search focused while typing and refreshing the index, including selection replacement and IME composition.
+- Retain collapsed isolated folders, broken-link groups, and expanded file-type filters during sidebar updates.
+
+### Changed
+
+- Update development dependencies and use attested tag-triggered releases with optional host acceptance.
+
 ## [0.2.2] - 2026-08-31
 
 ### Changed

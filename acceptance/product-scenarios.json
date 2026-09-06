@@ -33,6 +33,29 @@
         "Expected periodic isolation is separated from the default count",
         "Markdown, embeds, frontmatter, Canvas, and explicit Bases links contribute the documented edges"
       ]
+    },
+    {
+      "id": "sidebar-interaction-state",
+      "title": "Continuous search and persistent folder expansion",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Open the results sidebar and type Missing continuously in search; select and replace part of the query, then clear it",
+        "Switch to Isolated files, show expected isolated files, and select the folder tree",
+        "Collapse Periodic, search for a nonmatching path, then clear search",
+        "Rebuild the index and verify that the folder remains collapsed"
+      ],
+      "expected": [
+        "Search retains focus, the complete typed query, and its selection during result updates",
+        "Periodic remains collapsed after filtering and an index rebuild",
+        "Both business tabs and result navigation remain usable"
+      ]
     }
   ]
 }
