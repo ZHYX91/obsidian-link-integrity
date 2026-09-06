@@ -10,7 +10,11 @@ Link Integrity는 Broken links와 Isolated files를 찾는 로컬 전용 읽기 
 
 ![Link Integrity 사이드바](../assets/link-integrity-overview-en.png)
 
+![폴더별로 그룹화된 고립 파일](../assets/link-integrity-isolated-en.png)
+
 Obsidian 설정에서 인덱스, 무시 규칙, 파일 형식과 예상 고립을 구성합니다.
+
+![Link Integrity 설정](../assets/link-integrity-settings-en.png)
 
 ## 기능
 

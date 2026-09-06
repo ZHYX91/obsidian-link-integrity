@@ -10,7 +10,11 @@ Link Integrity は Broken links と Isolated files を検出する、ローカ�
 
 ![Link Integrity サイドバー](../assets/link-integrity-overview-en.png)
 
+![フォルダー別の孤立ファイル](../assets/link-integrity-isolated-en.png)
+
 Obsidian の設定でインデックス、除外ルール、ファイル形式、想定された孤立を構成できます。
+
+![Link Integrity の設定](../assets/link-integrity-settings-en.png)
 
 ## 機能
 

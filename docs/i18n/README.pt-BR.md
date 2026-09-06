@@ -10,7 +10,11 @@ Revise links quebrados e arquivos isolados em uma barra lateral compacta:
 
 ![Barra lateral do Link Integrity](../assets/link-integrity-overview-en.png)
 
+![Arquivos isolados agrupados por pasta](../assets/link-integrity-isolated-en.png)
+
 Configure índice, regras de ignorar, tipos de arquivo e isolamento esperado nas configurações do Obsidian:
+
+![Configurações do Link Integrity](../assets/link-integrity-settings-en.png)
 
 ## Recursos
 

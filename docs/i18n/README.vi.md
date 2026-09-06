@@ -10,7 +10,11 @@ Xem liên kết hỏng và tệp cô lập trong thanh bên gọn nhẹ:
 
 ![Thanh bên Link Integrity](../assets/link-integrity-overview-en.png)
 
+![Tệp cô lập được nhóm theo thư mục](../assets/link-integrity-isolated-en.png)
+
 Cấu hình chỉ mục, quy tắc bỏ qua, loại tệp và trạng thái cô lập dự kiến trong cài đặt Obsidian:
+
+![Cài đặt Link Integrity](../assets/link-integrity-settings-en.png)
 
 ## Tính năng
 

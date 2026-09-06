@@ -10,7 +10,11 @@ Examiner les liens invalides et les fichiers isolés dans une barre latérale co
 
 ![Barre latérale Link Integrity](../assets/link-integrity-overview-en.png)
 
+![Fichiers isolés regroupés par dossier](../assets/link-integrity-isolated-en.png)
+
 Configurer l’index, les règles d’exclusion, les types de fichiers et l’isolation attendue dans les paramètres Obsidian :
+
+![Paramètres de Link Integrity](../assets/link-integrity-settings-en.png)
 
 ## Fonctionnalités
 

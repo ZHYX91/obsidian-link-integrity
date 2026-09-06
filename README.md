@@ -10,7 +10,11 @@ Review broken links and isolated files from one compact sidebar:
 
 ![Link Integrity sidebar with broken-link diagnostics](https://raw.githubusercontent.com/ZHYX91/obsidian-link-integrity/main/docs/assets/link-integrity-overview-en.png)
 
+![Isolated files grouped by folder](https://raw.githubusercontent.com/ZHYX91/obsidian-link-integrity/main/docs/assets/link-integrity-isolated-en.png)
+
 Configure indexing, ignore rules, file types, and expected-isolation patterns in Obsidian settings:
+
+![Link Integrity settings](https://raw.githubusercontent.com/ZHYX91/obsidian-link-integrity/main/docs/assets/link-integrity-settings-en.png)
 
 ## Features
 

@@ -10,7 +10,11 @@ Broken links und isolierte Dateien in einer kompakten Seitenleiste prüfen:
 
 ![Link-Integrity-Seitenleiste](../assets/link-integrity-overview-en.png)
 
+![Isolierte Dateien nach Ordner gruppiert](../assets/link-integrity-isolated-en.png)
+
 Index, Ignorierregeln, Dateitypen und erwartete Isolation in den Obsidian-Einstellungen konfigurieren:
+
+![Link-Integrity-Einstellungen](../assets/link-integrity-settings-en.png)
 
 ## Funktionen
 

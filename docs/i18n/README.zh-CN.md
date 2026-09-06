@@ -10,7 +10,11 @@ Link Integrity 是完全本地、只读的 Obsidian 诊断插件，用于查找 
 
 ![Link Integrity 无效链接侧栏](../assets/link-integrity-overview-en.png)
 
+![按文件夹分组的孤立文件](../assets/link-integrity-isolated-en.png)
+
 在 Obsidian 设置中配置索引、忽略规则、文件类型和预期孤立模式：
+
+![Link Integrity 设置](../assets/link-integrity-settings-en.png)
 
 ## 功能特性
 

@@ -10,7 +10,11 @@ Link Integrity — локальный диагностический плаги�
 
 ![Боковая панель Link Integrity](../assets/link-integrity-overview-en.png)
 
+![Изолированные файлы по папкам](../assets/link-integrity-isolated-en.png)
+
 Настраивайте индекс, правила исключения, типы файлов и ожидаемую изоляцию в параметрах Obsidian:
+
+![Настройки Link Integrity](../assets/link-integrity-settings-en.png)
 
 ## Возможности
 

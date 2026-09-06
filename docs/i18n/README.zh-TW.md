@@ -10,7 +10,11 @@ Link Integrity 是完全本機、唯讀的 Obsidian 診斷外掛，用於 Broken
 
 ![Link Integrity 無效連結側邊欄](../assets/link-integrity-overview-en.png)
 
+![按資料夾分組的孤立檔案](../assets/link-integrity-isolated-en.png)
+
 在 Obsidian 設定中配置索引、忽略規則、檔案類型與預期孤立模式：
+
+![Link Integrity 設定](../assets/link-integrity-settings-en.png)
 
 ## 功能特性
 

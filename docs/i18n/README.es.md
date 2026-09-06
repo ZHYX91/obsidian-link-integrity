@@ -10,7 +10,11 @@ Revisa enlaces rotos y archivos aislados en una barra lateral compacta:
 
 ![Barra lateral de Link Integrity](../assets/link-integrity-overview-en.png)
 
+![Archivos aislados agrupados por carpeta](../assets/link-integrity-isolated-en.png)
+
 Configura el índice, las reglas de exclusión, los tipos de archivo y el aislamiento esperado en los ajustes de Obsidian:
+
+![Configuración de Link Integrity](../assets/link-integrity-settings-en.png)
 
 ## Funciones
 
