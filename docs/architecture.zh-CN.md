@@ -16,6 +16,7 @@ translation_status: source
 - `src/features/queries/`：无效链接、孤立文件、无入链和预期孤立投影；
 - `src/adapters/`：Vault、Metadata Cache、链接解析、Canvas、Bases 和导航等宿主边界；
 - `src/ui/`：侧栏、设置和无障碍交互；
+- `src/ui/sidebar/mount.ts`：拥有侧栏 DOM 生命周期，保留搜索与未变化的工具栏，按区域更新状态和结果；`render.ts` 只负责区域呈现，折叠选择保留在当前挂载实例中；
 - `src/app/`：插件生命周期、依赖组合和状态协调；
 - `src/shared/`：设置、i18n、保存队列和通用规则服务。
 

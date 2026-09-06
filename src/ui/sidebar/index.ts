@@ -1,4 +1,5 @@
-export { renderSidebar, type SidebarRenderOptions } from "./render";
+export { mountSidebar, renderSidebar, type SidebarMount } from "./mount";
+export type { SidebarRenderOptions } from "./render";
 export type {
   BrokenGrouping,
   BrokenLinkResult,

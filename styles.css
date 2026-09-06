@@ -156,6 +156,10 @@
   margin-block-end: var(--size-4-2);
 }
 
+.link-integrity-toolbar[hidden] {
+  display: none;
+}
+
 .link-integrity-toolbar input[type="search"] {
   min-inline-size: 9rem;
   flex: 1 1 12rem;

@@ -8,7 +8,9 @@ import type { LinkIntegritySettings } from "../shared/settings";
 import type { FileTypeCategoryOption } from "../ui/file-type-selection";
 import {
   createSidebarViewModel,
-  renderSidebar,
+  mountSidebar,
+  type SidebarMount,
+  type SidebarRenderOptions,
   type SidebarNavigationPort,
   type SidebarQueryPort,
   type SidebarViewState,
@@ -31,7 +33,7 @@ export interface LinkIntegritySidebarViewOptions {
 export class LinkIntegritySidebarView extends ItemView {
   private state: SidebarViewState;
   private lastSettings: LinkIntegritySettings;
-  private renderCleanup: (() => void) | null = null;
+  private mount: SidebarMount | null = null;
   private unsubscribe: (() => void) | null = null;
   private isOpen = false;
 
@@ -73,8 +75,8 @@ export class LinkIntegritySidebarView extends ItemView {
     this.isOpen = false;
     this.unsubscribe?.();
     this.unsubscribe = null;
-    this.renderCleanup?.();
-    this.renderCleanup = null;
+    this.mount?.dispose();
+    this.mount = null;
     this.contentEl.replaceChildren();
   }
 
@@ -84,7 +86,6 @@ export class LinkIntegritySidebarView extends ItemView {
 
   private render(): void {
     if (!this.isOpen) return;
-    this.renderCleanup?.();
     const settings = this.options.getSettings();
     this.state = reconcileSidebarState(this.state, this.lastSettings, settings);
     this.lastSettings = settings;
@@ -94,7 +95,7 @@ export class LinkIntegritySidebarView extends ItemView {
       this.options.query.getSnapshot(this.state.activeTab),
       this.state,
     );
-    this.renderCleanup = renderSidebar(this.contentEl, {
+    const renderOptions: SidebarRenderOptions = {
       model,
       state: this.state,
       translator,
@@ -109,7 +110,9 @@ export class LinkIntegritySidebarView extends ItemView {
         this.render();
       },
       onActionError: this.options.onActionError,
-    });
+    };
+    if (this.mount === null) this.mount = mountSidebar(this.contentEl, renderOptions);
+    else this.mount.update(renderOptions);
   }
 }
 

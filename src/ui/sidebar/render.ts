@@ -44,51 +44,32 @@ export interface SidebarRenderOptions {
   readonly onActionError?: (error: unknown) => void;
   readonly document?: Document;
   readonly mountElement?: HTMLElement;
+  readonly disclosures?: Map<string, boolean>;
 }
 
-export function renderSidebar(
-  container: HTMLElement,
-  options: SidebarRenderOptions,
-): () => void {
-  container.replaceChildren();
-  container.classList.add("link-integrity-sidebar");
-  container.dir = options.translator.direction;
-  const resolvedOptions: SidebarRenderOptions = {
-    ...options,
-    document: container.ownerDocument,
-    mountElement: container,
-  };
-  const root = container.ownerDocument.createElement("div");
-  root.className = "link-integrity-sidebar-root";
-  container.append(root);
-
-  const panel = renderTabs(root, resolvedOptions);
-  renderContextualStatus(panel, resolvedOptions);
-  if (options.model.status.state === "idle") {
-    renderEmptyState(
-      panel,
-      options.translator.t("status.idle"),
-      options.translator.t("status.idle.description"),
-      options.translator.t("index.start"),
-      () => runAction(options.navigation.rebuildIndex, options.onActionError),
-    );
-  } else {
-    renderToolbar(panel, resolvedOptions);
-    if (options.model.activeTab === "broken-links") {
-      renderBrokenResults(panel, resolvedOptions);
-    } else {
-      renderIsolatedResults(panel, resolvedOptions);
+export function updateTabs(root: HTMLElement, panel: HTMLElement, options: SidebarRenderOptions): void {
+  const { t } = options.translator;
+  root.querySelector('[role="tablist"]')?.setAttribute("aria-label", t("sidebar.tabs.label"));
+  for (const [id, result, label] of [
+    ["broken-links", options.model.broken, t("sidebar.tab.broken")],
+    ["isolated-files", options.model.isolated, t("sidebar.tab.isolated")],
+  ] as const) {
+    const button = root.querySelector<HTMLButtonElement>(`#link-integrity-sidebar-tab-${id}`);
+    if (button === null) continue;
+    const active = options.model.activeTab === id;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+    if (button.firstElementChild !== null) button.firstElementChild.textContent = label;
+    if (button.lastElementChild !== null) {
+      button.lastElementChild.textContent = result.badgeKnown ? String(result.badgeCount) : "…";
     }
   }
-
-  return () => {
-    root.remove();
-    container.classList.remove("link-integrity-sidebar");
-    container.removeAttribute("dir");
-  };
+  panel.id = `link-integrity-sidebar-panel-${options.model.activeTab}`;
+  panel.setAttribute("aria-labelledby", `link-integrity-sidebar-tab-${options.model.activeTab}`);
 }
 
-function renderContextualStatus(
+export function renderContextualStatus(
   container: HTMLElement,
   options: SidebarRenderOptions,
 ): void {
@@ -114,8 +95,8 @@ function renderContextualStatus(
   container.append(row);
 }
 
-function renderTabs(container: HTMLElement, options: SidebarRenderOptions): HTMLElement {
-  const { t, direction } = options.translator;
+export function renderTabs(container: HTMLElement, options: SidebarRenderOptions): HTMLElement {
+  const { t } = options.translator;
   const definitions: readonly [SidebarTabId, string, number, boolean][] = [
     [
       "broken-links",
@@ -158,7 +139,8 @@ function renderTabs(container: HTMLElement, options: SidebarRenderOptions): HTML
       selectSidebarTab(options, id);
     });
     button.addEventListener("keydown", (event) => {
-      const nextIndex = moveHorizontalTabIndex(index, event.key, definitions.length, direction);
+      const nextIndex = moveHorizontalTabIndex(index, event.key, definitions.length,
+        options.translator.direction);
       if (nextIndex === null || nextIndex === index) return;
       event.preventDefault();
       const nextId = definitions[nextIndex]?.[0];
@@ -192,24 +174,9 @@ function selectSidebarTab(options: SidebarRenderOptions, tabId: SidebarTabId): v
   });
 }
 
-function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): void {
+export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRenderOptions): void {
   const { t } = options.translator;
-  const toolbar = container.ownerDocument.createElement("div");
-  toolbar.className = "link-integrity-toolbar";
-  const search = container.ownerDocument.createElement("input");
-  search.type = "search";
-  search.value = options.state.search;
-  search.placeholder = t("sidebar.search.placeholder");
-  search.setAttribute("aria-label", t("common.search"));
-  search.addEventListener("input", () => {
-    options.onStateChange({
-      ...options.state,
-      search: search.value,
-      brokenResultOffset: 0,
-      isolatedResultOffset: 0,
-    });
-  });
-  toolbar.append(search);
+  const container = toolbar;
 
   if (options.model.activeTab === "broken-links") {
     toolbar.append(toggleGroup(container.ownerDocument,
@@ -302,10 +269,9 @@ function renderToolbar(container: HTMLElement, options: SidebarRenderOptions): v
       }, t("sidebar.sort.choose")));
     }
   }
-  container.append(toolbar);
 }
 
-function renderBrokenResults(container: HTMLElement, options: SidebarRenderOptions): void {
+export function renderBrokenResults(container: HTMLElement, options: SidebarRenderOptions): void {
   const { t } = options.translator;
   const secondarySummary = options.model.broken.view === "list"
     ? null
@@ -441,9 +407,8 @@ function renderBrokenGroup(
   group: BrokenGroupViewModel,
   options: SidebarRenderOptions,
 ): HTMLElement {
-  const element = documentFor(options).createElement("details");
+  const element = createDisclosure(options, `broken-group:${options.state.brokenGrouping}:${group.key}`, true);
   element.className = "link-integrity-broken-group";
-  element.open = true;
   const summary = documentFor(options).createElement("summary");
   summary.append(
     createText(documentFor(options), "span", group.label),
@@ -502,7 +467,7 @@ function renderBrokenItem(
   return row;
 }
 
-function renderIsolatedResults(container: HTMLElement, options: SidebarRenderOptions): void {
+export function renderIsolatedResults(container: HTMLElement, options: SidebarRenderOptions): void {
   const { t } = options.translator;
   if (options.model.isolated.mode === "no-incoming") {
     const warning = createText(
@@ -545,7 +510,7 @@ function renderIsolatedResults(container: HTMLElement, options: SidebarRenderOpt
     ),
   );
 
-  const typeFilter = container.ownerDocument.createElement("details");
+  const typeFilter = createDisclosure(options, "file-type-filter", false);
   typeFilter.className = "link-integrity-temporary-filter";
   typeFilter.append(createText(container.ownerDocument, "summary", t("sidebar.fileTypes")));
   renderFileTypeSelection(typeFilter, {
@@ -668,8 +633,8 @@ function appendTreeChildren(
     const item = parent.ownerDocument.createElement("li");
     item.setAttribute("role", "treeitem");
     item.setAttribute("aria-expanded", "true");
-    const details = parent.ownerDocument.createElement("details");
-    details.open = true;
+    const details = createDisclosure(options, `isolated-folder:${folder.path}`, true);
+    item.setAttribute("aria-expanded", String(details.open));
     details.addEventListener("toggle", () => {
       item.setAttribute("aria-expanded", String(details.open));
     });
@@ -704,6 +669,17 @@ function appendTreeChildren(
     item.setAttribute("role", "treeitem");
     parent.append(item);
   }
+}
+
+function createDisclosure(
+  options: SidebarRenderOptions,
+  key: string,
+  defaultOpen: boolean,
+): HTMLDetailsElement {
+  const details = documentFor(options).createElement("details");
+  details.dataset.disclosureKey = key;
+  details.open = options.disclosures?.get(key) ?? defaultOpen;
+  return details;
 }
 
 function renderIsolatedItem(
@@ -755,7 +731,7 @@ function renderIsolatedItem(
   return row;
 }
 
-function renderEmptyState(
+export function renderEmptyState(
   container: HTMLElement,
   title: string,
   description: string,

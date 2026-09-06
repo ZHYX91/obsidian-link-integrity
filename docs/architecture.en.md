@@ -17,6 +17,7 @@ The code is layered by responsibility:
 - `src/features/queries/`: broken-link, isolated-file, no-incoming, and expected-isolation projections;
 - `src/adapters/`: host boundaries for the Vault, Metadata Cache, link resolution, Canvas, Bases, and navigation;
 - `src/ui/`: sidebar, settings, and accessible interaction;
+- `src/ui/sidebar/mount.ts`: owns the sidebar DOM lifecycle, retains search and unchanged toolbar controls, and updates status and result regions; `render.ts` renders regions, while disclosure choices belong to the current mount;
 - `src/app/`: plugin lifecycle, dependency composition, and status coordination;
 - `src/shared/`: settings, i18n, the save queue, and shared rule services.
 

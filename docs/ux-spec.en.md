@@ -29,6 +29,8 @@ The ready state consumes no permanent status row. Progress appears only while sc
 
 Result DOM is bounded to 100 occurrences or files per page. Previous/next controls preserve access to the complete filtered and sorted projection; badges remain full-result counts, the range label identifies the current page, and changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
+The search input keeps its DOM identity, focus, and caret during typing, selection replacement, and index notifications. IME composition retains unfinished text and publishes the query after composition ends. Unchanged toolbar controls survive index notifications. Expansion choices for isolated folders, broken-link groups, and file-type filters belong to the sidebar session: they survive refreshes and temporary filtering, are released when the sidebar closes, and are not saved in settings.
+
 Toolbar hierarchy follows interaction frequency: search receives the primary available width, and list/tree or grouped/list uses equal-width primary view segments. The grouped main button immediately returns to the last-used grouping, while its separate arrow opens a host-native select for target, source file, or source folder. A compact native `Sort · current value` select appears only when the active view has a user-comprehensible ordering. A narrow sidebar may wrap controls and increase touch height, but it does not stretch sorting into a full-row button with the same weight as the view switch. Menu options state the ordering explicitly, such as by path, file name, or modified time; the compact label only reports the current value.
 
 ### 2.1 Broken links tab
