@@ -11,6 +11,91 @@ import {
 } from "../../src/ui/sidebar";
 
 describe("sidebar renderer", () => {
+  it.each([
+    { tab: "broken-links", search: "", emptyScope: true, title: "No broken links found" },
+    { tab: "broken-links", search: "   ", emptyScope: true, title: "No broken links found" },
+    { tab: "isolated-files", search: "", emptyScope: true, title: "No isolated files found" },
+    { tab: "broken-links", search: "missing", emptyScope: true, title: "No matching broken links" },
+    { tab: "isolated-files", search: "missing", emptyScope: false, title: "No matching isolated files" },
+    { tab: "isolated-files", search: "", emptyScope: false, title: "No results with the current filters" },
+  ] as const)("distinguishes empty scope and filtering: $title ($tab, '$search')", ({
+    tab, search, emptyScope, title,
+  }) => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = {
+      ...viewState(), activeTab: tab, search, selectedFormatFamilyIds: new Set(["pdf"]),
+    };
+    const snapshot = querySnapshot();
+    renderSidebar(container, {
+      model: createSidebarViewModel({
+        ...snapshot, isolatedFiles: emptyScope ? [] : snapshot.isolatedFiles,
+      }, state),
+      state, translator, navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: true, onStateChange: vi.fn(),
+    });
+    const empty = container.querySelector(".link-integrity-empty-state");
+    expect(empty?.querySelector("h3")?.textContent).toBe(title);
+    expect(empty?.querySelector("button")?.textContent ?? null)
+      .toBe(search.trim() ? "Clear search" : null);
+    expect(empty?.textContent).not.toMatch(/Every (?:file|internal link)/);
+  });
+
+  it.each(["", "missing"])("does not call an empty no-incoming projection isolated (%s)", (search) => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = {
+      ...viewState(), activeTab: "isolated-files" as const,
+      isolatedMode: "no-incoming" as const, search,
+    };
+    renderSidebar(container, {
+      model: createSidebarViewModel(querySnapshot(), state),
+      state, translator, navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: true, onStateChange: vi.fn(),
+    });
+    expect(container.querySelector(".link-integrity-empty-state h3")?.textContent)
+      .toBe(search ? "No matching files" : "No results with the current filters");
+  });
+
+  it("does not claim an empty scope when all isolated files are expected and hidden", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("zh-CN", "zh-CN");
+    const state = { ...viewState(), activeTab: "isolated-files" as const };
+    const snapshot = querySnapshot();
+    renderSidebar(container, {
+      model: createSidebarViewModel({
+        ...snapshot,
+        isolatedFiles: snapshot.isolatedFiles.filter(({ expectation }) => expectation.kind === "expected"),
+      }, state),
+      state, translator, navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: true, onStateChange: vi.fn(),
+    });
+    expect(container.querySelector(".link-integrity-empty-state h3")?.textContent)
+      .toBe("当前筛选条件下没有结果");
+  });
+
+  it.each(["scanning", "failed", "stale"] as const)("does not declare no findings while %s", (status) => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = viewState();
+    const snapshot = querySnapshot();
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...snapshot, status: { ...snapshot.status, state: status } }, state),
+      state, translator, navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false, onStateChange: vi.fn(),
+    });
+    expect(container.querySelector(".link-integrity-empty-state")).toBeNull();
+    expect(container.querySelector(".link-integrity-status")).not.toBeNull();
+  });
+
   it("renders two accessible business tabs and honest isolation confidence", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");

@@ -297,11 +297,7 @@ export function renderBrokenResults(container: HTMLElement, options: SidebarRend
   container.append(summary);
 
   if (options.model.broken.items.length === 0) {
-    renderEmptyState(
-      container,
-      t("sidebar.broken.empty.title"),
-      t("sidebar.broken.empty.description"),
-    );
+    renderEmptyResults(container, options);
     return;
   }
   if (options.model.broken.view === "group") {
@@ -545,11 +541,7 @@ export function renderIsolatedResults(container: HTMLElement, options: SidebarRe
   );
   container.append(summary);
   if (options.model.isolated.items.length === 0) {
-    renderEmptyState(
-      container,
-      t("sidebar.isolated.empty.title"),
-      t("sidebar.isolated.empty.description"),
-    );
+    renderEmptyResults(container, options);
     return;
   }
   if (options.model.isolated.view === "tree") {
@@ -729,6 +721,41 @@ function renderIsolatedItem(
   ));
   row.append(button, more);
   return row;
+}
+
+function renderEmptyResults(container: HTMLElement, options: SidebarRenderOptions): void {
+  const { model, translator: { t } } = options;
+  const broken = model.activeTab === "broken-links";
+  const result = broken ? model.broken : model.isolated;
+  // An unfinished or unavailable projection cannot establish an empty check scope.
+  if (model.status.state !== "ready" || !result.badgeKnown) return;
+  const kind = broken ? "broken" : "isolated";
+  const noIncoming = !broken && model.isolated.mode === "no-incoming";
+  if (model.search.trim().length > 0) {
+    renderEmptyState(container,
+      t(noIncoming ? "sidebar.empty.search.title" : `sidebar.${kind}.searchEmpty.title`),
+      t("sidebar.empty.search.description"),
+      t("sidebar.search.clear"),
+      () => {
+        options.onStateChange({
+          ...options.state,
+          search: "",
+          brokenResultOffset: 0,
+          isolatedResultOffset: 0,
+        });
+        options.mountElement?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
+      },
+    );
+    return;
+  }
+  const scopeCount = broken ? model.broken.badgeCount : model.isolated.configuredScopeCount;
+  if (scopeCount > 0 || noIncoming) {
+    renderEmptyState(container, t("sidebar.empty.filtered.title"),
+      t("sidebar.empty.filtered.description"));
+    return;
+  }
+  renderEmptyState(container, t(`sidebar.${kind}.empty.title`),
+    t(`sidebar.${kind}.empty.description`));
 }
 
 export function renderEmptyState(

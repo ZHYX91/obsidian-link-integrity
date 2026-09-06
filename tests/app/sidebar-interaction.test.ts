@@ -116,14 +116,22 @@ describe("sidebar interaction across host updates", () => {
     expect(folder().open).toBe(false);
   });
 
-  it("keeps folder choices when search temporarily removes their results", async () => {
-    const { view, search } = await openSidebar(true);
+  it("clears search without resetting filters or folder choices and restores input focus", async () => {
+    const { view, search, changes } = await openSidebar(true);
     view.contentEl.querySelector<HTMLDetailsElement>('.link-integrity-isolated-tree details')!.open = false;
     search.value = "missing";
     search.dispatchEvent(new Event("input"));
     expect(view.contentEl.querySelector('.link-integrity-isolated-tree')).toBeNull();
-    search.value = "";
-    search.dispatchEvent(new Event("input"));
+    const previousState = changes.mock.lastCall?.[0];
+    const clear = view.contentEl.querySelector<HTMLButtonElement>('.link-integrity-empty-state button')!;
+    expect(clear.textContent).toBe("Clear search");
+    clear.focus();
+    clear.click();
+    expect(search.value).toBe("");
+    expect(document.activeElement).toBe(search);
+    expect(changes.mock.lastCall?.[0]).toEqual({
+      ...previousState, search: "", brokenResultOffset: 0, isolatedResultOffset: 0,
+    });
     expect(view.contentEl.querySelector<HTMLDetailsElement>('.link-integrity-isolated-tree details')?.open)
       .toBe(false);
   });

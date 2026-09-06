@@ -7,6 +7,14 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-06
+
+### Fixed
+
+- Distinguish no search matches, filtered-out results, and no findings in the current check scope.
+- Add a Clear search action that restores search focus while preserving filters and folder expansion.
+- Avoid claiming that every link resolves or every file is connected when a check is incomplete or results are hidden.
+
 ## [0.2.3] - 2026-09-06
 
 ### Fixed
@@ -87,7 +95,9 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.2...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.4...HEAD
+[0.2.4]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.3...0.2.4
+[0.2.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.2...0.2.3
 [0.2.2]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.1.1...0.2.0
