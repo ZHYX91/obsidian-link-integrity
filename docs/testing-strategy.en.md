@@ -19,7 +19,7 @@ Different evidence answers different questions and cannot substitute for another
 
 A green build is not real-host acceptance. A production Vault is not used for destructive or first-time acceptance experiments.
 
-Every mobile candidate's shared release closure requires desktop and current Android-emulator product evidence. Android physical devices and iOS are outside the shared acceptance scope.
+Optional product acceptance records desktop and current Android-emulator evidence for the exact candidate; it is independent of publication. Android physical devices and iOS are outside the shared acceptance scope.
 
 ## Core semantic tests
 
