@@ -1,9 +1,13 @@
 import type { FileRecord, SourceSnapshot } from "../../core/model";
+import type { WorkScheduler } from "../../scheduling/work-scheduler";
 
 export interface LinkIndexPort {
-  readonly listFiles: () => Promise<readonly FileRecord[]>;
+  readonly listFiles: (scheduler?: WorkScheduler) => Promise<readonly FileRecord[]>;
   readonly getFileRecord: (sourcePath: string) => Promise<FileRecord | null>;
-  readonly buildSourceSnapshot: (sourcePath: string) => Promise<SourceSnapshot | null>;
+  readonly buildSourceSnapshot: (
+    sourcePath: string,
+    scheduler?: WorkScheduler,
+  ) => Promise<SourceSnapshot | null>;
 }
 
 export type SourceEvent =

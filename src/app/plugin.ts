@@ -112,6 +112,8 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.coordinator = new LinkIndexCoordinator(port, new LinkIndex(), {
       concurrency: 4,
       onProgress: (current, total) => this.query.setProgress(current, total),
+    }, {
+      onChanges: (changes) => this.query.recordChanges(changes),
     });
     this.updateGraphContributionPolicy();
     this.query = new SidebarQueryService(
@@ -459,7 +461,7 @@ export default class LinkIntegrityPlugin extends Plugin {
           return;
         }
         this.notificationPending = false;
-        this.query.notify();
+        this.query.notifyResults();
       })
       .catch((error: unknown) => {
         this.notificationPending = false;

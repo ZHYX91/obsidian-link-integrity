@@ -11,8 +11,227 @@ import type {
   SidebarQuerySnapshot,
   SidebarTabId,
 } from "./types";
+import { WorkScheduler } from "../../scheduling/work-scheduler";
+import { sortSteps } from "../../scheduling/sort-steps";
 
 export const SIDEBAR_RESULT_BATCH_SIZE = 100;
+
+export function createSidebarViewModelSelector(): typeof createSidebarViewModel {
+  let previous: SidebarQuerySnapshot | null = null;
+  let previousKey = "";
+  let model: SidebarViewModel | null = null;
+  return (snapshot, state, prepared) => {
+    const key = JSON.stringify({
+      ...state, selectedFormatFamilyIds: [...state.selectedFormatFamilyIds],
+      expandedBrokenFolderPaths: [...state.expandedBrokenFolderPaths],
+    });
+    if (model !== null && previous !== null && key === previousKey &&
+      snapshot.brokenLinks === previous.brokenLinks &&
+      snapshot.isolatedFiles === previous.isolatedFiles &&
+      snapshot.noIncomingFiles === previous.noIncomingFiles &&
+      snapshot.brokenLinksKnown === previous.brokenLinksKnown &&
+      snapshot.isolatedFilesKnown === previous.isolatedFilesKnown) {
+      return { ...model, status: snapshot.status };
+    }
+    previous = snapshot;
+    previousKey = key;
+    model = createSidebarViewModel(snapshot, state, prepared);
+    return model;
+  };
+}
+
+interface PreparedItems {
+  readonly broken: readonly BrokenLinkResult[];
+  readonly isolated: readonly IsolatedFileResult[];
+  readonly counts?: PreparedCounts;
+}
+
+interface PreparedCounts {
+  readonly groups: ReadonlyMap<string, number>;
+  readonly folders: ReadonlyMap<string, number>;
+  readonly files: ReadonlyMap<string, number>;
+  readonly directFolderCount: number;
+  readonly isolatedBadge: number;
+  readonly isolatedExpected: number;
+  readonly isolatedScope: number;
+}
+
+export function createScheduledViewModelSelector(): (
+  snapshot: SidebarQuerySnapshot, state: SidebarViewState,
+) => Promise<SidebarViewModel | null> {
+  const select = createSidebarViewModelSelector();
+  let previous: SidebarQuerySnapshot | null = null;
+  let key = "";
+  let prepared: PreparedItems = { broken: [], isolated: [] };
+  let revision = 0;
+  return async (snapshot, state) => {
+    const nextKey = JSON.stringify([
+      state.activeTab, state.search, state.brokenView, state.brokenSort, state.brokenGrouping,
+      state.isolatedMode, state.isolatedView, state.isolatedSort, state.showExpectedIsolated,
+      [...state.selectedFormatFamilyIds],
+    ]);
+    const operation = ++revision;
+    if (previous === null || key !== nextKey || previous.brokenLinks !== snapshot.brokenLinks ||
+      previous.isolatedFiles !== snapshot.isolatedFiles || previous.noIncomingFiles !== snapshot.noIncomingFiles) {
+      const scheduler = new WorkScheduler();
+      const broken: BrokenLinkResult[] = [];
+      const isolated: IsolatedFileResult[] = [];
+      const search = state.search.trim().toLocaleLowerCase();
+      if (state.activeTab === "broken-links") {
+        for (const item of snapshot.brokenLinks) {
+          if (brokenMatches(item, search)) broken.push(item);
+          const pause = scheduler.checkpoint();
+          if (pause !== null) await pause;
+          if (operation !== revision) return null;
+        }
+      } else {
+        const source = state.isolatedMode === "isolated" ? snapshot.isolatedFiles : snapshot.noIncomingFiles;
+        for (const item of source) {
+          if ((item.expectation.kind === "unexpected" || state.showExpectedIsolated) &&
+            (item.formatFamilyIds ?? [item.formatFamilyId]).some((id) => state.selectedFormatFamilyIds.has(id)) &&
+            pathMatches(item.path, search)) isolated.push(item);
+          const pause = scheduler.checkpoint();
+          if (pause !== null) await pause;
+          if (operation !== revision) return null;
+        }
+      }
+      const sort = state.brokenView === "list" ? "path" : state.brokenSort;
+      const grouping = state.brokenView === "list" ? "source" : state.brokenGrouping;
+      const counts = await prepareCounts(broken, snapshot, state, scheduler, () => operation === revision);
+      if (counts === null) return null;
+      const sortedBroken = await sortVisible(broken, brokenComparator(broken, sort, grouping, counts.groups),
+        key === nextKey && sort !== "count" ? prepared.broken : null,
+        (item) => item.id, scheduler, () => operation === revision);
+      if (sortedBroken === null) return null;
+      const sortedIsolated = await sortVisible(isolated,
+        isolatedComparator(state.isolatedView === "tree" ? "path" : state.isolatedSort),
+        key === nextKey ? prepared.isolated : null,
+        (item) => item.path, scheduler, () => operation === revision);
+      if (sortedIsolated === null || operation !== revision) return null;
+      const result = { broken: sortedBroken, isolated: sortedIsolated, counts };
+      prepared = result;
+      previous = snapshot;
+      key = nextKey;
+    }
+    return select(snapshot, state, prepared);
+  };
+}
+
+async function prepareCounts(
+  broken: readonly BrokenLinkResult[], snapshot: SidebarQuerySnapshot, state: SidebarViewState,
+  scheduler: WorkScheduler, isCurrent: () => boolean,
+): Promise<PreparedCounts | null> {
+  const groups = new Map<string, number>();
+  const folders = new Map<string, number>();
+  const files = new Map<string, number>();
+  const directFolders = new Set<string>();
+  for (const item of broken) {
+    const folder = sourceFolderPath(item.sourcePath);
+    const group = state.brokenGrouping === "target" ? targetGroupKey(item)
+      : state.brokenGrouping === "source" ? item.sourcePath : folder;
+    groups.set(group, (groups.get(group) ?? 0) + 1);
+    files.set(item.sourcePath, (files.get(item.sourcePath) ?? 0) + 1);
+    directFolders.add(folder);
+    if (state.brokenGrouping === "source-folder") {
+      folders.set("", (folders.get("") ?? 0) + 1);
+      let path = "";
+      for (const segment of folder.split("/").filter(Boolean)) {
+        path = path.length === 0 ? segment : `${path}/${segment}`;
+        folders.set(path, (folders.get(path) ?? 0) + 1);
+      }
+    }
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+  }
+  let isolatedBadge = 0;
+  let isolatedExpected = 0;
+  for (const item of snapshot.isolatedFiles) {
+    if (item.expectation.kind === "unexpected") isolatedBadge += 1;
+    else if (state.isolatedMode === "isolated") isolatedExpected += 1;
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+  }
+  if (state.isolatedMode !== "isolated") {
+    for (const item of snapshot.noIncomingFiles) {
+      if (item.expectation.kind === "expected") isolatedExpected += 1;
+      const pause = scheduler.checkpoint();
+      if (pause !== null) await pause;
+      if (!isCurrent()) return null;
+    }
+  }
+  return {
+    groups, folders, files, directFolderCount: directFolders.size, isolatedBadge, isolatedExpected,
+    isolatedScope: (state.isolatedMode === "isolated" ? snapshot.isolatedFiles : snapshot.noIncomingFiles).length,
+  };
+}
+
+async function sortVisible<T>(
+  items: readonly T[], compare: (left: T, right: T) => number, previous: readonly T[] | null,
+  keyOf: (item: T) => string, scheduler: WorkScheduler, isCurrent: () => boolean,
+): Promise<T[] | null> {
+  if (previous === null) return finishSort(sortSteps(items, compare), scheduler, isCurrent);
+  const old = new Map<string, T>();
+  const current = new Map<string, T>();
+  const changed: T[] = [];
+  for (const item of previous) {
+    old.set(keyOf(item), item);
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+  }
+  for (const item of items) {
+    const key = keyOf(item);
+    current.set(key, item);
+    if (old.get(key) !== item) changed.push(item);
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+  }
+  const sorted = await finishSort(sortSteps(changed, compare), scheduler, isCurrent);
+  if (sorted === null) return null;
+  const result: T[] = [];
+  let position = 0;
+  for (const item of previous) {
+    if (current.get(keyOf(item)) === item) {
+      while (position < sorted.length) {
+        const update = sorted[position];
+        if (update === undefined || compare(update, item) > 0) break;
+        result.push(update);
+        position += 1;
+        const pause = scheduler.checkpoint();
+        if (pause !== null) await pause;
+        if (!isCurrent()) return null;
+      }
+      result.push(item);
+    }
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+  }
+  for (; position < sorted.length; position += 1) {
+    const item = sorted[position];
+    if (item !== undefined) result.push(item);
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+  }
+  return result;
+}
+
+async function finishSort<T>(
+  steps: Generator<void, T[]>, scheduler: WorkScheduler, isCurrent: () => boolean,
+): Promise<T[] | null> {
+  let step = steps.next();
+  while (!step.done) {
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+    step = steps.next();
+  }
+  return step.value;
+}
 
 export interface SidebarViewState {
   readonly activeTab: SidebarTabId;
@@ -97,15 +316,16 @@ export interface SidebarViewModel {
 export function createSidebarViewModel(
   snapshot: SidebarQuerySnapshot,
   state: SidebarViewState,
+  prepared?: PreparedItems,
 ): SidebarViewModel {
   const normalizedSearch = state.search.trim().toLocaleLowerCase();
-  const visibleBrokenItems = state.activeTab === "broken-links"
+  const visibleBrokenItems = prepared?.broken ?? (state.activeTab === "broken-links"
     ? sortBrokenLinks(
       snapshot.brokenLinks.filter((result) => brokenMatches(result, normalizedSearch)),
       state.brokenView === "list" ? "path" : state.brokenSort,
       state.brokenView === "list" ? "source" : state.brokenGrouping,
     )
-    : [];
+    : []);
   const brokenPageStart = normalizePageStart(
     state.brokenResultOffset,
     visibleBrokenItems.length,
@@ -117,11 +337,11 @@ export function createSidebarViewModel(
   const sourceIsolatedItems = state.isolatedMode === "isolated"
     ? snapshot.isolatedFiles
     : snapshot.noIncomingFiles;
-  const unexpectedIsolatedItems = sourceIsolatedItems
-    .filter(({ expectation }) => expectation.kind === "unexpected");
-  const expectedIsolatedItems = sourceIsolatedItems
-    .filter(({ expectation }) => expectation.kind === "expected");
-  const visibleIsolatedItems = state.activeTab === "isolated-files"
+  const unexpectedIsolatedItems = prepared?.counts === undefined ? sourceIsolatedItems
+    .filter(({ expectation }) => expectation.kind === "unexpected") : [];
+  const expectedIsolatedItems = prepared?.counts === undefined ? sourceIsolatedItems
+    .filter(({ expectation }) => expectation.kind === "expected") : [];
+  const visibleIsolatedItems = prepared?.isolated ?? (state.activeTab === "isolated-files"
     ? sortIsolatedFiles(
       sourceIsolatedItems.filter((result) =>
         (result.expectation.kind === "unexpected" || state.showExpectedIsolated) &&
@@ -130,7 +350,7 @@ export function createSidebarViewModel(
         pathMatches(result.path, normalizedSearch)),
       state.isolatedView === "tree" ? "path" : state.isolatedSort,
     )
-    : [];
+    : []);
   const isolatedPageStart = normalizePageStart(
     state.isolatedResultOffset,
     visibleIsolatedItems.length,
@@ -148,13 +368,13 @@ export function createSidebarViewModel(
       badgeCount: snapshot.brokenLinks.length,
       badgeKnown: snapshot.brokenLinksKnown,
       uniqueTargetCount: state.brokenGrouping === "target"
-        ? new Set(visibleBrokenItems.map(targetGroupKey)).size
+        ? prepared?.counts?.groups.size ?? new Set(visibleBrokenItems.map(targetGroupKey)).size
         : 0,
       sourceFileCount: state.brokenGrouping === "source"
-        ? new Set(visibleBrokenItems.map(({ sourcePath }) => sourcePath)).size
+        ? prepared?.counts?.files.size ?? new Set(visibleBrokenItems.map(({ sourcePath }) => sourcePath)).size
         : 0,
       sourceFolderCount: state.brokenGrouping === "source-folder"
-        ? new Set(visibleBrokenItems.map(({ sourcePath }) =>
+        ? prepared?.counts?.directFolderCount ?? new Set(visibleBrokenItems.map(({ sourcePath }) =>
           sourceFolderPath(sourcePath))).size
         : 0,
       visibleCount: visibleBrokenItems.length,
@@ -169,18 +389,19 @@ export function createSidebarViewModel(
           state.brokenGrouping,
           state.brokenSort,
           visibleBrokenItems,
+          prepared?.counts?.groups,
         )
         : [],
       folderTree: state.brokenView === "group" && state.brokenGrouping === "source-folder"
-        ? buildBrokenFolderTree(brokenItems, visibleBrokenItems, state.brokenSort)
+        ? buildBrokenFolderTree(brokenItems, visibleBrokenItems, state.brokenSort, prepared?.counts)
         : EMPTY_BROKEN_FOLDER_TREE,
     },
     isolated: {
-      badgeCount: snapshot.isolatedFiles
+      badgeCount: prepared?.counts?.isolatedBadge ?? snapshot.isolatedFiles
         .filter(({ expectation }) => expectation.kind === "unexpected").length,
       badgeKnown: snapshot.isolatedFilesKnown,
-      expectedCount: expectedIsolatedItems.length,
-      configuredScopeCount: unexpectedIsolatedItems.length + expectedIsolatedItems.length,
+      expectedCount: prepared?.counts?.isolatedExpected ?? expectedIsolatedItems.length,
+      configuredScopeCount: prepared?.counts?.isolatedScope ?? (unexpectedIsolatedItems.length + expectedIsolatedItems.length),
       visibleCount: visibleIsolatedItems.length,
       renderedCount: isolatedItems.length,
       pageStart: isolatedPageStart,
@@ -215,9 +436,10 @@ export function groupBrokenLinks(
   grouping: BrokenGrouping,
   sort: BrokenSort,
   allVisibleItems: readonly BrokenLinkResult[] = items,
+  preparedCounts?: ReadonlyMap<string, number>,
 ): readonly BrokenGroupViewModel[] {
   const totalCounts = new Map<string, number>();
-  for (const item of allVisibleItems) {
+  for (const item of preparedCounts === undefined ? allVisibleItems : []) {
     const key = grouping === "target"
       ? targetGroupKey(item)
       : grouping === "source"
@@ -243,7 +465,7 @@ export function groupBrokenLinks(
       reason === groupItems[0]?.reason)
       ? groupItems[0]?.reason ?? null
       : null,
-    totalCount: totalCounts.get(key) ?? groupItems.length,
+    totalCount: (preparedCounts ?? totalCounts).get(key) ?? groupItems.length,
     items: sortBrokenLinks(groupItems, "path"),
   }));
   return result.sort((left, right) => sort === "count"
@@ -255,11 +477,12 @@ export function buildBrokenFolderTree(
   items: readonly BrokenLinkResult[],
   allVisibleItems: readonly BrokenLinkResult[] = items,
   sort: BrokenSort = "path",
+  preparedCounts?: Pick<PreparedCounts, "folders" | "files">,
 ): BrokenFolderTreeNode {
   const mutableRoot = createMutableBrokenFolder("", "");
   const folderCounts = new Map<string, number>();
   const fileCounts = new Map<string, number>();
-  for (const item of allVisibleItems) {
+  for (const item of preparedCounts === undefined ? allVisibleItems : []) {
     fileCounts.set(item.sourcePath, (fileCounts.get(item.sourcePath) ?? 0) + 1);
     const segments = sourceFolderPath(item.sourcePath).split("/").filter(Boolean);
     folderCounts.set("", (folderCounts.get("") ?? 0) + 1);
@@ -288,7 +511,7 @@ export function buildBrokenFolderTree(
     file.items.push(item);
     current.files.set(item.sourcePath, file);
   }
-  return freezeBrokenFolder(mutableRoot, folderCounts, fileCounts, sort);
+  return freezeBrokenFolder(mutableRoot, preparedCounts?.folders ?? folderCounts, preparedCounts?.files ?? fileCounts, sort);
 }
 
 export function buildIsolatedTree(items: readonly IsolatedFileResult[]): IsolatedTreeNode {
@@ -315,28 +538,34 @@ function sortBrokenLinks(
   grouping: BrokenGrouping = "target",
 ): BrokenLinkResult[] {
   const result = [...items];
+  return result.sort(brokenComparator(items, sort, grouping));
+}
+
+function brokenComparator(
+  items: readonly BrokenLinkResult[], sort: BrokenSort, grouping: BrokenGrouping,
+  preparedCounts?: ReadonlyMap<string, number>,
+): (left: BrokenLinkResult, right: BrokenLinkResult) => number {
   const groupKey = (item: BrokenLinkResult): string => grouping === "target"
     ? targetGroupKey(item)
     : grouping === "source"
       ? item.sourcePath
       : sourceFolderPath(item.sourcePath);
   const groupCounts = new Map<string, number>();
-  if (sort === "count") {
+  if (sort === "count" && preparedCounts === undefined) {
     for (const item of items) {
       const key = groupKey(item);
       groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
     }
   }
-  result.sort((left, right) => sort === "count"
-    ? (groupCounts.get(groupKey(right)) ?? 0) -
-        (groupCounts.get(groupKey(left)) ?? 0) ||
+  return (left, right) => sort === "count"
+    ? ((preparedCounts ?? groupCounts).get(groupKey(right)) ?? 0) -
+        ((preparedCounts ?? groupCounts).get(groupKey(left)) ?? 0) ||
       groupKey(left).localeCompare(groupKey(right)) ||
       left.sourcePath.localeCompare(right.sourcePath) ||
-      compareLocations(left, right)
+      compareLocations(left, right) || left.id.localeCompare(right.id)
     : groupKey(left).localeCompare(groupKey(right)) ||
       left.sourcePath.localeCompare(right.sourcePath) ||
-      compareLocations(left, right));
-  return result;
+      compareLocations(left, right) || left.id.localeCompare(right.id);
 }
 
 function sortIsolatedFiles(
@@ -344,7 +573,11 @@ function sortIsolatedFiles(
   sort: IsolatedSort,
 ): IsolatedFileResult[] {
   const result = [...items];
-  result.sort((left, right) => {
+  return result.sort(isolatedComparator(sort));
+}
+
+function isolatedComparator(sort: IsolatedSort): (left: IsolatedFileResult, right: IsolatedFileResult) => number {
+  return (left, right) => {
     if (sort === "modified") return right.modifiedAt - left.modifiedAt ||
       left.path.localeCompare(right.path);
     if (sort === "broken-count") {
@@ -354,8 +587,7 @@ function sortIsolatedFiles(
     if (sort === "name") return fileName(left.path).localeCompare(fileName(right.path)) ||
       left.path.localeCompare(right.path);
     return left.path.localeCompare(right.path);
-  });
-  return result;
+  };
 }
 
 function targetGroupKey(item: BrokenLinkResult): string {

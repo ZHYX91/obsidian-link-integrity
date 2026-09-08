@@ -7,7 +7,6 @@ import { createTranslator, type MessageKey } from "../shared/i18n";
 import type { LinkIntegritySettings } from "../shared/settings";
 import type { FileTypeCategoryOption } from "../ui/file-type-selection";
 import {
-  createSidebarViewModel,
   mountSidebar,
   type SidebarMount,
   type SidebarRenderOptions,
@@ -15,6 +14,9 @@ import {
   type SidebarQueryPort,
   type SidebarViewState,
 } from "../ui/sidebar";
+import {
+  createSidebarViewModelSelector, createScheduledViewModelSelector, type SidebarViewModel,
+} from "../ui/sidebar/view-model";
 
 export const LINK_INTEGRITY_VIEW_TYPE = "link-integrity-results";
 
@@ -36,6 +38,11 @@ export class LinkIntegritySidebarView extends ItemView {
   private mount: SidebarMount | null = null;
   private unsubscribe: (() => void) | null = null;
   private isOpen = false;
+  private visible = true;
+  private visibilityObserver: IntersectionObserver | null = null;
+  private renderGeneration = 0;
+  private readonly selectModel = createSidebarViewModelSelector();
+  private readonly selectScheduledModel = createScheduledViewModelSelector();
 
   public constructor(
     leaf: WorkspaceLeaf,
@@ -61,6 +68,16 @@ export class LinkIntegritySidebarView extends ItemView {
 
   public override async onOpen(): Promise<void> {
     this.isOpen = true;
+    if (typeof IntersectionObserver !== "undefined") {
+      this.visibilityObserver = new IntersectionObserver((entries) => {
+        const visible = entries.some((entry) => entry.isIntersecting);
+        if (visible === this.visible) return;
+        this.visible = visible;
+        this.renderGeneration += 1;
+        if (visible) this.render();
+      });
+      this.visibilityObserver.observe(this.contentEl);
+    }
     this.unsubscribe?.();
     this.unsubscribe = this.options.query.subscribe(() => this.render());
     this.render();
@@ -73,6 +90,9 @@ export class LinkIntegritySidebarView extends ItemView {
 
   public override async onClose(): Promise<void> {
     this.isOpen = false;
+    this.renderGeneration += 1;
+    this.visibilityObserver?.disconnect();
+    this.visibilityObserver = null;
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.mount?.dispose();
@@ -85,13 +105,30 @@ export class LinkIntegritySidebarView extends ItemView {
   }
 
   private render(): void {
-    if (!this.isOpen) return;
+    if (!this.isOpen || !this.visible) return;
     const settings = this.options.getSettings();
     this.state = reconcileSidebarState(this.state, this.lastSettings, settings);
     this.lastSettings = settings;
+    const generation = ++this.renderGeneration;
+    if (this.options.query.prepareSnapshot !== undefined) {
+      void this.options.query.prepareSnapshot(this.state.activeTab).then(async (ready) => {
+        if (ready && generation === this.renderGeneration && this.isOpen && this.visible) {
+          const model = await this.selectScheduledModel(
+            this.options.query.getSnapshot(this.state.activeTab), this.state,
+          );
+          if (model !== null && generation === this.renderGeneration && this.isOpen && this.visible) {
+            this.renderPrepared(model);
+          }
+        }
+      }).catch((error: unknown) => this.options.onActionError(error));
+    } else this.renderPrepared();
+  }
+
+  private renderPrepared(preparedModel?: SidebarViewModel): void {
+    const settings = this.options.getSettings();
     const translator = createTranslator(settings.general.locale, getLanguage());
     const categories = createFileTypeOptions(translator.t);
-    const model = createSidebarViewModel(
+    const model = preparedModel ?? this.selectModel(
       this.options.query.getSnapshot(this.state.activeTab),
       this.state,
     );

@@ -45,6 +45,7 @@ export interface SidebarRenderOptions {
   readonly document?: Document;
   readonly mountElement?: HTMLElement;
   readonly disclosures?: Map<string, boolean>;
+  readonly rows?: Map<string, { readonly signature: string; readonly element: HTMLLIElement }>;
 }
 
 export function updateTabs(root: HTMLElement, panel: HTMLElement, options: SidebarRenderOptions): void {
@@ -429,6 +430,10 @@ function renderBrokenItem(
   item: BrokenLinkResult,
   options: SidebarRenderOptions,
 ): HTMLLIElement {
+  const key = `broken:${item.id}`;
+  const signature = JSON.stringify([options.translator.locale, item]);
+  const cached = options.rows?.get(key);
+  if (cached?.signature === signature) return cached.element;
   const document = documentFor(options);
   const row = document.createElement("li");
   row.className = "link-integrity-result-row";
@@ -460,6 +465,7 @@ function renderBrokenItem(
     options.onActionError,
   ));
   row.append(button, more);
+  options.rows?.set(key, { signature, element: row });
   return row;
 }
 
@@ -678,6 +684,10 @@ function renderIsolatedItem(
   item: IsolatedFileResult,
   options: SidebarRenderOptions,
 ): HTMLLIElement {
+  const key = `isolated:${item.path}`;
+  const signature = JSON.stringify([options.translator.locale, options.model.isolated.view, item]);
+  const cached = options.rows?.get(key);
+  if (cached?.signature === signature) return cached.element;
   const document = documentFor(options);
   const row = document.createElement("li");
   row.className = `link-integrity-result-row${
@@ -720,6 +730,7 @@ function renderIsolatedItem(
     options.onActionError,
   ));
   row.append(button, more);
+  options.rows?.set(key, { signature, element: row });
   return row;
 }
 

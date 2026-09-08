@@ -7,6 +7,14 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-09-09
+
+### Improved
+
+- Schedule incremental indexing and sidebar calculations in browser task slices, publishing complete index updates atomically while sharing unchanged data.
+- Keep ordinary body edits local when target metadata is unchanged, and update diagnostics and isolation from changed sources and graph endpoints.
+- Reuse unchanged result rows and view models, separate progress updates from result rendering, and defer presentation work for hidden tabs.
+
 ## [0.2.4] - 2026-09-06
 
 ### Fixed

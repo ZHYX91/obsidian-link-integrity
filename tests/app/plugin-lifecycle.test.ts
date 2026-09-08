@@ -2,6 +2,7 @@ import { Notice, TFile, TFolder } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import LinkIntegrityPlugin from "../../src/app/plugin";
+import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
 import { createInitialSidebarState } from "../../src/app/sidebar-view";
 import {
   createOccurrenceId,
@@ -12,6 +13,7 @@ import type { IndexStatus, SidebarViewState } from "../../src/ui/sidebar";
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("plugin index lifecycle", () => {
@@ -424,7 +426,7 @@ describe("plugin index lifecycle", () => {
       renamedFileRule?.matcher.value ?? "",
       testOccurrenceId("C.md", "7:0", 5),
     )).toBe(true);
-    expect(snapshotBuildCount).toBe(1);
+    expect(snapshotBuildCount).toBe(2); // File target metadata and one source snapshot.
     plugin.onunload();
   });
 
@@ -504,6 +506,7 @@ describe("plugin index lifecycle", () => {
   });
 
   it("coalesces same-path Vault and metadata bursts into one incremental notification", async () => {
+    const sourceBuilds = vi.spyOn(ObsidianLinkIndexPort.prototype, "buildSourceSnapshot");
     vi.useFakeTimers();
     const file = createMockFile("A.md", 1);
     const vaultEvents = new TestEvents();
@@ -568,7 +571,8 @@ describe("plugin index lifecycle", () => {
     await runtime.coordinator.whenIdle();
     await Promise.resolve();
 
-    expect(snapshotBuildCount - baselineBuildCount).toBe(1);
+    expect(snapshotBuildCount - baselineBuildCount).toBe(2);
+    expect(sourceBuilds).toHaveBeenCalledTimes(2); // Baseline plus one coalesced update.
     expect(queryNotifications).toBe(1);
 
     const buildCountBeforeContinuousBurst = snapshotBuildCount;
@@ -583,7 +587,8 @@ describe("plugin index lifecycle", () => {
     await runtime.coordinator.whenIdle();
     await Promise.resolve();
 
-    expect(snapshotBuildCount - buildCountBeforeContinuousBurst).toBe(1);
+    expect(snapshotBuildCount - buildCountBeforeContinuousBurst).toBe(2);
+    expect(sourceBuilds).toHaveBeenCalledTimes(3);
     expect(queryNotifications).toBe(2);
     unsubscribe();
     plugin.onunload();

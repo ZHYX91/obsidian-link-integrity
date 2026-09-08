@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
 import { occurrenceIdMatches } from "../../src/core/occurrence-identity";
+import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 
 interface FakeFile {
   readonly path: string;
@@ -15,6 +16,41 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it("fingerprints target structure while ignoring link positions and ordinary edits", async () => {
+    const source = fakeFile("Source.md");
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([source], { content: {}, caches, destinations: new Map() });
+    expect((await port.getFileRecord(source.path))?.targetFingerprint).toBeNull();
+    const position = reference("", "", 1).position;
+    caches.set(source.path, { headings: [{ heading: "Title", level: 1, position }] });
+    const first = (await port.getFileRecord(source.path))?.targetFingerprint;
+    caches.set(source.path, {
+      headings: [{ heading: "Title", level: 1, position: reference("", "", 12).position }],
+      links: [reference("Missing", "[[Missing]]", 20)],
+    });
+    expect((await port.getFileRecord(source.path))?.targetFingerprint).toBe(first);
+    caches.set(source.path, { headings: [{ heading: "Renamed", level: 1, position }] });
+    expect((await port.getFileRecord(source.path))?.targetFingerprint).not.toBe(first);
+    caches.set(source.path, { blocks: { block: { id: "block", position } } });
+    const block = (await port.getFileRecord(source.path))?.targetFingerprint;
+    caches.set(source.path, { footnotes: [{ id: "footnote", position }] });
+    expect((await port.getFileRecord(source.path))?.targetFingerprint).not.toBe(block);
+  });
+
+  it("yields inside a dense cached source and preserves exact occurrence identities and positions", async () => {
+    const source = fakeFile("Dense.md");
+    const caches = new Map([[source.path, {
+      links: Array.from({ length: 400 }, (_, i) => reference(`Missing-${i}`, `[[Missing-${i}]]`, i)),
+    }]]);
+    const { port } = createPort([source], { content: {}, caches, destinations: new Map() });
+    const expected = await port.buildSourceSnapshot(source.path);
+    let yields = 0;
+    const actual = await port.buildSourceSnapshot(source.path, new WorkScheduler({
+      yieldEvery: 16, now: () => 0, yieldControl: async () => { yields += 1; },
+    }));
+    expect(actual).toEqual(expected);
+    expect(yields).toBeGreaterThan(10);
+  });
   it("reads one current FileRecord by path without enumerating the Vault", async () => {
     const source = fakeFile("Source.md");
     const { port } = createPort([source], {

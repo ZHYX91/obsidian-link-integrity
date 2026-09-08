@@ -38,6 +38,7 @@ export interface IsolatedFileQueryOptions {
   readonly expectedRules?: readonly ExpectedIsolatedRule[];
   readonly expectedFilePaths?: ReadonlySet<string>;
   readonly includeExpected?: boolean;
+  readonly paths?: Iterable<string>;
 }
 
 export interface IsolatedFileProjection {
@@ -67,7 +68,8 @@ export function createIsolatedFileProjection(
   const expectedRules = options.expectedRules ?? [];
   const expectedFilePaths = options.expectedFilePaths ?? new Set<string>();
   const includeExpected = options.includeExpected ?? false;
-  const candidates = index.files.filter((file) => isCandidateFile(file, candidateScope));
+  const files = options.paths === undefined ? index.iterateFiles() : filesAtPaths(index, options.paths);
+  const candidates = Array.from(files).filter((file) => isCandidateFile(file, candidateScope));
   const allResults = candidates
     .map((file) => projectFile(index, file, mode, expectedRules, expectedFilePaths))
     .filter((result): result is IsolatedFileResult => result !== null);
@@ -82,6 +84,13 @@ export function createIsolatedFileProjection(
     lowConfidenceCount: items.filter(({ confidence }) => confidence === "low").length,
     expectedExcludedCount,
   };
+}
+
+function* filesAtPaths(index: LinkIndex, paths: Iterable<string>): Iterable<FileRecord> {
+  for (const path of paths) {
+    const file = index.getFile(path);
+    if (file !== null) yield file;
+  }
 }
 
 function projectFile(

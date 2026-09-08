@@ -30,6 +30,8 @@ export function mountSidebar(
   let disposed = false;
   let composing = false;
   let controlsKey = "";
+  let resultsKey = "";
+  const rows: NonNullable<SidebarRenderOptions["rows"]> = new Map();
   const disclosures = new Map<string, boolean>();
   // Event handlers read current state even when their controls survive an update.
   const options: SidebarRenderOptions = {
@@ -45,6 +47,7 @@ export function mountSidebar(
     document: container.ownerDocument,
     mountElement: container,
     disclosures,
+    rows,
   };
   container.replaceChildren();
   container.classList.add("link-integrity-sidebar");
@@ -102,7 +105,21 @@ export function mountSidebar(
     for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
       const key = details.dataset.disclosureKey;
       if (key !== undefined) disclosures.set(key, details.open);
+      if (details.parentElement?.hasAttribute("aria-expanded")) {
+        details.parentElement.setAttribute("aria-expanded", String(details.open));
+      }
     }
+    const nextResultsKey = JSON.stringify([
+      options.translator.locale, options.model.activeTab, options.model.search,
+      options.model.status.state, options.allowNoIncomingFilter,
+      options.model.activeTab === "broken-links" ? options.model.broken : options.model.isolated,
+      options.state.showExpectedIsolated, [...options.state.selectedFormatFamilyIds],
+      [...options.state.expandedBrokenFolderPaths], [...options.defaultFormatFamilyIds],
+    ]);
+    if (resultsKey === nextResultsKey) return;
+    resultsKey = nextResultsKey;
+    const focused = container.ownerDocument.activeElement;
+    const restoreFocus = focused instanceof HTMLElement && results.contains(focused);
     results.replaceChildren();
     if (idle) {
       renderEmptyState(results, options.translator.t("status.idle"),
@@ -113,6 +130,8 @@ export function mountSidebar(
     } else {
       renderIsolatedResults(results, options);
     }
+    if (restoreFocus && results.contains(focused)) focused.focus();
+    for (const [key, row] of rows) if (!results.contains(row.element)) rows.delete(key);
   };
   update(initialOptions);
   return {
@@ -120,6 +139,7 @@ export function mountSidebar(
     dispose: () => {
       disposed = true;
       disclosures.clear();
+      rows.clear();
       root.remove();
       container.classList.remove("link-integrity-sidebar");
       container.removeAttribute("dir");

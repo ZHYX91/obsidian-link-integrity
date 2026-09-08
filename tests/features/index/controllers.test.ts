@@ -53,7 +53,7 @@ describe("full rebuild", () => {
       onProgress: (completed, total) => progress.push(`${completed}/${total}`),
     });
     await controller.rebuild();
-    expect(yields).toBe(2);
+    expect(yields).toBe(5); // Registry preparation and source construction share the budget.
     expect(progress).toEqual(["0/5", "5/5"]);
   });
 
@@ -613,8 +613,9 @@ describe("index coordinator", () => {
     await expect(rebuilding).rejects.toThrow("rebuild failed");
     await coordinator.whenIdle();
 
-    expect(coordinator.index).toBe(lastKnownGood);
-    expect(coordinator.store.generation).toBe(publishedGeneration);
+    expect(coordinator.index).not.toBe(lastKnownGood);
+    expect(coordinator.store.generation).toBeGreaterThan(publishedGeneration);
+    expect(lastKnownGood.getOutgoingEdges("A.md")[0]?.targetPath).toBe("Old.md");
     expect(coordinator.state).toBe("stale");
     expect(coordinator.index.toCanonicalState()).toEqual((await buildOracle(vault)).toCanonicalState());
   });

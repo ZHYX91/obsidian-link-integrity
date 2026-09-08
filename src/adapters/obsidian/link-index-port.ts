@@ -7,6 +7,7 @@ import {
   type ReferenceCache,
   type TFile,
   type Vault,
+  type CachedMetadata,
 } from "obsidian";
 
 import {
@@ -18,6 +19,7 @@ import {
   type SourceSnapshot,
 } from "../../core";
 import type { LinkIndexPort } from "../../features/index";
+import type { WorkScheduler } from "../../scheduling/work-scheduler";
 import {
   createOccurrenceId,
   occurrenceSemanticKey,
@@ -61,35 +63,53 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     private readonly metadataCache: MetadataCache,
   ) {}
 
-  public listFiles(): Promise<readonly ReturnType<typeof createFileRecord>[]> {
-    return Promise.resolve(this.vault.getFiles().map(toFileRecord));
+  public async listFiles(scheduler?: WorkScheduler): Promise<readonly ReturnType<typeof createFileRecord>[]> {
+    const files: ReturnType<typeof createFileRecord>[] = [];
+    for (const file of this.vault.getFiles()) {
+      files.push(this.toFileRecord(file));
+      const pause = scheduler?.checkpoint();
+      if (pause != null) await pause;
+    }
+    return files;
   }
 
   public getFileRecord(sourcePath: string): Promise<ReturnType<typeof createFileRecord> | null> {
     const file = this.vault.getFileByPath(sourcePath);
-    return Promise.resolve(file === null ? null : toFileRecord(file));
+    return Promise.resolve(file === null ? null : this.toFileRecord(file));
   }
 
-  public async buildSourceSnapshot(sourcePath: string): Promise<SourceSnapshot | null> {
+  public async buildSourceSnapshot(
+    sourcePath: string,
+    scheduler?: WorkScheduler,
+  ): Promise<SourceSnapshot | null> {
     const file = this.vault.getFileByPath(sourcePath);
     if (file === null) return null;
     switch (file.extension.toLocaleLowerCase("en-US")) {
       case "md":
-        return this.buildMarkdownSnapshot(file);
+        return this.buildMarkdownSnapshot(file, scheduler);
       case "canvas":
-        return this.buildCanvasSnapshot(file);
+        return this.buildCanvasSnapshot(file, scheduler);
       case "base":
-        return this.buildBasesSnapshot(file);
+        return this.buildBasesSnapshot(file, scheduler);
       default:
         return null;
     }
   }
 
-  private async buildMarkdownSnapshot(file: TFile): Promise<SourceSnapshot> {
+  private toFileRecord(file: TFile): ReturnType<typeof createFileRecord> {
+    const cache = file.extension.toLocaleLowerCase("en-US") === "md"
+      ? this.metadataCache.getFileCache(file) : undefined;
+    return createFileRecord(file.path, {
+      modifiedAt: file.stat.mtime,
+      targetFingerprint: cache === undefined ? "non-markdown" : targetFingerprint(cache),
+    });
+  }
+
+  private async buildMarkdownSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const cache = this.metadataCache.getFileCache(file);
     if (cache === null) {
       const source = await this.vault.cachedRead(file);
-      return this.buildParsedTextSnapshot(file, source, "markdown-link");
+      return this.buildParsedTextSnapshot(file, source, "markdown-link", scheduler);
     }
     const inputs: OccurrenceInput[] = [];
     let ordinal = 0;
@@ -119,10 +139,10 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         ordinal: ordinal++,
       });
     }
-    return this.resolveSnapshot(file.path, inputs);
+    return this.resolveSnapshot(file.path, inputs, scheduler);
   }
 
-  private async buildCanvasSnapshot(file: TFile): Promise<SourceSnapshot> {
+  private async buildCanvasSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const source = await this.vault.cachedRead(file);
     const document = parseCanvas(source);
     if (document === null) {
@@ -169,10 +189,10 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         }
       }
     }
-    return this.resolveSnapshot(file.path, inputs);
+    return this.resolveSnapshot(file.path, inputs, scheduler);
   }
 
-  private async buildBasesSnapshot(file: TFile): Promise<SourceSnapshot> {
+  private async buildBasesSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const source = await this.vault.cachedRead(file);
     const lineStarts = createLineStarts(source);
     const inputs = extractBasesExplicitReferences(source).map((reference, ordinal) => ({
@@ -182,13 +202,14 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       position: positionFromParsedReference(lineStarts, reference, null),
       ordinal,
     }));
-    return this.resolveSnapshot(file.path, inputs);
+    return this.resolveSnapshot(file.path, inputs, scheduler);
   }
 
   private async buildParsedTextSnapshot(
     file: TFile,
     source: string,
     kind: LinkOccurrenceKind,
+    scheduler?: WorkScheduler,
   ): Promise<SourceSnapshot> {
     const lineStarts = createLineStarts(source);
     return this.resolveSnapshot(file.path, extractMarkdownExplicitReferences(source).map(
@@ -199,29 +220,37 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         position: positionFromParsedReference(lineStarts, reference, null),
         ordinal,
       }),
-    ));
+    ), scheduler);
   }
 
-  private resolveSnapshot(
+  private async resolveSnapshot(
     sourcePath: string,
     inputs: readonly OccurrenceInput[],
-  ): SourceSnapshot {
-    const semanticKeys = inputs.map(occurrenceSemanticKey);
+    scheduler?: WorkScheduler,
+  ): Promise<SourceSnapshot> {
+    const semanticKeys: string[] = [];
     const totals = new Map<string, number>();
-    for (const key of semanticKeys) totals.set(key, (totals.get(key) ?? 0) + 1);
+    for (const input of inputs) {
+      const key = occurrenceSemanticKey(input);
+      semanticKeys.push(key);
+      totals.set(key, (totals.get(key) ?? 0) + 1);
+      const pause = scheduler?.checkpoint();
+      if (pause != null) await pause;
+    }
     const seen = new Map<string, number>();
-    return {
-      sourcePath,
-      occurrences: inputs.map((input, index) => {
-        const key = semanticKeys[index] ?? occurrenceSemanticKey(input);
-        const duplicateIndex = seen.get(key) ?? 0;
-        seen.set(key, duplicateIndex + 1);
-        return this.resolveOccurrence(sourcePath, input, {
-          duplicateIndex,
-          duplicateCount: totals.get(key) ?? 1,
-        });
-      }),
-    };
+    const occurrences: LinkOccurrence[] = [];
+    for (const [index, input] of inputs.entries()) {
+      const key = semanticKeys[index] ?? occurrenceSemanticKey(input);
+      const duplicateIndex = seen.get(key) ?? 0;
+      seen.set(key, duplicateIndex + 1);
+      occurrences.push(this.resolveOccurrence(sourcePath, input, {
+        duplicateIndex,
+        duplicateCount: totals.get(key) ?? 1,
+      }));
+      const pause = scheduler?.checkpoint();
+      if (pause != null) await pause;
+    }
+    return { sourcePath, occurrences };
   }
 
   private resolveOccurrence(
@@ -316,8 +345,15 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
   }
 }
 
-function toFileRecord(file: TFile): ReturnType<typeof createFileRecord> {
-  return createFileRecord(file.path, { modifiedAt: file.stat.mtime });
+function targetFingerprint(cache: CachedMetadata | null): string | null {
+  if (cache === null) return null;
+  // Keep heading order and levels: duplicate/nested headings are resolver inputs.
+  // Positions and ordinary body text do not change subpath existence.
+  return JSON.stringify([
+    (cache.headings ?? []).map(({ heading, level }) => [heading, level]),
+    Object.keys(cache.blocks ?? {}).sort(),
+    (cache.footnotes ?? []).map(({ id }) => id),
+  ]);
 }
 
 function positionFromCache(reference: LinkCache | ReferenceCache): SourcePosition {

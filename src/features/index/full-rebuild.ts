@@ -1,9 +1,11 @@
 import { LinkIndex } from "../../core/link-index";
-import type { FileRecord } from "../../core/model";
+import { normalizeVaultPath, type FileRecord } from "../../core/model";
 import type { GraphContributionPolicy } from "../../core/scopes";
 import { AtomicLinkIndexStore } from "./atomic-store";
 import type { LinkIndexPort } from "./ports";
 import { raceWithAbort, throwIfAborted } from "./cancellation";
+import { WorkScheduler } from "../../scheduling/work-scheduler";
+import { consumeSteps } from "./consume-steps";
 
 export interface FullRebuildOptions {
   readonly concurrency?: number;
@@ -24,9 +26,6 @@ export interface FullRebuildResult {
 
 export class FullRebuildController {
   private readonly concurrency: number;
-  private readonly yieldEvery: number;
-  private readonly yieldIntervalMs: number;
-  private readonly yieldControl: () => Promise<void>;
 
   public constructor(
     private readonly port: LinkIndexPort,
@@ -34,19 +33,27 @@ export class FullRebuildController {
     private readonly options: FullRebuildOptions = {},
   ) {
     this.concurrency = Math.max(1, Math.floor(options.concurrency ?? 4));
-    this.yieldEvery = Math.max(1, Math.floor(options.yieldEvery ?? 128));
-    this.yieldIntervalMs = Math.max(1, options.yieldIntervalMs ?? 8);
-    this.yieldControl = options.yieldControl ?? defaultYieldControl;
   }
 
   public async buildStaging(
     contributionPolicy: GraphContributionPolicy = this.store.current.graphContributionPolicy,
     signal?: AbortSignal,
   ): Promise<LinkIndex> {
-    const files = await raceWithAbort(this.port.listFiles(), signal);
+    const scheduler = new WorkScheduler(this.options);
+    const files = await raceWithAbort(this.port.listFiles(scheduler), signal);
     throwIfAborted(signal);
-    const staging = new LinkIndex(files, { contributionPolicy });
-    await this.populate(staging, files, signal);
+    const staging = new LinkIndex([], { contributionPolicy });
+    const registeredPaths = new Set<string>();
+    for (const file of files) {
+      const path = normalizeVaultPath(file.path);
+      if (registeredPaths.has(path)) throw new Error(`Duplicate file path: ${path}`);
+      registeredPaths.add(path);
+      staging.replaceFileRecord(file.path, file);
+      const pause = scheduler.checkpoint();
+      if (pause !== null) await raceWithAbort(pause, signal);
+      throwIfAborted(signal);
+    }
+    await this.populate(staging, files, scheduler, signal);
     return staging;
   }
 
@@ -67,15 +74,15 @@ export class FullRebuildController {
   private async populate(
     index: LinkIndex,
     files: readonly FileRecord[],
+    scheduler: WorkScheduler,
     signal?: AbortSignal,
   ): Promise<void> {
     let nextIndex = 0;
     let completed = 0;
     let failed = false;
+    let reduction = Promise.resolve();
     let lastProgressAt = Number.NEGATIVE_INFINITY;
     const now = this.options.now ?? Date.now;
-    let lastYieldAt = now();
-    let pendingYield: Promise<void> | null = null;
     const throttleMs = Math.max(0, this.options.progressThrottleMs ?? 50);
     const reportProgress = (force: boolean): void => {
       if (this.options.onProgress === undefined) return;
@@ -89,34 +96,28 @@ export class FullRebuildController {
       try {
         while (!failed && nextIndex < files.length) {
           throwIfAborted(signal);
-          if (pendingYield !== null) {
-            await raceWithAbort(pendingYield, signal);
-            throwIfAborted(signal);
-          }
           if (failed) return;
           const fileIndex = nextIndex;
           nextIndex += 1;
           const file = files[fileIndex];
           if (file === undefined) continue;
           const snapshot = await raceWithAbort(
-            this.port.buildSourceSnapshot(file.path),
+            this.port.buildSourceSnapshot(file.path, scheduler),
             signal,
           );
           throwIfAborted(signal);
-          if (snapshot !== null) index.replaceSourceSnapshot(file.path, snapshot);
+          if (snapshot !== null) {
+            reduction = reduction.then(() => consumeSteps(
+              index.replaceSourceSnapshotSteps(file.path, snapshot), scheduler,
+              () => signal?.aborted !== true && !failed,
+            ));
+            await raceWithAbort(reduction, signal);
+          }
           completed += 1;
           reportProgress(completed === files.length);
-          const currentTime = now();
-          const countBudgetReached = completed % this.yieldEvery === 0;
-          const timeBudgetReached = currentTime - lastYieldAt >= this.yieldIntervalMs;
-          if (completed < files.length && (countBudgetReached || timeBudgetReached)) {
-            pendingYield ??= this.yieldControl().finally(() => {
-              lastYieldAt = now();
-              pendingYield = null;
-            });
-            await raceWithAbort(pendingYield, signal);
-            throwIfAborted(signal);
-          }
+          const pause = scheduler.checkpoint();
+          if (pause !== null) await raceWithAbort(pause, signal);
+          throwIfAborted(signal);
         }
       } catch (error) {
         failed = true;
@@ -128,16 +129,4 @@ export class FullRebuildController {
       worker,
     ));
   }
-}
-
-function defaultYieldControl(): Promise<void> {
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      channel.port1.close();
-      channel.port2.close();
-      resolve();
-    };
-    channel.port2.postMessage(undefined);
-  });
 }

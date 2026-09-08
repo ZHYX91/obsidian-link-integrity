@@ -37,6 +37,12 @@ export default defineConfig([
     },
   },
   {
+    files: ["src/scheduling/**/*.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(["core", "adapters", "app", "features", "shared", "ui"]),
+    },
+  },
+  {
     files: ["src/core/**/*.ts"],
     rules: {
       "no-restricted-imports": restrictedImports([

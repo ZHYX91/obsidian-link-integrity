@@ -174,9 +174,9 @@ export class LinkIndexCoordinator {
       await this.incremental.whenIdle();
       this.incremental.stop();
       this.assertCurrentLifecycle(epoch);
-      const staging = await this.rebuildController.buildStaging(undefined, signal);
+      let staging = await this.rebuildController.buildStaging(undefined, signal);
       this.assertCurrentLifecycle(epoch);
-      await this.replayBufferedEvents(staging, signal);
+      staging = await this.replayBufferedEvents(staging, signal);
       this.assertCurrentLifecycle(epoch);
       staging.setGraphContributionPolicy(this.store.current.graphContributionPolicy);
       const result = this.rebuildController.publish(staging);
@@ -233,7 +233,7 @@ export class LinkIndexCoordinator {
   private async replayBufferedEvents(
     staging: LinkIndex,
     signal: AbortSignal,
-  ): Promise<void> {
+  ): Promise<LinkIndex> {
     const stagingStore = new AtomicLinkIndexStore(staging);
     const replay = new IncrementalIndexController(
       this.port,
@@ -254,6 +254,7 @@ export class LinkIndexCoordinator {
         for (const event of events) replay.enqueue(event);
         await replay.whenIdle();
       }
+      return stagingStore.current;
     } finally {
       replay.stop();
     }

@@ -23,6 +23,7 @@ export interface BrokenLinkDiagnostic {
 
 export interface BrokenLinkQueryOptions {
   readonly scope?: DiagnosticScope;
+  readonly sourcePaths?: Iterable<string>;
 }
 
 export function getBrokenLinkReason(
@@ -46,20 +47,33 @@ export function queryBrokenLinks(
   options: BrokenLinkQueryOptions = {},
 ): readonly BrokenLinkDiagnostic[] {
   const diagnostics: BrokenLinkDiagnostic[] = [];
-  for (const occurrence of index.occurrences) {
-    const reason = getBrokenLinkReason(occurrence);
-    if (reason === null || !isDiagnosticVisible(occurrence, options.scope)) continue;
-    diagnostics.push({
-      id: occurrence.id,
-      sourcePath: occurrence.sourcePath,
-      targetText: occurrence.linkpath + (occurrence.subpath ?? ""),
-      resolvedTargetPath: occurrence.targetPath,
-      raw: occurrence.raw,
-      reason,
-      occurrence,
-    });
+  const occurrences = options.sourcePaths === undefined
+    ? index.iterateOccurrences() : sourceOccurrences(index, options.sourcePaths);
+  for (const occurrence of occurrences) {
+    const diagnostic = diagnoseOccurrence(occurrence, options.scope);
+    if (diagnostic !== null) diagnostics.push(diagnostic);
   }
   return diagnostics.sort(compareDiagnostics);
+}
+
+export function diagnoseOccurrence(
+  occurrence: LinkOccurrence, scope?: DiagnosticScope,
+): BrokenLinkDiagnostic | null {
+  const reason = getBrokenLinkReason(occurrence);
+  if (reason === null || !isDiagnosticVisible(occurrence, scope)) return null;
+  return {
+    id: occurrence.id,
+    sourcePath: occurrence.sourcePath,
+    targetText: occurrence.linkpath + (occurrence.subpath ?? ""),
+    resolvedTargetPath: occurrence.targetPath,
+    raw: occurrence.raw,
+    reason,
+    occurrence,
+  };
+}
+
+function* sourceOccurrences(index: LinkIndex, paths: Iterable<string>): Iterable<LinkOccurrence> {
+  for (const path of paths) yield* index.getSourceSnapshot(path)?.occurrences ?? [];
 }
 
 export function countBrokenOutgoing(index: LinkIndex, sourcePath: string): number {

@@ -1,10 +1,12 @@
 import type { LinkOccurrenceKind } from "./model";
+import { ForkableMap } from "./forkable-map";
 import {
   isFileLevelResolved,
   normalizeFileRecord,
   normalizeLookupKey,
   normalizeVaultPath,
   validateSourceSnapshot,
+  validateLinkOccurrence,
   type FileRecord,
   type LinkOccurrence,
   type SourceSnapshot,
@@ -68,15 +70,25 @@ interface MutableEdgeContribution {
   readonly byKind: Map<LinkOccurrenceKind, number>;
 }
 
+export interface IndexChanges {
+  readonly sourcePaths: ReadonlySet<string>;
+  readonly filePaths: ReadonlySet<string>;
+  readonly graphPaths: ReadonlySet<string>;
+}
+
 export class LinkIndex {
-  private filesByPath = new Map<string, FileRecord>();
-  private readonly snapshotsBySource = new Map<string, SourceSnapshot>();
-  private readonly occurrencesById = new Map<string, LinkOccurrence>();
-  private readonly occurrenceIdsByLookupKey = new Map<string, Set<string>>();
-  private readonly occurrenceIdsByTargetPath = new Map<string, Set<string>>();
-  private readonly edgesBySource = new Map<string, Map<string, MutableEdgeContribution>>();
-  private readonly edgesByTarget = new Map<string, Map<string, MutableEdgeContribution>>();
-  private readonly selfLinkCounts = new Map<string, number>();
+  private filesByPath = new ForkableMap<FileRecord>();
+  private snapshotsBySource = new ForkableMap<SourceSnapshot>();
+  private occurrencesById = new ForkableMap<LinkOccurrence>();
+  private occurrenceIdsByLookupKey = new ForkableMap<Set<string>>();
+  private occurrenceIdsByTargetPath = new ForkableMap<Set<string>>();
+  private edgesBySource = new ForkableMap<Map<string, MutableEdgeContribution>>();
+  private edgesByTarget = new ForkableMap<Map<string, MutableEdgeContribution>>();
+  private selfLinkCounts = new ForkableMap<number>();
+  private readonly changedSources = new Set<string>();
+  private readonly changedFiles = new Set<string>();
+  private readonly changedGraphPaths = new Set<string>();
+  private revision = 0;
   private contributionPolicy: GraphContributionPolicy;
   private contributionScope: GraphContributionScope;
 
@@ -95,6 +107,34 @@ export class LinkIndex {
   public get files(): readonly FileRecord[] {
     return Array.from(this.filesByPath.values());
   }
+
+  public get version(): number { return this.revision; }
+
+  public get changes(): IndexChanges {
+    return {
+      sourcePaths: this.changedSources,
+      filePaths: this.changedFiles,
+      graphPaths: this.changedGraphPaths,
+    };
+  }
+
+  public fork(): LinkIndex {
+    const next = new LinkIndex([], { contributionPolicy: this.contributionPolicy });
+    next.contributionScope = this.contributionScope;
+    next.filesByPath = this.filesByPath.fork();
+    next.snapshotsBySource = this.snapshotsBySource.fork();
+    next.occurrencesById = this.occurrencesById.fork();
+    next.occurrenceIdsByLookupKey = this.occurrenceIdsByLookupKey.fork();
+    next.occurrenceIdsByTargetPath = this.occurrenceIdsByTargetPath.fork();
+    next.edgesBySource = this.edgesBySource.fork();
+    next.edgesByTarget = this.edgesByTarget.fork();
+    next.selfLinkCounts = this.selfLinkCounts.fork();
+    next.revision = this.revision;
+    return next;
+  }
+
+  public iterateFiles(): Iterable<FileRecord> { return this.filesByPath.values(); }
+  public iterateOccurrences(): Iterable<LinkOccurrence> { return this.occurrencesById.values(); }
 
   public get snapshots(): readonly SourceSnapshot[] {
     return Array.from(this.snapshotsBySource.values());
@@ -168,7 +208,7 @@ export class LinkIndex {
   }
 
   public replaceFiles(files: readonly FileRecord[]): void {
-    const next = new Map<string, FileRecord>();
+    const next = new ForkableMap<FileRecord>();
     for (const input of files) {
       const file = normalizeFileRecord(input);
       if (next.has(file.path)) throw new Error(`Duplicate file path: ${file.path}`);
@@ -203,6 +243,7 @@ export class LinkIndex {
       .filter((occurrence): occurrence is LinkOccurrence => occurrence !== undefined);
     for (const occurrence of affectedOccurrences) this.removeGraphContribution(occurrence);
     this.filesByPath = next;
+    this.revision += 1;
     for (const occurrence of affectedOccurrences) this.addGraphContribution(occurrence);
   }
 
@@ -213,6 +254,11 @@ export class LinkIndex {
       throw new Error(`Replacement file path does not match: ${path}`);
     }
     const previousFile = this.filesByPath.get(path);
+    if (previousFile !== undefined && file !== null &&
+      previousFile.modifiedAt === file.modifiedAt && previousFile.extension === file.extension &&
+      previousFile.targetFingerprint === file.targetFingerprint &&
+      previousFile.lookupKeys.length === file.lookupKeys.length &&
+      previousFile.lookupKeys.every((key, index) => key === file.lookupKeys[index])) return;
     const existed = previousFile !== undefined;
     if (!existed && file === null) return;
 
@@ -237,18 +283,22 @@ export class LinkIndex {
     for (const occurrence of affectedOccurrences) this.removeGraphContribution(occurrence);
     if (file === null) this.filesByPath.delete(path);
     else this.filesByPath.set(path, file);
+    this.changedFiles.add(path);
+    this.revision += 1;
     for (const occurrence of affectedOccurrences) this.addGraphContribution(occurrence);
   }
 
   public setContributionScope(scope: GraphContributionScope): void {
     if (areContributionScopesEqual(this.contributionScope, scope)) return;
     this.contributionScope = cloneContributionScope(scope);
+    this.revision += 1;
     this.rebuildGraphState();
   }
 
   public setGraphContributionPolicy(policy: GraphContributionPolicy): void {
     if (this.contributionPolicy === policy) return;
     this.contributionPolicy = policy;
+    this.revision += 1;
     this.rebuildGraphState();
   }
 
@@ -256,8 +306,19 @@ export class LinkIndex {
     sourcePathInput: string,
     snapshot: SourceSnapshot | null,
   ): void {
+    const steps = this.replaceSourceSnapshotSteps(sourcePathInput, snapshot);
+    while (!steps.next().done) { /* The synchronous reducer shares all validation and semantics. */ }
+  }
+
+  /** Consume asynchronously only on an unpublished staging index. */
+  public *replaceSourceSnapshotSteps(
+    sourcePathInput: string,
+    snapshot: SourceSnapshot | null,
+  ): Generator<void> {
     const sourcePath = normalizeVaultPath(sourcePathInput);
-    const normalized = snapshot === null ? null : normalizeSnapshot(snapshot);
+    const occurrences: LinkOccurrence[] = [];
+    const normalized: SourceSnapshot | null = snapshot === null
+      ? null : { sourcePath: normalizeVaultPath(snapshot.sourcePath), occurrences };
     if (normalized !== null) {
       if (normalized.sourcePath !== sourcePath) {
         throw new Error("Snapshot source does not match the replacement source path.");
@@ -265,22 +326,43 @@ export class LinkIndex {
       if (!this.filesByPath.has(sourcePath)) {
         throw new Error(`Cannot index a source that is not in the file registry: ${sourcePath}`);
       }
-      validateSourceSnapshot(normalized);
-      this.validateOccurrenceIds(sourcePath, normalized);
+      const ids = new Set<string>();
+      for (const input of snapshot?.occurrences ?? []) {
+        const occurrence = normalizeOccurrence(input);
+        validateLinkOccurrence(occurrence, sourcePath, ids);
+        const existing = this.occurrencesById.get(occurrence.id);
+        if (existing !== undefined && existing.sourcePath !== sourcePath) {
+          throw new Error(`Occurrence ID is already used by ${existing.sourcePath}: ${occurrence.id}`);
+        }
+        occurrences.push(occurrence);
+        yield;
+      }
     }
 
     const previous = this.snapshotsBySource.get(sourcePath);
     if (normalized === null && previous === undefined) return;
     if (normalized !== null && previous !== undefined &&
-      areSourceSnapshotsEqual(previous, normalized)) return;
+      previous.occurrences.length === normalized.occurrences.length) {
+      let equal = true;
+      for (let index = 0; index < previous.occurrences.length; index += 1) {
+        const occurrence = previous.occurrences[index];
+        if (occurrence !== undefined &&
+          !areLinkOccurrencesEqual(occurrence, normalized.occurrences[index])) { equal = false; break; }
+        yield;
+      }
+      if (equal) return;
+    }
     if (previous !== undefined) {
-      for (const occurrence of previous.occurrences) this.removeOccurrence(occurrence);
+      for (const occurrence of previous.occurrences) { this.removeOccurrence(occurrence); yield; }
       this.snapshotsBySource.delete(sourcePath);
     }
     if (normalized !== null) {
       this.snapshotsBySource.set(sourcePath, normalized);
-      for (const occurrence of normalized.occurrences) this.addOccurrence(occurrence);
+      for (const occurrence of normalized.occurrences) { this.addOccurrence(occurrence); yield; }
     }
+    this.changedSources.add(sourcePath);
+    this.changedGraphPaths.add(sourcePath);
+    this.revision += 1;
   }
 
   public getOccurrenceIdsByLookupKey(lookupKey: string): ReadonlySet<string> {
@@ -288,24 +370,28 @@ export class LinkIndex {
   }
 
   public getSourcePathsByLookupKeys(lookupKeys: Iterable<string>): ReadonlySet<string> {
-    const result = new Set<string>();
+    return new Set(this.iterateSourcePathsByLookupKeys(lookupKeys));
+  }
+
+  public *iterateSourcePathsByLookupKeys(lookupKeys: Iterable<string>): Iterable<string> {
     for (const lookupKey of lookupKeys) {
-      for (const id of this.getOccurrenceIdsByLookupKey(lookupKey)) {
+      for (const id of this.occurrenceIdsByLookupKey.get(normalizeLookupKey(lookupKey)) ?? []) {
         const occurrence = this.occurrencesById.get(id);
-        if (occurrence !== undefined) result.add(occurrence.sourcePath);
+        if (occurrence !== undefined) yield occurrence.sourcePath;
       }
     }
-    return result;
   }
 
   public getSourcePathsByTargetPath(targetPathInput: string): ReadonlySet<string> {
+    return new Set(this.iterateSourcePathsByTargetPath(targetPathInput));
+  }
+
+  public *iterateSourcePathsByTargetPath(targetPathInput: string): Iterable<string> {
     const targetPath = normalizeVaultPath(targetPathInput);
-    const result = new Set<string>();
     for (const id of this.occurrenceIdsByTargetPath.get(targetPath) ?? []) {
       const occurrence = this.occurrencesById.get(id);
-      if (occurrence !== undefined) result.add(occurrence.sourcePath);
+      if (occurrence !== undefined) yield occurrence.sourcePath;
     }
-    return result;
   }
 
   public getOutgoingEdges(sourcePathInput: string): readonly EdgeContribution[] {
@@ -427,10 +513,17 @@ export class LinkIndex {
       );
       return;
     }
-    const edge = getOrCreateEdge(this.edgesBySource, occurrence.sourcePath, targetPath);
+    const targets = editEdges(this.edgesBySource, occurrence.sourcePath);
+    const previous = targets.get(targetPath);
+    const edge: MutableEdgeContribution = {
+      sourcePath: occurrence.sourcePath, targetPath,
+      total: previous?.total ?? 0, byKind: new Map(previous?.byKind),
+    };
     edge.total += 1;
     edge.byKind.set(occurrence.kind, (edge.byKind.get(occurrence.kind) ?? 0) + 1);
-    getOrCreateTargetEdges(this.edgesByTarget, targetPath).set(occurrence.sourcePath, edge);
+    targets.set(targetPath, edge);
+    editEdges(this.edgesByTarget, targetPath).set(occurrence.sourcePath, edge);
+    this.changedGraphPaths.add(targetPath);
   }
 
   private removeGraphContribution(occurrence: LinkOccurrence): void {
@@ -441,18 +534,23 @@ export class LinkIndex {
       decrementMapCount(this.selfLinkCounts, occurrence.sourcePath);
       return;
     }
-    const targets = this.edgesBySource.get(occurrence.sourcePath);
-    const edge = targets?.get(targetPath);
-    if (edge === undefined) return;
+    const previous = this.edgesBySource.get(occurrence.sourcePath)?.get(targetPath);
+    if (previous === undefined) return;
+    const targets = editEdges(this.edgesBySource, occurrence.sourcePath);
+    const sources = editEdges(this.edgesByTarget, targetPath);
+    const edge = { ...previous, byKind: new Map(previous.byKind) };
     edge.total -= 1;
     decrementMapCount(edge.byKind, occurrence.kind);
     if (edge.total === 0) {
       targets?.delete(targetPath);
       if (targets?.size === 0) this.edgesBySource.delete(occurrence.sourcePath);
-      const sources = this.edgesByTarget.get(targetPath);
       sources?.delete(occurrence.sourcePath);
       if (sources?.size === 0) this.edgesByTarget.delete(targetPath);
+    } else {
+      targets.set(targetPath, edge);
+      sources.set(occurrence.sourcePath, edge);
     }
+    this.changedGraphPaths.add(targetPath);
   }
 
   private canContribute(occurrence: LinkOccurrence): boolean {
@@ -470,14 +568,17 @@ function normalizeSnapshot(snapshot: SourceSnapshot): SourceSnapshot {
   const sourcePath = normalizeVaultPath(snapshot.sourcePath);
   return {
     sourcePath,
-    occurrences: snapshot.occurrences.map((occurrence) => ({
-      ...occurrence,
-      sourcePath: normalizeVaultPath(occurrence.sourcePath),
-      lookupKey: normalizeLookupKey(occurrence.lookupKey),
-      targetPath: occurrence.targetPath === null
-        ? null
-        : normalizeVaultPath(occurrence.targetPath),
-    })),
+    occurrences: snapshot.occurrences.map(normalizeOccurrence),
+  };
+}
+
+function normalizeOccurrence(occurrence: LinkOccurrence): LinkOccurrence {
+  return {
+    ...occurrence,
+    position: occurrence.position === null ? null : { ...occurrence.position },
+    sourcePath: normalizeVaultPath(occurrence.sourcePath),
+    lookupKey: normalizeLookupKey(occurrence.lookupKey),
+    targetPath: occurrence.targetPath === null ? null : normalizeVaultPath(occurrence.targetPath),
   };
 }
 
@@ -519,13 +620,6 @@ function areSetsEqual<T>(
   return true;
 }
 
-function areSourceSnapshotsEqual(left: SourceSnapshot, right: SourceSnapshot): boolean {
-  if (left.sourcePath !== right.sourcePath ||
-    left.occurrences.length !== right.occurrences.length) return false;
-  return left.occurrences.every((occurrence, index) =>
-    areLinkOccurrencesEqual(occurrence, right.occurrences[index]));
-}
-
 function areLinkOccurrencesEqual(
   left: LinkOccurrence,
   right: LinkOccurrence | undefined,
@@ -559,47 +653,21 @@ function areSourcePositionsEqual(
     left.canvasNodeId === right.canvasNodeId;
 }
 
-function getOrCreateEdge(
-  edgesBySource: Map<string, Map<string, MutableEdgeContribution>>,
-  sourcePath: string,
-  targetPath: string,
-): MutableEdgeContribution {
-  let targets = edgesBySource.get(sourcePath);
-  if (targets === undefined) {
-    targets = new Map();
-    edgesBySource.set(sourcePath, targets);
-  }
-  let edge = targets.get(targetPath);
-  if (edge === undefined) {
-    edge = { sourcePath, targetPath, total: 0, byKind: new Map() };
-    targets.set(targetPath, edge);
-  }
-  return edge;
-}
-
-function getOrCreateTargetEdges(
-  edgesByTarget: Map<string, Map<string, MutableEdgeContribution>>,
-  targetPath: string,
+function editEdges(
+  map: ForkableMap<Map<string, MutableEdgeContribution>>,
+  path: string,
 ): Map<string, MutableEdgeContribution> {
-  let sources = edgesByTarget.get(targetPath);
-  if (sources === undefined) {
-    sources = new Map();
-    edgesByTarget.set(targetPath, sources);
-  }
-  return sources;
+  return map.edit(path, () => new Map(), (edges) => new Map(edges));
 }
 
-function addToSetMap(map: Map<string, Set<string>>, key: string, value: string): void {
-  let values = map.get(key);
-  if (values === undefined) {
-    values = new Set();
-    map.set(key, values);
-  }
+function addToSetMap(map: ForkableMap<Set<string>>, key: string, value: string): void {
+  const values = map.edit(key, () => new Set(), (items) => new Set(items));
   values.add(value);
 }
 
-function removeFromSetMap(map: Map<string, Set<string>>, key: string, value: string): void {
-  const values = map.get(key);
+function removeFromSetMap(map: ForkableMap<Set<string>>, key: string, value: string): void {
+  if (!map.has(key)) return;
+  const values = map.edit(key, () => new Set(), (items) => new Set(items));
   values?.delete(value);
   if (values?.size === 0) map.delete(key);
 }
@@ -608,7 +676,11 @@ function addAll<T>(target: Set<T>, values: Iterable<T>): void {
   for (const value of values) target.add(value);
 }
 
-function decrementMapCount<K>(map: Map<K, number>, key: K): void {
+function decrementMapCount<K>(map: {
+  get: (key: K) => number | undefined;
+  set: (key: K, value: number) => unknown;
+  delete: (key: K) => unknown;
+}, key: K): void {
   const next = (map.get(key) ?? 0) - 1;
   if (next <= 0) map.delete(key);
   else map.set(key, next);

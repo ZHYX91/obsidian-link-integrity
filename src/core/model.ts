@@ -36,6 +36,8 @@ export interface FileRecord {
   readonly extension: string;
   readonly lookupKeys: readonly string[];
   readonly modifiedAt: number;
+  /** Null means host metadata is not ready; absent ports retain conservative invalidation. */
+  readonly targetFingerprint?: string | null;
 }
 
 export interface LinkOccurrence {
@@ -62,6 +64,7 @@ export function createFileRecord(
   path: string,
   options: {
     readonly lookupKeys?: readonly string[];
+    readonly targetFingerprint?: string | null;
     readonly modifiedAt?: number;
   } = {},
 ): FileRecord {
@@ -74,6 +77,7 @@ export function createFileRecord(
       ? makeFileLookupKeys(normalizedPath)
       : normalizeLookupKeys(options.lookupKeys),
     modifiedAt: options.modifiedAt ?? 0,
+    ...(options.targetFingerprint === undefined ? {} : { targetFingerprint: options.targetFingerprint }),
   };
 }
 
@@ -84,6 +88,7 @@ export function normalizeFileRecord(file: FileRecord): FileRecord {
     extension: normalizeExtension(file.extension.length > 0 ? file.extension : path),
     lookupKeys: normalizeLookupKeys(file.lookupKeys),
     modifiedAt: Number.isFinite(file.modifiedAt) ? file.modifiedAt : 0,
+    ...(file.targetFingerprint === undefined ? {} : { targetFingerprint: file.targetFingerprint }),
   };
 }
 
@@ -131,16 +136,24 @@ export function validateSourceSnapshot(snapshot: SourceSnapshot): void {
   const sourcePath = normalizeVaultPath(snapshot.sourcePath);
   const ids = new Set<string>();
   for (const occurrence of snapshot.occurrences) {
-    if (occurrence.id.length === 0) throw new Error("Occurrence ID cannot be empty.");
-    if (ids.has(occurrence.id)) {
-      throw new Error(`Duplicate occurrence ID in ${sourcePath}: ${occurrence.id}`);
-    }
-    ids.add(occurrence.id);
-    if (normalizeVaultPath(occurrence.sourcePath) !== sourcePath) {
-      throw new Error(`Occurrence ${occurrence.id} belongs to a different source path.`);
-    }
-    validateOccurrenceResolution(occurrence);
+    validateLinkOccurrence(occurrence, sourcePath, ids);
   }
+}
+
+export function validateLinkOccurrence(
+  occurrence: LinkOccurrence,
+  sourcePath: string,
+  ids: Set<string>,
+): void {
+  if (occurrence.id.length === 0) throw new Error("Occurrence ID cannot be empty.");
+  if (ids.has(occurrence.id)) {
+    throw new Error(`Duplicate occurrence ID in ${sourcePath}: ${occurrence.id}`);
+  }
+  ids.add(occurrence.id);
+  if (normalizeVaultPath(occurrence.sourcePath) !== sourcePath) {
+    throw new Error(`Occurrence ${occurrence.id} belongs to a different source path.`);
+  }
+  validateOccurrenceResolution(occurrence);
 }
 
 export function isFileLevelResolved(occurrence: LinkOccurrence): boolean {

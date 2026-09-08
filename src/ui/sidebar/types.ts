@@ -66,6 +66,7 @@ export interface SidebarQuerySnapshot {
 export interface SidebarQueryPort {
   readonly getSnapshot: (activeTab: SidebarTabId) => SidebarQuerySnapshot;
   readonly subscribe: (listener: () => void) => () => void;
+  readonly prepareSnapshot?: (activeTab: SidebarTabId) => Promise<boolean>;
 }
 
 export interface SidebarNavigationPort {
