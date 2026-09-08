@@ -528,7 +528,7 @@
   display: grid;
   min-block-size: var(--link-integrity-target-size);
   min-inline-size: 0;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--size-2-2);
   align-items: center;
   cursor: pointer;
@@ -545,7 +545,11 @@
 }
 
 .link-integrity-advanced-toggle .link-integrity-count {
+  grid-column: 2;
+  justify-self: start;
+  max-inline-size: 100%;
   margin-inline-start: 0;
+  white-space: normal;
 }
 
 .link-integrity-file-types-actions {
@@ -592,6 +596,12 @@
 .link-integrity-settings-custom-row {
   flex-wrap: wrap;
   align-items: flex-start;
+}
+
+/* Host flex/grid and button rules must not reveal intentionally hidden controls. */
+.link-integrity-settings-custom-row[hidden],
+.link-integrity-settings-custom-body [hidden] {
+  display: none;
 }
 
 .link-integrity-settings-custom-body {

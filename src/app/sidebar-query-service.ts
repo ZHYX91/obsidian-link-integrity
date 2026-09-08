@@ -80,10 +80,10 @@ export class SidebarQueryService implements SidebarQueryPort {
     return {
       status: this.status,
       brokenLinks: this.brokenLinks,
-      brokenLinksKnown: this.brokenLinksKnown,
+      brokenLinksKnown: this.brokenLinksKnown && !this.brokenLinksDirty,
       isolatedFiles: this.isolatedFiles,
       noIncomingFiles: this.noIncomingFiles,
-      isolatedFilesKnown: this.isolatedFilesKnown,
+      isolatedFilesKnown: this.isolatedFilesKnown && !this.isolatedFilesDirty,
     };
   };
 

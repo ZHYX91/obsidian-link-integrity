@@ -27,7 +27,10 @@ interface LayoutMeasurements {
   };
   readonly customSetting: {
     readonly bodyHeight: number;
+    readonly hiddenRowHeight: number;
+    readonly hiddenRetryHeight: number;
   };
+  readonly expectedToggle: { readonly labelWidth: number; readonly badgeOnNextLine: boolean };
   readonly folderAction: {
     readonly height: number;
     readonly width: number;
@@ -106,6 +109,16 @@ describe("Obsidian host CSS layout contract", () => {
 
   it("keeps declarative custom settings content-sized in a vertical host row", () => {
     expect(measurements.customSetting.bodyHeight).toBeLessThan(100);
+  });
+
+  it("honors hidden save status and retry controls above host display rules", () => {
+    expect(measurements.customSetting.hiddenRowHeight).toBe(0);
+    expect(measurements.customSetting.hiddenRetryHeight).toBe(0);
+  });
+
+  it("keeps the expected-isolation label readable beside a full-text count", () => {
+    expect(measurements.expectedToggle.labelWidth).toBeGreaterThan(measurements.narrow.clientWidth * 0.75);
+    expect(measurements.expectedToggle.badgeOnNextLine).toBe(true);
   });
 
   it("keeps folder actions comfortably tappable without coarse-pointer detection", () => {
@@ -296,6 +309,7 @@ input[type="checkbox"] {
   appearance: none;
 }
 select, input[type="text"], input[type="search"] { height: var(--input-height); }
+.setting-item { display: flex; }
 ${pluginCss.replaceAll("</style", "<\\/style")}
 </style>
 </head>
@@ -332,8 +346,8 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
     </div>
     <label class="link-integrity-advanced-toggle">
       <input id="square-checkbox" type="checkbox">
-      <span>Показывать ожидаемо изолированные файлы</span>
-      <span class="link-integrity-count">123</span>
+      <span id="expected-label">Show expected isolated files</span>
+      <span class="link-integrity-count" id="expected-count">123 expected isolated files</span>
     </label>
     <div class="link-integrity-file-types-actions">
       <button type="button">Выбрать все</button>
@@ -375,6 +389,12 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   </div>
 </section>
 <section class="link-integrity-settings" id="settings-fixture" style="width: 220px">
+  <div class="setting-item link-integrity-settings-custom-row" id="hidden-save-row" hidden>
+    <div class="link-integrity-settings-custom-body">Settings saved</div>
+  </div>
+  <div class="setting-item link-integrity-settings-custom-row">
+    <div class="link-integrity-settings-custom-body"><button id="hidden-retry" hidden>Retry</button></div>
+  </div>
   <div class="link-integrity-settings-tabs" id="settings-tabs">
     <button class="link-integrity-settings-tab" id="settings-tab" type="button">General preferences</button>
     <button class="link-integrity-settings-tab is-active" type="button">Broken links</button>
@@ -409,6 +429,13 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
     },
     customSetting: {
       bodyHeight: customSettingBody.height,
+      hiddenRowHeight: document.getElementById("hidden-save-row").getBoundingClientRect().height,
+      hiddenRetryHeight: document.getElementById("hidden-retry").getBoundingClientRect().height,
+    },
+    expectedToggle: {
+      labelWidth: document.getElementById("expected-label").getBoundingClientRect().width,
+      badgeOnNextLine: document.getElementById("expected-count").getBoundingClientRect().top >=
+        document.getElementById("expected-label").getBoundingClientRect().bottom,
     },
     folderAction: {
       height: folderAction.height,

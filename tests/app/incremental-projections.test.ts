@@ -20,6 +20,25 @@ function fixture(count = 100) {
 }
 
 describe("incremental sidebar projections", () => {
+  it("marks inactive counts unknown until their changed projection is prepared", async () => {
+    const f = fixture(3);
+    await f.query.prepareSnapshot("broken-links");
+    await f.query.prepareSnapshot("isolated-files");
+    const next = f.index.fork();
+    next.replaceSourceSnapshot("Note-0.md", snapshot("Note-0.md", [
+      occurrence("connected", "Note-0.md", { targetPath: "Note-1.md" }),
+    ]));
+    f.publish(next);
+    await f.query.prepareSnapshot("isolated-files");
+    const pending = f.query.getSnapshot("isolated-files");
+    expect(pending.isolatedFilesKnown).toBe(true);
+    expect(pending.brokenLinksKnown).toBe(false);
+    expect(pending.brokenLinks).toHaveLength(3);
+    await f.query.prepareSnapshot("broken-links");
+    expect(f.query.getSnapshot("broken-links").brokenLinksKnown).toBe(true);
+    expect(f.query.getSnapshot("broken-links").brokenLinks).toHaveLength(2);
+  });
+
   it("updates broken locations, isolation endpoints and timestamps without a full registry query", () => {
     const f = fixture();
     f.query.getSnapshot("broken-links");

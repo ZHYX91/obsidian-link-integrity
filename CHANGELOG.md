@@ -15,6 +15,11 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Keep ordinary body edits local when target metadata is unchanged, and update diagnostics and isolation from changed sources and graph endpoints.
 - Reuse unchanged result rows and view models, separate progress updates from result rendering, and defer presentation work for hidden tabs.
 
+### Fixed
+
+- Keep expected-isolation controls readable in narrow sidebars and hide saved-state and retry controls when they are not needed.
+- Mark inactive result counts as pending after index changes until their projection is refreshed.
+
 ## [0.2.4] - 2026-09-06
 
 ### Fixed
