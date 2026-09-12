@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { WorkScheduler } from "../../src/scheduling/work-scheduler";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   createFileRecord,
@@ -197,3 +198,33 @@ function missing(sourcePath: string, linkpath: string, id: string): LinkOccurren
     subpathStatus: "none",
   };
 }
+
+
+it("yields during incremental merge and never publishes a superseded partial result", async () => {
+  const index = new LinkIndex(Array.from({ length: 500 }, (_, i) => createFileRecord(`Note-${i}.md`)));
+  const query = new SidebarQueryService(() => index, createDefaultSettings);
+  const previous = query.getSnapshot("isolated-files").isolatedFiles;
+  index.replaceFileRecord("Note-1.md", createFileRecord("Note-1.md", { modifiedAt: 1 }));
+  query.recordChanges(index.changes);
+  let checkpoints = 0;
+  let resume: () => void = () => undefined;
+  const pause = new Promise<void>(resolve => { resume = resolve; });
+  const checkpoint = vi.spyOn(WorkScheduler.prototype, "checkpoint").mockImplementation(() => {
+    checkpoints += 1;
+    return checkpoints === 20 ? pause : null;
+  });
+  try {
+    const pending = query.prepareSnapshot("isolated-files");
+    for (let i = 0; i < 20 && checkpoints < 20; i += 1) await Promise.resolve();
+    expect(checkpoints).toBe(20);
+    expect(query.getSnapshot().isolatedFiles).toBe(previous);
+    query.notify();
+    resume();
+    expect(await pending).toBe(false);
+    expect(query.getSnapshot().isolatedFiles).toBe(previous);
+  } finally { resume(); checkpoint.mockRestore(); }
+  expect(await query.prepareSnapshot("isolated-files")).toBe(true);
+  expect(query.getSnapshot().isolatedFiles).toEqual(
+    new SidebarQueryService(() => index, createDefaultSettings).getSnapshot("isolated-files").isolatedFiles,
+  );
+});

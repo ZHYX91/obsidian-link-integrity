@@ -5,6 +5,7 @@ import { createFileTypeCategoryOptions } from "../../src/ui/file-type-options";
 import {
   createSidebarViewModel,
   renderSidebar,
+  mountSidebar,
   SIDEBAR_RESULT_BATCH_SIZE,
   type SidebarQuerySnapshot,
   type SidebarViewState,
@@ -688,3 +689,35 @@ function querySnapshot(): SidebarQuerySnapshot {
     noIncomingFiles: [],
   };
 }
+
+
+it("preserves source-file disclosures across search, filtering and rebuilt results", () => {
+  const container = document.createElement("div");
+  const translator = createTranslator("en", "en");
+  const state = { ...viewState(), brokenGrouping: "source-folder" as const,
+    expandedBrokenFolderPaths: new Set(["Notes"]) };
+  const snapshot: SidebarQuerySnapshot = { ...querySnapshot(), brokenLinks: [{
+    id: "missing", sourcePath: "Notes/Example.md", targetText: "Missing", resolvedTargetPath: null,
+    rawText: "[[Missing]]", context: "[[Missing]]", reason: "missing-file",
+    location: { line: 0, column: 0, property: null, canvasNodeId: null },
+  }] };
+  const options = (search: string, source = snapshot) => ({
+    model: createSidebarViewModel(source, { ...state, search }), state: { ...state, search },
+    translator, navigation: navigation(), fileTypeCategories: createFileTypeCategoryOptions(translator),
+    defaultFormatFamilyIds: new Set(["markdown"]), allowNoIncomingFilter: true, onStateChange: vi.fn(),
+  });
+  const mount = mountSidebar(container, options(""));
+  const file = () => container.querySelector<HTMLDetailsElement>('[data-disclosure-key="broken-source:Notes/Example.md"]');
+  expect(file()).not.toBeNull();
+  file()!.open = true;
+  mount.update(options("Example"));
+  expect(file()?.open).toBe(true);
+  mount.update(options("not-matching"));
+  expect(file()).toBeNull();
+  mount.update(options("", { ...snapshot, brokenLinks: snapshot.brokenLinks.map(item => ({ ...item })) }));
+  expect(file()?.open).toBe(true);
+  file()!.open = false;
+  mount.update(options("Example"));
+  expect(file()?.open).toBe(false);
+  mount.dispose();
+});

@@ -117,6 +117,24 @@ export function createScheduledViewModelSelector(): (
   };
 }
 
+const expectationCounts = new WeakMap<readonly IsolatedFileResult[], number>();
+
+async function countExpected(
+  items: readonly IsolatedFileResult[], scheduler: WorkScheduler, isCurrent: () => boolean,
+): Promise<number | null> {
+  const cached = expectationCounts.get(items);
+  if (cached !== undefined) return cached;
+  let expected = 0;
+  for (const item of items) {
+    if (item.expectation.kind === "expected") expected += 1;
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!isCurrent()) return null;
+  }
+  expectationCounts.set(items, expected);
+  return expected;
+}
+
 async function prepareCounts(
   broken: readonly BrokenLinkResult[], snapshot: SidebarQuerySnapshot, state: SidebarViewState,
   scheduler: WorkScheduler, isCurrent: () => boolean,
@@ -144,23 +162,12 @@ async function prepareCounts(
     if (pause !== null) await pause;
     if (!isCurrent()) return null;
   }
-  let isolatedBadge = 0;
-  let isolatedExpected = 0;
-  for (const item of snapshot.isolatedFiles) {
-    if (item.expectation.kind === "unexpected") isolatedBadge += 1;
-    else if (state.isolatedMode === "isolated") isolatedExpected += 1;
-    const pause = scheduler.checkpoint();
-    if (pause !== null) await pause;
-    if (!isCurrent()) return null;
-  }
-  if (state.isolatedMode !== "isolated") {
-    for (const item of snapshot.noIncomingFiles) {
-      if (item.expectation.kind === "expected") isolatedExpected += 1;
-      const pause = scheduler.checkpoint();
-      if (pause !== null) await pause;
-      if (!isCurrent()) return null;
-    }
-  }
+  const expected = await countExpected(snapshot.isolatedFiles, scheduler, isCurrent);
+  if (expected === null) return null;
+  const isolatedBadge = snapshot.isolatedFiles.length - expected;
+  const isolatedExpected = state.isolatedMode === "isolated" ? expected
+    : await countExpected(snapshot.noIncomingFiles, scheduler, isCurrent);
+  if (isolatedExpected === null) return null;
   return {
     groups, folders, files, directFolderCount: directFolders.size, isolatedBadge, isolatedExpected,
     isolatedScope: (state.isolatedMode === "isolated" ? snapshot.isolatedFiles : snapshot.noIncomingFiles).length,

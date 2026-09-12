@@ -381,7 +381,7 @@ function appendBrokenFolderChildren(
   for (const file of node.files) {
     const item = parent.ownerDocument.createElement("li");
     item.setAttribute("role", "treeitem");
-    const details = parent.ownerDocument.createElement("details");
+    const details = createDisclosure(options, `broken-source:${file.path}`, false);
     const summary = parent.ownerDocument.createElement("summary");
     summary.append(
       createText(parent.ownerDocument, "span", file.name),

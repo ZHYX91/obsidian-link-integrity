@@ -31,6 +31,7 @@ export class SidebarQueryService implements SidebarQueryPort {
   private brokenPaths: Set<string> | null = null;
   private isolatedPaths: Set<string> | null = null;
   private resultsRevision = 0;
+  private preparationGeneration = 0;
   private pendingPreparation: {
     tab: SidebarTabId; revision: number; promise: Promise<boolean>;
   } | null = null;
@@ -92,9 +93,12 @@ export class SidebarQueryService implements SidebarQueryPort {
     const revision = this.resultsRevision;
     const pending = this.pendingPreparation;
     if (pending?.tab === tab && pending.revision === revision) return pending.promise;
+    const generation = ++this.preparationGeneration;
+    const isCurrent = (): boolean => revision === this.resultsRevision && generation === this.preparationGeneration;
     const scheduler = new WorkScheduler();
     const promise = (async (): Promise<boolean> => {
-      const paths = tab === "broken-links" ? this.brokenPaths : this.isolatedPaths;
+      const pendingPaths = tab === "broken-links" ? this.brokenPaths : this.isolatedPaths;
+      const paths = pendingPaths === null ? null : new Set(pendingPaths);
       const dirty = tab === "broken-links" ? this.brokenLinksDirty : this.isolatedFilesDirty;
       if (!dirty) return true;
       const work = paths ?? filePaths(this.getIndex());
@@ -114,7 +118,7 @@ export class SidebarQueryService implements SidebarQueryPort {
               }
               const pause = scheduler.checkpoint();
               if (pause !== null) await pause;
-              if (revision !== this.resultsRevision) return false;
+              if (!isCurrent()) return false;
             }
           }
         } else {
@@ -124,26 +128,34 @@ export class SidebarQueryService implements SidebarQueryPort {
         }
         const pause = scheduler.checkpoint();
         if (pause !== null) await pause;
-        if (revision !== this.resultsRevision) return false;
+        if (!isCurrent()) return false;
       }
-      const sortedBroken = await scheduledSort(broken, compareBrokenResults, scheduler);
-      const sortedIsolated = await scheduledSort(isolated, compareIsolatedResults, scheduler);
-      const sortedNoIncoming = await scheduledSort(noIncoming, compareIsolatedResults, scheduler);
-      if (revision !== this.resultsRevision) return false;
+      const sortedBroken = await scheduledSteps(sortSteps(broken, compareBrokenResults), scheduler, isCurrent);
+      if (sortedBroken === null) return false;
+      const sortedIsolated = await scheduledSteps(sortSteps(isolated, compareIsolatedResults), scheduler, isCurrent);
+      if (sortedIsolated === null) return false;
+      const sortedNoIncoming = await scheduledSteps(sortSteps(noIncoming, compareIsolatedResults), scheduler, isCurrent);
+      if (sortedNoIncoming === null) return false;
       if (tab === "broken-links") {
-        this.brokenLinks = paths === null ? sortedBroken : mergeResults(
+        const result = paths === null ? sortedBroken : await scheduledSteps(mergeResultSteps(
           this.brokenLinks, sortedBroken, paths, (item) => item.sourcePath, compareBrokenResults,
-        );
+        ), scheduler, isCurrent);
+        if (result === null || !isCurrent()) return false;
+        this.brokenLinks = result;
         this.brokenPaths = new Set();
         this.brokenLinksDirty = false;
         this.brokenLinksKnown = true;
       } else {
-        this.isolatedFiles = paths === null ? sortedIsolated : mergeResults(
+        const result = paths === null ? sortedIsolated : await scheduledSteps(mergeResultSteps(
           this.isolatedFiles, sortedIsolated, paths, (item) => item.path, compareIsolatedResults,
-        );
-        this.noIncomingFiles = paths === null ? sortedNoIncoming : mergeResults(
+        ), scheduler, isCurrent);
+        if (result === null) return false;
+        const incomingResult = paths === null ? sortedNoIncoming : await scheduledSteps(mergeResultSteps(
           this.noIncomingFiles, sortedNoIncoming, paths, (item) => item.path, compareIsolatedResults,
-        );
+        ), scheduler, isCurrent);
+        if (incomingResult === null || !isCurrent()) return false;
+        this.isolatedFiles = result;
+        this.noIncomingFiles = incomingResult;
         this.isolatedPaths = new Set();
         this.isolatedFilesDirty = false;
         this.isolatedFilesKnown = true;
@@ -299,25 +311,46 @@ function mergeResults<T>(
   previous: readonly T[], updates: readonly T[], paths: ReadonlySet<string>,
   pathOf: (item: T) => string, compare: (left: T, right: T) => number,
 ): readonly T[] {
-  const old = previous.filter((item) => paths.has(pathOf(item)));
-  if (old.length === updates.length && old.every((item, index) =>
-    JSON.stringify(item) === JSON.stringify(updates[index]))) return previous;
-  // Both inputs are ordered. Merge without sorting the unaffected result set.
-  const retained = previous.filter((item) => !paths.has(pathOf(item)));
+  const steps = mergeResultSteps(previous, updates, paths, pathOf, compare);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+function* mergeResultSteps<T>(
+  previous: readonly T[], updates: readonly T[], paths: ReadonlySet<string>,
+  pathOf: (item: T) => string, compare: (left: T, right: T) => number,
+): Generator<void, readonly T[]> {
+  if (paths.size === 0) return previous;
+  let affected = 0;
+  let unchanged = true;
+  for (const item of previous) {
+    if (paths.has(pathOf(item))) {
+      if (JSON.stringify(item) !== JSON.stringify(updates[affected])) unchanged = false;
+      affected += 1;
+    }
+    yield;
+  }
+  if (unchanged && affected === updates.length) return previous;
   const result: T[] = [];
   let position = 0;
-  for (const item of retained) {
-    while (position < updates.length) {
-      const update = updates[position];
-      if (update === undefined || compare(update, item) > 0) break;
-      result.push(update);
-      position += 1;
+  for (const item of previous) {
+    if (!paths.has(pathOf(item))) {
+      while (position < updates.length) {
+        const update = updates[position];
+        if (update === undefined || compare(update, item) > 0) break;
+        result.push(update);
+        position += 1;
+        yield;
+      }
+      result.push(item);
     }
-    result.push(item);
+    yield;
   }
   for (; position < updates.length; position += 1) {
     const item = updates[position];
     if (item !== undefined) result.push(item);
+    yield;
   }
   return result;
 }
@@ -335,17 +368,17 @@ function* pathBatches(paths: Iterable<string>): Iterable<Set<string>> {
   if (batch.size > 0) yield batch;
 }
 
-async function scheduledSort<T>(
-  items: readonly T[], compare: (a: T, b: T) => number, scheduler: WorkScheduler,
-): Promise<T[]> {
-  const steps = sortSteps(items, compare);
+async function scheduledSteps<T>(
+  steps: Generator<void, T>, scheduler: WorkScheduler, isCurrent: () => boolean,
+): Promise<T | null> {
   let step = steps.next();
   while (!step.done) {
     const pause = scheduler.checkpoint();
     if (pause !== null) await pause;
+    if (!isCurrent()) return null;
     step = steps.next();
   }
-  return step.value;
+  return isCurrent() ? step.value : null;
 }
 
 function diagnosticEnabled(

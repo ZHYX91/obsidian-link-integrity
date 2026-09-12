@@ -1,3 +1,4 @@
+import { createScheduledViewModelSelector } from "../../src/ui/sidebar/view-model";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -256,3 +257,24 @@ function isolated(
     expectation: { kind, ruleIds: kind === "expected" ? ["daily"] : [] },
   } as const;
 }
+
+
+it("reuses isolation counts across searches and invalidates them with result identity", async () => {
+  let reads = 0;
+  const tracked = snapshot().isolatedFiles.map(item => ({ ...item,
+    get expectation() { reads += 1; return item.expectation; },
+  }));
+  const source = { ...snapshot(), isolatedFiles: tracked };
+  const select = createScheduledViewModelSelector();
+  const initial = await select(source, state());
+  expect(initial?.isolated.badgeCount).toBe(2);
+  reads = 0;
+  await select(source, { ...state(), search: "Missing" });
+  await select(source, { ...state(), search: "Other" });
+  expect(reads).toBe(0);
+  const updated = await select({ ...source, isolatedFiles: tracked.slice(1) }, state());
+  expect(reads).toBe(2);
+  expect(updated?.isolated.badgeCount).toBe(
+    source.isolatedFiles.slice(1).filter(item => item.expectation.kind === "unexpected").length,
+  );
+});

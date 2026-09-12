@@ -49,12 +49,14 @@
         "Open the results sidebar and type Missing continuously in search; select and replace part of the query, then clear it",
         "Switch to Isolated files, show expected isolated files, and select the folder tree",
         "Collapse Periodic, search for a nonmatching path, inspect the no-matching-results message, then use Clear search",
-        "Rebuild the index and verify that the folder remains collapsed"
+        "Rebuild the index and verify that the folder remains collapsed",
+        "Switch Broken links to source-folder grouping, expand a source file, search for that source and clear search, then rebuild the index"
       ],
       "expected": [
         "Search retains focus, the complete typed query, and its selection during result updates",
         "Clear search restores input focus and the first page without changing filters; Periodic remains collapsed after filtering and an index rebuild",
-        "Both business tabs and result navigation remain usable"
+        "Both business tabs and result navigation remain usable",
+        "The source file remains expanded after matching search, clearing search and rebuilding the index"
       ]
     }
   ]

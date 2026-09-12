@@ -7,6 +7,17 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-09-13
+
+### Fixed
+
+- Preserve source-file expansion in the broken-link folder view across searches and index rebuilds.
+
+### Improved
+
+- Reuse isolation counts while searching instead of rescanning hidden results.
+- Yield during incremental result merging and discard superseded calculations before publishing results.
+
 ## [0.2.5] - 2026-09-09
 
 ### Improved
