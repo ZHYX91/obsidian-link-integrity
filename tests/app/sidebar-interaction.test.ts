@@ -107,7 +107,8 @@ describe("sidebar interaction across host updates", () => {
     folder().open = false;
     refresh();
     expect(folder().open).toBe(false);
-    expect(folder().parentElement?.getAttribute("aria-expanded")).toBe("false");
+    expect(folder().parentElement?.getAttribute("role")).toBeNull();
+    expect(folder().parentElement?.getAttribute("aria-expanded")).toBeNull();
     const filter = view.contentEl.querySelector<HTMLDetailsElement>('.link-integrity-temporary-filter')!;
     filter.open = true;
     refresh();
