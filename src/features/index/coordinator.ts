@@ -184,7 +184,10 @@ export class LinkIndexCoordinator {
     this.errorValue = null;
     try {
       await this.incremental.whenIdle();
-      if (this.regraphPromise !== null) await this.regraphPromise;
+      // Once rebuilding is true, any in-flight policy staging is unable to
+      // publish. The full rebuild starts from the latest desired policy and
+      // synchronizes it again immediately before publication, so waiting for
+      // that obsolete staging here would only create a dependency cycle.
       this.incremental.stop();
       this.assertCurrentLifecycle(epoch);
       let staging = await this.rebuildController.buildStaging(
@@ -265,15 +268,24 @@ export class LinkIndexCoordinator {
     if (this.store.current.graphContributionPolicy === this.graphContributionPolicy) {
       return Promise.resolve();
     }
-    if (this.regraphPromise !== null) {
-      return this.regraphPromise.then(() => this.ensureGraphPolicy());
-    }
+    if (this.regraphPromise !== null) return this.regraphPromise;
+
     const request = this.performRegraph();
-    this.regraphPromise = request;
-    void request.finally(() => {
-      if (this.regraphPromise === request) this.regraphPromise = null;
-    }).catch(() => undefined);
-    return request.then(() => this.ensureGraphPolicy());
+    let tracked: Promise<void>;
+    tracked = request.then(
+      () => {
+        if (this.regraphPromise === tracked) this.regraphPromise = null;
+        return this.ensureGraphPolicy();
+      },
+      (error: unknown) => {
+        if (this.regraphPromise === tracked) this.regraphPromise = null;
+        throw error;
+      },
+    );
+    // Track the complete policy-settling operation, not only one staging pass.
+    // Callers awaiting regraph() and whenIdle() now observe the same boundary.
+    this.regraphPromise = tracked;
+    return tracked;
   }
 
   private async performRegraph(): Promise<void> {
