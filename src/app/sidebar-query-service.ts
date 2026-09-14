@@ -280,7 +280,9 @@ export class SidebarQueryService implements SidebarQueryPort {
     }
   }
 
-  public notifyResults(): void { this.emit(); }
+  public notifyResults(): void {
+    if (this.status.state !== "idle") this.emit();
+  }
 
   private invalidateResults(): void {
     this.resultsRevision += 1;
