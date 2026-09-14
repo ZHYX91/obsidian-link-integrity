@@ -7,7 +7,7 @@ import {
   type IsolatedFileResult as CoreIsolatedFileResult,
 } from "../features/queries";
 import type { LinkIntegritySettings } from "../shared/settings";
-import { IgnoreService } from "../shared/ignore-rules";
+import { createOccurrenceIgnoreContext, IgnoreService } from "../shared/ignore-rules";
 import { WorkScheduler } from "../scheduling/work-scheduler";
 import { sortSteps } from "../scheduling/sort-steps";
 import type {
@@ -185,13 +185,12 @@ export class SidebarQueryService implements SidebarQueryPort {
   private diagnosticVisible(
     diagnostic: BrokenLinkDiagnostic, index: LinkIndex, settings: LinkIntegritySettings, ignore: IgnoreService,
   ): boolean {
+    const sourceFile = index.getFile(diagnostic.sourcePath);
     return diagnosticEnabled(diagnostic, settings) && (settings.brokenLinks.showIgnored ||
-        !ignore.shouldHideBrokenResult({
-          sourcePath: diagnostic.sourcePath,
-          targetPath: diagnostic.resolvedTargetPath ?? diagnostic.targetText,
-          occurrenceId: diagnostic.id,
-          extension: index.getFile(diagnostic.sourcePath)?.extension ?? null,
-        }));
+      !ignore.shouldHideBrokenResult(createOccurrenceIgnoreContext(
+        diagnostic.occurrence,
+        sourceFile?.extension ?? null,
+      )));
   }
 
   private computeIsolatedFiles(paths: ReadonlySet<string> | null = null): {
@@ -281,7 +280,9 @@ export class SidebarQueryService implements SidebarQueryPort {
     }
   }
 
-  public notifyResults(): void { this.emit(); }
+  public notifyResults(): void {
+    if (this.status.state !== "idle") this.emit();
+  }
 
   private invalidateResults(): void {
     this.resultsRevision += 1;

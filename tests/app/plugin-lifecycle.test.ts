@@ -119,6 +119,8 @@ describe("plugin index lifecycle", () => {
     }, "regraph");
     expect(rebuildSpy).not.toHaveBeenCalled();
     expect(snapshotBuildCount).toBe(buildsBeforeRegraph);
+    await runtime.coordinator.whenIdle();
+    await Promise.resolve();
 
     runtime.setExpectedFile("A.md", true, document);
     expect(plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["A.md"]);

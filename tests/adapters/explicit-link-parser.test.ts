@@ -21,6 +21,28 @@ describe("extractMarkdownExplicitReferences", () => {
     ]);
   });
 
+  it("ignores escaped Markdown label openers", () => {
+    const source = String.raw`\[label](Missing.md) [kept](Present.md)`;
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "Present.md",
+    ]);
+  });
+
+  it("supports arbitrarily nested balanced parentheses in Markdown destinations", () => {
+    const source = "[nested](A(B(C(D))).md)";
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "A(B(C(D))).md",
+    ]);
+  });
+
+  it("keeps unmatched bracket-heavy input bounded and produces no false links", () => {
+    const source = "[x".repeat(25_000);
+
+    expect(extractMarkdownExplicitReferences(source)).toEqual([]);
+  });
+
   it("ignores fenced code, inline code, and Obsidian comments", () => {
     const source = [
       "`[[inline]]` [[kept]]",

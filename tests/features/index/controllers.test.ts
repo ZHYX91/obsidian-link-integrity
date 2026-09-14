@@ -409,7 +409,7 @@ describe("index coordinator", () => {
       oracle.replaceSourceSnapshot(sourceSnapshot.sourcePath, sourceSnapshot);
     }
 
-    coordinator.regraph(policy);
+    await coordinator.regraph(policy);
 
     expect(vault.buildCount).toBe(buildCount);
     expect(vault.listFilesCallCount).toBe(listFilesCallCount);
@@ -427,6 +427,40 @@ describe("index coordinator", () => {
     expect(coordinator.index.toCanonicalState()).toEqual(
       (await buildOracle(vault, policy)).toCanonicalState(),
     );
+  });
+
+  it("keeps the published graph unchanged while a sliced regraph is in flight", async () => {
+    const vault = new VirtualVault({
+      "Source.md": ["Target"],
+      "Target.md": [],
+    });
+    const gate = deferred<void>();
+    const yielded = deferred<void>();
+    let hold = false;
+    const coordinator = new LinkIndexCoordinator(vault, new LinkIndex(), {}, {
+      yieldEvery: 1,
+      yieldControl: async () => {
+        if (!hold) return;
+        yielded.resolve();
+        await gate.promise;
+      },
+    });
+    coordinator.start();
+    await coordinator.rebuild();
+    const before = coordinator.index;
+    expect(before.getOutgoingNeighborCount("Source.md")).toBe(1);
+
+    hold = true;
+    const regraphing = coordinator.regraph({ allows: () => false });
+    await yielded.promise;
+
+    expect(coordinator.index).toBe(before);
+    expect(coordinator.index.getOutgoingNeighborCount("Source.md")).toBe(1);
+
+    gate.resolve();
+    await regraphing;
+    expect(coordinator.index).not.toBe(before);
+    expect(coordinator.index.getOutgoingNeighborCount("Source.md")).toBe(0);
   });
 
   it("publishes the latest regraph policy when it changes during staging", async () => {
@@ -454,9 +488,10 @@ describe("index coordinator", () => {
 
     const rebuilding = coordinator.rebuild();
     await started.promise;
-    coordinator.regraph(policy);
+    const regraphing = coordinator.regraph(policy);
     gate.resolve();
     await rebuilding;
+    await regraphing;
 
     expect(coordinator.index.getOutgoingNeighborCount("Source.md")).toBe(0);
     expect(coordinator.index.toCanonicalState()).toEqual(

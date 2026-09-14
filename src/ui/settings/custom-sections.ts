@@ -896,7 +896,7 @@ function renderIgnoreRules(
     const current = currentSettings(context);
     const rule: IgnoreRule = {
       id: context.createId("ignore-rule"),
-      enabled: true,
+      enabled: false,
       scope: domain === "broken" ? "hide-broken-result" : "exclude-isolated-candidate",
       matcher: { kind: "path-prefix", value: "_archive" },
       createdAt: Date.now(),
