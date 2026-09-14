@@ -1,5 +1,6 @@
 import { LinkIndex } from "../../core/link-index";
 import type { GraphContributionPolicy } from "../../core/scopes";
+import { WorkScheduler } from "../../scheduling/work-scheduler";
 import { AtomicLinkIndexStore } from "./atomic-store";
 import {
   FullRebuildController,
@@ -11,6 +12,7 @@ import {
   type IncrementalBatchDiagnostics,
   type IncrementalIndexOptions,
 } from "./incremental-controller";
+import { consumeSteps } from "./consume-steps";
 import type { LinkIndexPort, SourceEvent } from "./ports";
 
 export type LinkIndexCoordinatorState = "idle" | "ready" | "rebuilding" | "stale" | "failed";
@@ -65,6 +67,9 @@ export class LinkIndexCoordinator {
   private lifecycleEpoch = 0;
   private diagnosticsValue: IndexDiagnosticsSnapshot;
   private readonly diagnosticsListeners = new Set<(snapshot: IndexDiagnosticsSnapshot) => void>();
+  private graphContributionPolicy: GraphContributionPolicy;
+  private regraphRevision = 0;
+  private regraphPromise: Promise<void> | null = null;
 
   public constructor(
     private readonly port: LinkIndexPort,
@@ -75,6 +80,7 @@ export class LinkIndexCoordinator {
     this.incrementalOptions = incrementalOptions;
     this.now = rebuildOptions.now ?? incrementalOptions.now ?? Date.now;
     this.store = new AtomicLinkIndexStore(initialIndex);
+    this.graphContributionPolicy = initialIndex.graphContributionPolicy;
     this.diagnosticsValue = Object.freeze({
       ...initialIndex.getStatistics(),
       pendingEventCount: 0,
@@ -108,12 +114,14 @@ export class LinkIndexCoordinator {
     return () => this.diagnosticsListeners.delete(listener);
   }
 
-  public setGraphContributionPolicy(policy: GraphContributionPolicy): void {
-    this.store.current.setGraphContributionPolicy(policy);
-  }
-
-  public regraph(policy: GraphContributionPolicy): void {
-    this.setGraphContributionPolicy(policy);
+  public regraph(policy: GraphContributionPolicy): Promise<void> {
+    this.graphContributionPolicy = policy;
+    this.regraphRevision += 1;
+    if (!this.active) {
+      this.store.current.setGraphContributionPolicy(policy);
+      return Promise.resolve();
+    }
+    return this.ensureGraphPolicy();
   }
 
   public start(): void {
@@ -121,11 +129,15 @@ export class LinkIndexCoordinator {
     this.active = true;
     this.lifecycleEpoch += 1;
     this.incremental.start();
+    if (this.store.current.graphContributionPolicy !== this.graphContributionPolicy) {
+      void this.ensureGraphPolicy().catch(() => undefined);
+    }
   }
 
   public stop(): void {
     this.active = false;
     this.lifecycleEpoch += 1;
+    this.regraphRevision += 1;
     this.rebuildAbortController?.abort(new RebuildCancelledError());
     this.incremental.stop();
     this.bufferedEvents = [];
@@ -172,13 +184,18 @@ export class LinkIndexCoordinator {
     this.errorValue = null;
     try {
       await this.incremental.whenIdle();
+      if (this.regraphPromise !== null) await this.regraphPromise;
       this.incremental.stop();
       this.assertCurrentLifecycle(epoch);
-      let staging = await this.rebuildController.buildStaging(undefined, signal);
+      let staging = await this.rebuildController.buildStaging(
+        this.graphContributionPolicy,
+        signal,
+      );
       this.assertCurrentLifecycle(epoch);
       staging = await this.replayBufferedEvents(staging, signal);
       this.assertCurrentLifecycle(epoch);
-      staging.setGraphContributionPolicy(this.store.current.graphContributionPolicy);
+      staging = await this.synchronizeStagingPolicy(staging, epoch, signal);
+      this.assertCurrentLifecycle(epoch);
       const result = this.rebuildController.publish(staging);
       this.stateValue = "ready";
       const completedAt = this.now();
@@ -221,13 +238,125 @@ export class LinkIndexCoordinator {
           if (this.store.generation > 0 || this.stateValue !== "failed") {
             for (const event of remaining) this.incremental.enqueue(event);
           }
+          if (this.store.current.graphContributionPolicy !== this.graphContributionPolicy) {
+            void this.ensureGraphPolicy().catch(() => undefined);
+          }
         }
       }
     }
   }
 
   public async whenIdle(): Promise<void> {
-    await this.incremental.whenIdle();
+    while (true) {
+      await this.incremental.whenIdle();
+      const pendingRegraph = this.regraphPromise;
+      if (pendingRegraph === null) return;
+      await pendingRegraph;
+    }
+  }
+
+  private ensureGraphPolicy(): Promise<void> {
+    if (!this.active) return Promise.resolve();
+    if (this.rebuilding || this.rebuildPromise !== null) {
+      const rebuilding = this.rebuildPromise;
+      return (rebuilding === null ? Promise.resolve() : rebuilding.catch(() => undefined))
+        .then(() => this.ensureGraphPolicy());
+    }
+    if (this.store.current.graphContributionPolicy === this.graphContributionPolicy) {
+      return Promise.resolve();
+    }
+    if (this.regraphPromise !== null) {
+      return this.regraphPromise.then(() => this.ensureGraphPolicy());
+    }
+    const request = this.performRegraph();
+    this.regraphPromise = request;
+    void request.finally(() => {
+      if (this.regraphPromise === request) this.regraphPromise = null;
+    }).catch(() => undefined);
+    return request.then(() => this.ensureGraphPolicy());
+  }
+
+  private async performRegraph(): Promise<void> {
+    while (this.active && !this.rebuilding) {
+      const base = this.store.current;
+      const policy = this.graphContributionPolicy;
+      if (base.graphContributionPolicy === policy) return;
+      const revision = this.regraphRevision;
+      const scheduler = new WorkScheduler(this.incrementalOptions);
+      const isCurrent = (): boolean => this.active && !this.rebuilding &&
+        this.regraphRevision === revision && this.store.current === base &&
+        this.graphContributionPolicy === policy;
+      const staging = await this.materializePolicy(base, policy, scheduler, isCurrent);
+      if (staging === null) {
+        if (!this.active || this.rebuilding) return;
+        continue;
+      }
+      if (!isCurrent()) continue;
+      this.store.publish(staging);
+      this.notifyGraphChanged(staging);
+      this.updateDiagnostics(staging.getStatistics());
+      if (this.graphContributionPolicy === policy) return;
+    }
+  }
+
+  private async synchronizeStagingPolicy(
+    initial: LinkIndex,
+    epoch: number,
+    signal: AbortSignal,
+  ): Promise<LinkIndex> {
+    let staging = initial;
+    while (staging.graphContributionPolicy !== this.graphContributionPolicy) {
+      const policy = this.graphContributionPolicy;
+      const scheduler = new WorkScheduler(this.incrementalOptions);
+      const isCurrent = (): boolean => this.active && this.lifecycleEpoch === epoch &&
+        signal.aborted !== true && this.graphContributionPolicy === policy;
+      const rematerialized = await this.materializePolicy(staging, policy, scheduler, isCurrent);
+      if (signal.aborted) throw signal.reason ?? new RebuildCancelledError();
+      this.assertCurrentLifecycle(epoch);
+      if (rematerialized === null) continue;
+      staging = rematerialized;
+    }
+    return staging;
+  }
+
+  private async materializePolicy(
+    base: LinkIndex,
+    policy: GraphContributionPolicy,
+    scheduler: WorkScheduler,
+    isCurrent: () => boolean,
+  ): Promise<LinkIndex | null> {
+    const staging = new LinkIndex([], { contributionPolicy: policy });
+    for (const file of base.iterateFiles()) {
+      if (!isCurrent()) return null;
+      staging.replaceFileRecord(file.path, file);
+      const pause = scheduler.checkpoint();
+      if (pause !== null) await pause;
+    }
+    for (const file of base.iterateFiles()) {
+      if (!isCurrent()) return null;
+      const snapshot = base.getSourceSnapshot(file.path);
+      if (snapshot !== null) {
+        await consumeSteps(staging.replaceSourceSnapshotSteps(file.path, snapshot), scheduler, isCurrent);
+        if (!isCurrent()) return null;
+      }
+      const pause = scheduler.checkpoint();
+      if (pause !== null) await pause;
+    }
+    return isCurrent() ? staging : null;
+  }
+
+  private notifyGraphChanged(index: LinkIndex): void {
+    const graphPaths = new Set<string>();
+    for (const file of index.iterateFiles()) graphPaths.add(file.path);
+    try {
+      this.incrementalOptions.onChanges?.({
+        sourcePaths: new Set(),
+        filePaths: new Set(),
+        graphPaths,
+      });
+    } catch {
+      // Query observers are observational and must not interrupt publication.
+    }
   }
 
   private async replayBufferedEvents(

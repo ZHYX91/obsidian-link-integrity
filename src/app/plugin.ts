@@ -20,6 +20,7 @@ import {
   type ExpectedIsolationRule,
   type ExpectedRuleStats,
   type GraphContributionPolicy,
+  type LinkOccurrence,
 } from "../core";
 import {
   LinkIndexCoordinator,
@@ -27,9 +28,10 @@ import {
   type IndexDiagnosticsSnapshot,
   type SourceEvent,
 } from "../features/index";
-import { queryBrokenLinks } from "../features/queries";
+import { diagnoseOccurrence } from "../features/queries";
 import { createTranslator } from "../shared/i18n";
 import {
+  createOccurrenceIgnoreContext,
   IgnoreService,
   renameOccurrenceRuleSources,
   type IgnoreEvaluationContext,
@@ -546,14 +548,18 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private async openBrokenLink(result: BrokenLinkResult): Promise<void> {
     const leaf = await this.openFile(result.sourcePath);
-    if (result.location.line === null || !(leaf.view instanceof MarkdownView)) return;
+    if (!(leaf.view instanceof MarkdownView)) return;
+    const line = result.location.line ?? (result.location.property === null
+      ? null
+      : findFrontmatterPropertyLine(leaf.view.editor.getValue(), result.location.property));
+    if (line === null) return;
     leaf.view.editor.setCursor({
-      line: result.location.line,
-      ch: result.location.column ?? 0,
+      line,
+      ch: result.location.line === null ? 0 : result.location.column ?? 0,
     });
     leaf.view.editor.scrollIntoView({
-      from: { line: result.location.line, ch: result.location.column ?? 0 },
-      to: { line: result.location.line, ch: result.location.column ?? 0 },
+      from: { line, ch: result.location.line === null ? 0 : result.location.column ?? 0 },
+      to: { line, ch: result.location.line === null ? 0 : result.location.column ?? 0 },
     }, true);
   }
 
@@ -889,48 +895,53 @@ export default class LinkIntegrityPlugin extends Plugin {
     const policy: GraphContributionPolicy = service.getGraphContributionRules().length === 0
       ? ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY
       : {
-        allows: ({ occurrence, sourceFile }) => {
-          const classification = classifyFileExtension(sourceFile.path);
-          return !service.shouldExcludeGraphContribution({
-            sourcePath: occurrence.sourcePath,
-            targetPath: occurrence.targetPath,
-            occurrenceId: occurrence.id,
-            formatFamilyIds: classification.familyIds,
-            extension: sourceFile.extension,
-          });
-        },
+        allows: ({ occurrence, sourceFile }) =>
+          !service.shouldExcludeGraphContribution(
+            createOccurrenceIgnoreContext(occurrence, sourceFile.extension),
+          ),
       };
-    this.coordinator.regraph(policy);
+    void this.coordinator.regraph(policy).then(() => {
+      if (this.query !== undefined) this.query.notifyResults();
+    }).catch((error: unknown) => this.reportError(error));
   }
 
-  private getIgnorePreviewContexts(rule: IgnoreRule): readonly IgnoreEvaluationContext[] {
+  private *getIgnorePreviewContexts(rule: IgnoreRule): Iterable<IgnoreEvaluationContext> {
+    const index = this.coordinator.index;
     if (rule.scope === "exclude-isolated-candidate") {
-      return this.coordinator.index.files.map((file) => {
+      for (const file of index.iterateFiles()) {
         const classification = classifyFileExtension(file.path);
-        return {
+        yield {
           candidatePath: file.path,
           formatFamilyIds: classification.familyIds,
           extension: file.extension,
         };
-      });
+      }
+      return;
     }
-    const occurrences = rule.scope === "exclude-graph-contribution"
-      ? this.coordinator.index.occurrences.filter(({ fileStatus, targetPath }) =>
-        fileStatus === "resolved" && targetPath !== null)
-      : queryBrokenLinks(this.coordinator.index).map(({ occurrence }) => occurrence);
-    return occurrences.map((occurrence) => {
-      const sourceFile = this.coordinator.index.getFile(occurrence.sourcePath);
-      const classification = sourceFile === null
-        ? null
-        : classifyFileExtension(sourceFile.path);
-      return {
-        sourcePath: occurrence.sourcePath,
-        targetPath: occurrence.targetPath ?? occurrence.linkpath,
-        occurrenceId: occurrence.id,
-        formatFamilyIds: classification?.familyIds,
-        extension: sourceFile?.extension ?? null,
-      };
-    });
+
+    for (const occurrence of this.previewOccurrenceCandidates(rule)) {
+      if (rule.scope === "exclude-graph-contribution") {
+        if (occurrence.fileStatus !== "resolved" || occurrence.targetPath === null) continue;
+      } else if (diagnoseOccurrence(occurrence) === null) {
+        continue;
+      }
+      const sourceFile = index.getFile(occurrence.sourcePath);
+      yield createOccurrenceIgnoreContext(occurrence, sourceFile?.extension ?? null);
+    }
+  }
+
+  private *previewOccurrenceCandidates(rule: IgnoreRule): Iterable<LinkOccurrence> {
+    const index = this.coordinator.index;
+    if (rule.matcher.kind === "occurrence-id") {
+      const occurrence = index.getOccurrence(rule.matcher.value);
+      if (occurrence !== null) yield occurrence;
+      return;
+    }
+    if (rule.matcher.kind === "source-path") {
+      yield* index.getSourceSnapshot(rule.matcher.value)?.occurrences ?? [];
+      return;
+    }
+    yield* index.iterateOccurrences();
   }
 
   private reportError(error: unknown): void {
@@ -942,6 +953,21 @@ export default class LinkIntegrityPlugin extends Plugin {
   public reportSettingsError(error: unknown): void {
     this.reportError(error);
   }
+}
+
+function findFrontmatterPropertyLine(source: string, property: string): number | null {
+  const lines = source.split(/\r?\n/u);
+  const first = lines[0]?.replace(/^\uFEFF/u, "").trim();
+  if (first !== "---") return null;
+  const candidates = new Set([property, property.split(".").at(-1) ?? property]);
+  for (let line = 1; line < lines.length; line += 1) {
+    const text = lines[line]?.trim() ?? "";
+    if (text === "---" || text === "...") return null;
+    const match = /^([^:#][^:]*):/u.exec(text);
+    const key = match?.[1]?.trim().replace(/^(?:"([^"]*)"|'([^']*)')$/u, "$1$2");
+    if (key !== undefined && candidates.has(key)) return line;
+  }
+  return null;
 }
 
 function errorMessage(error: unknown): string {

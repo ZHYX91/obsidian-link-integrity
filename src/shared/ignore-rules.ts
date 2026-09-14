@@ -1,3 +1,12 @@
+import {
+  classifyFileExtension,
+  type LinkOccurrence,
+} from "../core";
+import {
+  occurrenceIdMatches,
+  renameOccurrenceIdSource,
+} from "../core/occurrence-identity";
+
 export const IGNORE_RULE_SCOPES = [
   "hide-broken-result",
   "exclude-isolated-candidate",
@@ -54,6 +63,20 @@ export interface IgnoreRulePreview {
   readonly samples: readonly string[];
 }
 
+export function createOccurrenceIgnoreContext(
+  occurrence: LinkOccurrence,
+  sourceExtension?: string | null,
+): IgnoreEvaluationContext {
+  const classification = classifyFileExtension(sourceExtension ?? occurrence.sourcePath);
+  return {
+    sourcePath: occurrence.sourcePath,
+    targetPath: occurrence.targetPath ?? unresolvedOccurrenceTarget(occurrence),
+    occurrenceId: occurrence.id,
+    formatFamilyIds: classification.familyIds,
+    extension: sourceExtension ?? classification.extension,
+  };
+}
+
 export class IgnoreService {
   private readonly enabledRules: readonly IgnoreRule[];
   private readonly graphContributionRules: readonly IgnoreRule[];
@@ -95,7 +118,7 @@ export class IgnoreService {
 
   preview(
     rule: IgnoreRule,
-    contexts: readonly IgnoreEvaluationContext[],
+    contexts: Iterable<IgnoreEvaluationContext>,
     sampleLimit = 5,
   ): IgnoreRulePreview {
     return previewIgnoreRule(rule, contexts, sampleLimit);
@@ -168,19 +191,20 @@ function ignoreMatcherMatches(
     case "source-path":
       return [context.sourcePath, context.candidatePath]
         .some((path) => path !== null && path !== undefined && normalizePath(path) === expected);
-    case "path-prefix":
-      return (rule.scope === "ignore-target"
-        ? [context.targetPath]
-        : [context.sourcePath, context.candidatePath])
-        .some((path) => path !== null && path !== undefined &&
-          isPathWithinPrefix(normalizePath(path), expected));
+    case "path-prefix": {
+      const paths = rule.scope === "ignore-target"
+        ? [context.targetPath == null ? context.targetPath : normalizeTargetPath(context.targetPath)]
+        : [context.sourcePath, context.candidatePath];
+      return paths.some((path) => path !== null && path !== undefined &&
+        isPathWithinPrefix(normalizePath(path), expected));
+    }
     case "target-path":
       return context.targetPath !== null && context.targetPath !== undefined &&
-        normalizePath(context.targetPath) === expected;
+        normalizeTargetPath(context.targetPath) === normalizeTargetPath(expected);
     case "occurrence-id":
       return occurrenceIdMatches(rule.matcher.value, context.occurrenceId);
     case "format-family":
-      return context.formatFamilyIds?.includes(rule.matcher.value) ?? false;
+      return resolveContextFormatFamilyIds(context).includes(rule.matcher.value);
     case "extension":
       return resolveContextExtension(context) === normalizeExtension(rule.matcher.value);
   }
@@ -204,7 +228,7 @@ export function renameOccurrenceRuleSources(
 
 export function previewIgnoreRule(
   rule: IgnoreRule,
-  contexts: readonly IgnoreEvaluationContext[],
+  contexts: Iterable<IgnoreEvaluationContext>,
   sampleLimit = 5,
 ): IgnoreRulePreview {
   const limit = Number.isFinite(sampleLimit) ? Math.max(0, Math.floor(sampleLimit)) : 5;
@@ -216,6 +240,34 @@ export function previewIgnoreRule(
     if (samples.length < limit) samples.push(describeContext(context));
   }
   return { matchCount, samples };
+}
+
+function unresolvedOccurrenceTarget(occurrence: LinkOccurrence): string {
+  return occurrence.linkpath + (occurrence.subpath ?? "");
+}
+
+function normalizeTargetPath(value: string): string {
+  const normalized = normalizePath(value);
+  let escaped = false;
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === "#") return normalized.slice(0, index);
+  }
+  return normalized;
+}
+
+function resolveContextFormatFamilyIds(context: IgnoreEvaluationContext): readonly string[] {
+  if (context.formatFamilyIds !== undefined) return context.formatFamilyIds;
+  const value = context.extension ?? context.candidatePath ?? context.sourcePath ?? context.targetPath;
+  return value == null ? [] : classifyFileExtension(value).familyIds;
 }
 
 function normalizeRuleId(value: unknown): string | null {
@@ -273,7 +325,3 @@ function normalizeTimestamp(value: unknown): number {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-import {
-  occurrenceIdMatches,
-  renameOccurrenceIdSource,
-} from "../core/occurrence-identity";
