@@ -71,9 +71,10 @@ describe("scheduled sidebar rendering", () => {
       position: { line: 42, column: 3, endLine: 42, endColumn: 12, property: null, canvasNodeId: null },
     }]));
     f.publish(next);
-    await vi.waitFor(() => expect(f.view.contentEl.querySelector(".link-integrity-result-path")?.textContent).toBe("A.md"));
-    expect(Array.from(f.view.contentEl.querySelectorAll(".link-integrity-result-context"))
-      .some(({ textContent }) => textContent?.includes("L43") === true)).toBe(true);
+    await vi.waitFor(() => expect(Array.from(
+      f.view.contentEl.querySelectorAll(".link-integrity-result-context"),
+    ).some(({ textContent }) => textContent?.includes("L43") === true)).toBe(true));
+    expect(f.view.contentEl.querySelector(".link-integrity-result-path")?.textContent).toBe("A.md");
     const newButton = f.view.contentEl.querySelector<HTMLButtonElement>(".link-integrity-result-main")!;
     expect(newButton).not.toBe(oldButton);
     expect(document.activeElement).toBe(newButton);
