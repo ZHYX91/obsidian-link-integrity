@@ -767,14 +767,14 @@ export default class LinkIntegrityPlugin extends Plugin {
     const isolatedFiles = expectedFilePaths === currentPaths
       ? this.settings.isolatedFiles
       : { ...this.settings.isolatedFiles, expectedFilePaths };
-    const ignoreRules = renameOccurrenceRuleSources(this.settings.ignoreRules, oldPath, newPath);
-    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === this.settings.ignoreRules) return;
+    const previousIgnoreRules = this.settings.ignoreRules;
+    const ignoreRules = renameOccurrenceRuleSources(previousIgnoreRules, oldPath, newPath);
+    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === previousIgnoreRules) return;
     this.updateSettings({
       ...this.settings,
       isolatedFiles,
       ignoreRules,
-    }, ignoreRules !== this.settings.ignoreRules &&
-        ignoreRules.some(({ scope }) => scope === "exclude-graph-contribution")
+    }, graphContributionRulesChanged(previousIgnoreRules, ignoreRules)
       ? "regraph"
       : "query-only");
   }
@@ -785,11 +785,11 @@ export default class LinkIntegrityPlugin extends Plugin {
       oldPath,
       newPath,
     );
-    const ignoreRules = renameOccurrenceRuleSources(this.settings.ignoreRules, oldPath, newPath);
-    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === this.settings.ignoreRules) return;
+    const previousIgnoreRules = this.settings.ignoreRules;
+    const ignoreRules = renameOccurrenceRuleSources(previousIgnoreRules, oldPath, newPath);
+    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === previousIgnoreRules) return;
     this.updateSettings({ ...this.settings, isolatedFiles, ignoreRules },
-      ignoreRules !== this.settings.ignoreRules &&
-          ignoreRules.some(({ scope }) => scope === "exclude-graph-contribution")
+      graphContributionRulesChanged(previousIgnoreRules, ignoreRules)
         ? "regraph"
         : "query-only");
   }
@@ -968,6 +968,16 @@ function findFrontmatterPropertyLine(source: string, property: string): number |
     if (key !== undefined && candidates.has(key)) return line;
   }
   return null;
+}
+
+function graphContributionRulesChanged(
+  before: readonly IgnoreRule[],
+  after: readonly IgnoreRule[],
+): boolean {
+  const beforeGraphRules = before.filter(({ scope }) => scope === "exclude-graph-contribution");
+  const afterGraphRules = after.filter(({ scope }) => scope === "exclude-graph-contribution");
+  return beforeGraphRules.length !== afterGraphRules.length ||
+    beforeGraphRules.some((rule, index) => rule !== afterGraphRules[index]);
 }
 
 function errorMessage(error: unknown): string {
