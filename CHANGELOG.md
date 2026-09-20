@@ -7,6 +7,21 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-09-20
+
+### Fixed
+
+- Bound unsuccessful Markdown destination scans, respect escaped openers, and support nested destinations.
+- Keep ignore previews consistent with actual filtering when links move or contain heading and block targets.
+- Locate YAML properties using syntax ranges and show Canvas node identifiers alongside text-node line numbers.
+- Preserve logical sidebar focus across result replacement and use native disclosure semantics.
+- Keep graph-policy updates atomic across rebuilds, incremental changes, and lifecycle transitions.
+
+### Improved
+
+- Schedule broad ignore previews and fallback link extraction, cancelling superseded previews and restarting counts when the index changes.
+- Present filenames before paths and location details; create settings ignore rules disabled and label whole-file target ignores explicitly.
+
 ## [0.2.6] - 2026-09-13
 
 ### Fixed

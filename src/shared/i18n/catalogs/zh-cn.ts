@@ -255,7 +255,7 @@ export const ZH_CN_MESSAGES = {
   "settings.ignore.matcher.extension": "扩展名",
   "ignore.scope.hideBroken": "隐藏无效链接结果",
   "ignore.scope.excludeIsolated": "排除孤立候选",
-  "ignore.scope.ignoreTarget": "忽略目标",
+  "ignore.scope.ignoreTarget": "忽略整个目标文件",
   "ignore.scope.ignoreOccurrence": "忽略单个 occurrence",
   "ignore.scope.excludeGraph": "排除图贡献（高级）",
   "settings.futureSchema.title": "设置来自较新的插件版本",

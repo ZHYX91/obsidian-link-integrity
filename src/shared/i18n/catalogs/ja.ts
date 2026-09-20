@@ -254,7 +254,7 @@ export const JA_MESSAGES = localizedCatalog({
   "settings.ignore.matcher.extension": "拡張子",
   "ignore.scope.hideBroken": "壊れたリンクの結果を非表示",
   "ignore.scope.excludeIsolated": "孤立ファイル候補から除外",
-  "ignore.scope.ignoreTarget": "対象を無視",
+  "ignore.scope.ignoreTarget": "リンク先ファイル全体を無視",
   "ignore.scope.ignoreOccurrence": "1 つの出現を無視",
   "ignore.scope.excludeGraph": "グラフへの寄与を除外（高度）",
   "settings.futureSchema.title": "設定は新しいバージョンのプラグインで作成されています",

@@ -254,7 +254,7 @@ export const RU_MESSAGES = localizedCatalog({
   "settings.ignore.matcher.extension": "Расширение",
   "ignore.scope.hideBroken": "Скрыть результат битой ссылки",
   "ignore.scope.excludeIsolated": "Исключить кандидат в изолированные файлы",
-  "ignore.scope.ignoreTarget": "Игнорировать цель",
+  "ignore.scope.ignoreTarget": "Игнорировать весь целевой файл",
   "ignore.scope.ignoreOccurrence": "Игнорировать одно вхождение",
   "ignore.scope.excludeGraph": "Исключить вклад в граф (расширенно)",
   "settings.futureSchema.title": "Настройки созданы более новой версией плагина",

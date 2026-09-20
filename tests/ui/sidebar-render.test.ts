@@ -608,16 +608,17 @@ describe("sidebar renderer", () => {
     expect(container.querySelectorAll(".link-integrity-result-row"))
       .toHaveLength(SIDEBAR_RESULT_BATCH_SIZE);
     expect(container.querySelector(".link-integrity-isolated-tree")).not.toBeNull();
+    expect(container.querySelector('[role="tree"]')).toBeNull();
     const folderDetails = container.querySelector<HTMLDetailsElement>(
       ".link-integrity-isolated-tree details",
     );
-    const folderTreeItem = folderDetails?.closest('[role="treeitem"]');
-    expect(folderTreeItem?.getAttribute("aria-expanded")).toBe("true");
+    expect(folderDetails?.closest('[role="treeitem"]')).toBeNull();
+    expect(folderDetails?.open).toBe(true);
     if (folderDetails !== null) {
       folderDetails.open = false;
       folderDetails.dispatchEvent(new Event("toggle"));
     }
-    expect(folderTreeItem?.getAttribute("aria-expanded")).toBe("false");
+    expect(folderDetails?.open).toBe(false);
     const folderAction = container.querySelector<HTMLButtonElement>(
       ".link-integrity-isolated-folder-summary > .link-integrity-more-button",
     );

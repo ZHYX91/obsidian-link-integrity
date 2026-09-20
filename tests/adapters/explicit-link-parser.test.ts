@@ -1,8 +1,10 @@
+import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { describe, expect, it } from "vitest";
 
 import {
   extractBasesExplicitReferences,
   extractMarkdownExplicitReferences,
+  extractMarkdownExplicitReferencesAsync,
   isExternalReference,
 } from "../../src/adapters/obsidian/explicit-link-parser";
 
@@ -19,6 +21,43 @@ describe("extractMarkdownExplicitReferences", () => {
         startOffset: 35,
       }),
     ]);
+  });
+
+  it("ignores escaped Markdown label openers", () => {
+    const source = String.raw`\[label](Missing.md) [kept](Present.md)`;
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "Present.md",
+    ]);
+  });
+
+  it("supports arbitrarily nested balanced parentheses in Markdown destinations", () => {
+    const source = "[nested](A(B(C(D))).md)";
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "A(B(C(D))).md",
+    ]);
+  });
+
+  it("keeps unmatched bracket-heavy input bounded and produces no false links", () => {
+    const source = "[x".repeat(25_000);
+
+    expect(extractMarkdownExplicitReferences(source)).toEqual([]);
+  });
+
+  it.each(["[x](", "[x](<", '[x](a "'])("handles repeated unsuccessful destinations: %s", (unit) => {
+    expect(extractMarkdownExplicitReferences(unit.repeat(16_000))).toEqual([]);
+    expect(extractMarkdownExplicitReferences(`${unit.repeat(100)}\n[kept](Present.md)`)
+      .map(({ linktext }) => linktext)).toEqual(["Present.md"]);
+  });
+
+  it("yields while parsing a large source and preserves synchronous results", async () => {
+    const source = "[link](A(B(C)).md) [[Other]]\n".repeat(1000);
+    let yields = 0;
+    const scheduler = new WorkScheduler({ yieldEvery: 1, yieldControl: async () => { yields += 1; } });
+    expect(await extractMarkdownExplicitReferencesAsync(source, scheduler))
+      .toEqual(extractMarkdownExplicitReferences(source));
+    expect(yields).toBeGreaterThan(10);
   });
 
   it("ignores fenced code, inline code, and Obsidian comments", () => {

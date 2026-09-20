@@ -339,7 +339,6 @@ function renderBrokenFolderTree(container: HTMLElement, options: SidebarRenderOp
   );
   const tree = container.ownerDocument.createElement("ul");
   tree.className = "link-integrity-broken-folder-tree";
-  tree.setAttribute("role", "tree");
   appendBrokenFolderChildren(tree, options.model.broken.folderTree, options);
   container.append(controls, tree);
 }
@@ -351,12 +350,11 @@ function appendBrokenFolderChildren(
 ): void {
   for (const folder of node.folders) {
     const item = parent.ownerDocument.createElement("li");
-    item.setAttribute("role", "treeitem");
     const details = parent.ownerDocument.createElement("details");
     const expanded = options.state.expandedBrokenFolderPaths.has(folder.path);
     details.open = expanded;
-    item.setAttribute("aria-expanded", String(expanded));
     const summary = parent.ownerDocument.createElement("summary");
+    summary.dataset.focusKey = `broken-folder:${folder.path}`;
     summary.append(
       createText(parent.ownerDocument, "span", folder.name),
       createText(parent.ownerDocument, "span", String(folder.totalCount), "link-integrity-count"),
@@ -364,7 +362,6 @@ function appendBrokenFolderChildren(
     details.append(summary);
     if (expanded) {
       const group = parent.ownerDocument.createElement("ul");
-      group.setAttribute("role", "group");
       appendBrokenFolderChildren(group, folder, options);
       details.append(group);
     }
@@ -380,9 +377,9 @@ function appendBrokenFolderChildren(
   }
   for (const file of node.files) {
     const item = parent.ownerDocument.createElement("li");
-    item.setAttribute("role", "treeitem");
     const details = createDisclosure(options, `broken-source:${file.path}`, false);
     const summary = parent.ownerDocument.createElement("summary");
+    summary.dataset.focusKey = `broken-source:${file.path}`;
     summary.append(
       createText(parent.ownerDocument, "span", file.name),
       createText(parent.ownerDocument, "span", String(file.totalCount), "link-integrity-count"),
@@ -404,9 +401,11 @@ function renderBrokenGroup(
   group: BrokenGroupViewModel,
   options: SidebarRenderOptions,
 ): HTMLElement {
-  const element = createDisclosure(options, `broken-group:${options.state.brokenGrouping}:${group.key}`, true);
+  const disclosureKey = `broken-group:${options.state.brokenGrouping}:${group.key}`;
+  const element = createDisclosure(options, disclosureKey, true);
   element.className = "link-integrity-broken-group";
   const summary = documentFor(options).createElement("summary");
+  summary.dataset.focusKey = disclosureKey;
   summary.append(
     createText(documentFor(options), "span", group.label),
     createText(documentFor(options), "span", String(group.totalCount), "link-integrity-count"),
@@ -440,13 +439,18 @@ function renderBrokenItem(
   const button = document.createElement("button");
   button.type = "button";
   button.className = "link-integrity-result-main";
+  button.dataset.focusKey = `${key}:main`;
   button.setAttribute("aria-label", options.translator.t("sidebar.broken.openSource", {
     path: item.sourcePath,
   }));
-  const location = item.location.line === null ? "" : `:${item.location.line + 1}`;
+  button.title = item.sourcePath;
+  const metadata = formatBrokenMetadata(item);
+  button.append(createText(document, "span", fileName(item.sourcePath), "link-integrity-result-path"));
+  if (metadata.length > 0) {
+    button.append(createText(document, "span", metadata, "link-integrity-result-context"));
+  }
   button.append(
-    createText(document, "span", `${item.sourcePath}${location}`, "link-integrity-result-path"),
-    createText(document, "span", item.context || item.rawText, "link-integrity-result-context"),
+    createText(document, "span", item.rawText, "link-integrity-result-context"),
     createText(
       document,
       "span",
@@ -464,6 +468,7 @@ function renderBrokenItem(
       : options.navigation.openBrokenLinkActions(item, anchor),
     options.onActionError,
   ));
+  more.dataset.focusKey = `${key}:more`;
   row.append(button, more);
   options.rows?.set(key, { signature, element: row });
   return row;
@@ -514,7 +519,9 @@ export function renderIsolatedResults(container: HTMLElement, options: SidebarRe
 
   const typeFilter = createDisclosure(options, "file-type-filter", false);
   typeFilter.className = "link-integrity-temporary-filter";
-  typeFilter.append(createText(container.ownerDocument, "summary", t("sidebar.fileTypes")));
+  const typeFilterSummary = createText(container.ownerDocument, "summary", t("sidebar.fileTypes"));
+  typeFilterSummary.dataset.focusKey = "file-type-filter";
+  typeFilter.append(typeFilterSummary);
   renderFileTypeSelection(typeFilter, {
     categories: options.fileTypeCategories,
     selectedFormatIds: options.state.selectedFormatFamilyIds,
@@ -553,7 +560,6 @@ export function renderIsolatedResults(container: HTMLElement, options: SidebarRe
   if (options.model.isolated.view === "tree") {
     const tree = container.ownerDocument.createElement("ul");
     tree.className = "link-integrity-isolated-tree";
-    tree.setAttribute("role", "tree");
     appendTreeChildren(tree, options.model.isolated.tree, options);
     container.append(tree);
   } else {
@@ -603,6 +609,7 @@ function renderPagination(
         isolatedResultOffset: Math.max(0, result.pageStart - SIDEBAR_RESULT_BATCH_SIZE),
       }),
   );
+  previous.dataset.focusKey = `${tabId}:previous`;
   previous.disabled = result.pageStart === 0;
   const next = createActionButton(
     container.ownerDocument,
@@ -617,6 +624,7 @@ function renderPagination(
         isolatedResultOffset: result.pageStart + SIDEBAR_RESULT_BATCH_SIZE,
       }),
   );
+  next.dataset.focusKey = `${tabId}:next`;
   next.disabled = result.pageStart + result.renderedCount >= result.visibleCount;
   pagination.append(previous, next);
   container.append(pagination);
@@ -629,15 +637,11 @@ function appendTreeChildren(
 ): void {
   for (const folder of node.folders) {
     const item = parent.ownerDocument.createElement("li");
-    item.setAttribute("role", "treeitem");
-    item.setAttribute("aria-expanded", "true");
-    const details = createDisclosure(options, `isolated-folder:${folder.path}`, true);
-    item.setAttribute("aria-expanded", String(details.open));
-    details.addEventListener("toggle", () => {
-      item.setAttribute("aria-expanded", String(details.open));
-    });
+    const disclosureKey = `isolated-folder:${folder.path}`;
+    const details = createDisclosure(options, disclosureKey, true);
     const summary = parent.ownerDocument.createElement("summary");
     summary.className = "link-integrity-isolated-folder-summary";
+    summary.dataset.focusKey = disclosureKey;
     summary.append(createText(parent.ownerDocument, "span", folder.name));
     if (options.navigation.openIsolatedFolderActions !== undefined) {
       const more = moreButton(
@@ -648,6 +652,7 @@ function appendTreeChildren(
           options.onActionError,
         ),
       );
+      more.dataset.focusKey = `${disclosureKey}:more`;
       more.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -656,17 +661,12 @@ function appendTreeChildren(
     }
     details.append(summary);
     const group = parent.ownerDocument.createElement("ul");
-    group.setAttribute("role", "group");
     appendTreeChildren(group, folder, options);
     details.append(group);
     item.append(details);
     parent.append(item);
   }
-  for (const file of node.files) {
-    const item = renderIsolatedItem(file, options);
-    item.setAttribute("role", "treeitem");
-    parent.append(item);
-  }
+  for (const file of node.files) parent.append(renderIsolatedItem(file, options));
 }
 
 function createDisclosure(
@@ -696,29 +696,33 @@ function renderIsolatedItem(
   const button = document.createElement("button");
   button.type = "button";
   button.className = "link-integrity-result-main";
-  button.append(
-    createText(document, "span", item.path, "link-integrity-result-path"),
-    createText(
-      document,
-      "span",
-      item.expectation.kind === "expected"
-        ? item.brokenOutgoingCount > 0
-          ? options.translator.t("sidebar.isolated.expectedWithBroken", {
-            count: item.brokenOutgoingCount,
-          })
-          : options.translator.t("sidebar.isolated.expected")
-        : item.brokenOutgoingCount > 0
-          ? options.translator.t("sidebar.isolated.lowConfidence", {
-            count: item.brokenOutgoingCount,
-          })
-          : options.translator.t("sidebar.isolated.highConfidence"),
-      item.expectation.kind === "expected"
-        ? "link-integrity-confidence is-expected"
-        : item.brokenOutgoingCount > 0
-          ? "link-integrity-confidence is-low"
-          : "link-integrity-confidence is-high",
-    ),
-  );
+  button.dataset.focusKey = `${key}:main`;
+  button.title = item.path;
+  button.append(createText(document, "span", fileName(item.path), "link-integrity-result-path"));
+  const folder = parentPath(item.path);
+  if (folder.length > 0) {
+    button.append(createText(document, "span", folder, "link-integrity-result-context"));
+  }
+  button.append(createText(
+    document,
+    "span",
+    item.expectation.kind === "expected"
+      ? item.brokenOutgoingCount > 0
+        ? options.translator.t("sidebar.isolated.expectedWithBroken", {
+          count: item.brokenOutgoingCount,
+        })
+        : options.translator.t("sidebar.isolated.expected")
+      : item.brokenOutgoingCount > 0
+        ? options.translator.t("sidebar.isolated.lowConfidence", {
+          count: item.brokenOutgoingCount,
+        })
+        : options.translator.t("sidebar.isolated.highConfidence"),
+    item.expectation.kind === "expected"
+      ? "link-integrity-confidence is-expected"
+      : item.brokenOutgoingCount > 0
+        ? "link-integrity-confidence is-low"
+        : "link-integrity-confidence is-high",
+  ));
   button.addEventListener("click", () => runAction(
     () => options.navigation.openFile(item.path),
     options.onActionError,
@@ -729,6 +733,7 @@ function renderIsolatedItem(
       : options.navigation.openIsolatedFileActions(item, anchor),
     options.onActionError,
   ));
+  more.dataset.focusKey = `${key}:more`;
   row.append(button, more);
   options.rows?.set(key, { signature, element: row });
   return row;
@@ -798,6 +803,24 @@ function formatStatus(options: SidebarRenderOptions): string {
   if (status.state === "failed") return status.errorMessage ?? t("status.failed");
   if (status.state === "idle") return t("status.idle");
   return t("status.ready");
+}
+
+function formatBrokenMetadata(item: BrokenLinkResult): string {
+  const parts: string[] = [];
+  const folder = parentPath(item.sourcePath);
+  if (folder.length > 0) parts.push(folder);
+  if (item.location.canvasNodeId !== null) parts.push(`Canvas · ${item.location.canvasNodeId}`);
+  if (item.location.property !== null) parts.push(`YAML · ${item.location.property}`);
+  if (item.location.line !== null) parts.push(`L${item.location.line + 1}`);
+  return parts.join(" · ");
+}
+
+function fileName(path: string): string {
+  return path.split("/").at(-1) ?? path;
+}
+
+function parentPath(path: string): string {
+  return path.split("/").slice(0, -1).join("/");
 }
 
 function formatBrokenReason(

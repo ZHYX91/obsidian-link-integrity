@@ -1,3 +1,5 @@
+import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
+import { IgnorePreviewService } from "./ignore-preview-service";
 import {
   MarkdownView,
   Menu,
@@ -14,7 +16,6 @@ import {
 import { ObsidianLinkIndexPort } from "../adapters/obsidian";
 import {
   ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY,
-  classifyFileExtension,
   getExpectedRuleStats,
   LinkIndex,
   type ExpectedIsolationRule,
@@ -27,12 +28,11 @@ import {
   type IndexDiagnosticsSnapshot,
   type SourceEvent,
 } from "../features/index";
-import { queryBrokenLinks } from "../features/queries";
 import { createTranslator } from "../shared/i18n";
 import {
+  createOccurrenceIgnoreContext,
   IgnoreService,
   renameOccurrenceRuleSources,
-  type IgnoreEvaluationContext,
   type IgnoreMatcherKind,
   type IgnoreRule,
   type IgnoreRulePreview,
@@ -211,9 +211,8 @@ export default class LinkIntegrityPlugin extends Plugin {
     };
   }
 
-  public previewIgnoreRule(rule: IgnoreRule): IgnoreRulePreview {
-    const service = new IgnoreService([rule]);
-    return service.preview(rule, this.getIgnorePreviewContexts(rule));
+  public previewIgnoreRule(rule: IgnoreRule, signal?: AbortSignal): Promise<IgnoreRulePreview> {
+    return new IgnorePreviewService(() => this.coordinator.index).preview(rule, signal);
   }
 
   public updateSettings(
@@ -546,14 +545,18 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private async openBrokenLink(result: BrokenLinkResult): Promise<void> {
     const leaf = await this.openFile(result.sourcePath);
-    if (result.location.line === null || !(leaf.view instanceof MarkdownView)) return;
+    if (!(leaf.view instanceof MarkdownView)) return;
+    const line = result.location.line ?? (result.location.property === null
+      ? null
+      : findFrontmatterPropertyLine(leaf.view.editor.getValue(), result.location.property));
+    if (line === null) return;
     leaf.view.editor.setCursor({
-      line: result.location.line,
-      ch: result.location.column ?? 0,
+      line,
+      ch: result.location.line === null ? 0 : result.location.column ?? 0,
     });
     leaf.view.editor.scrollIntoView({
-      from: { line: result.location.line, ch: result.location.column ?? 0 },
-      to: { line: result.location.line, ch: result.location.column ?? 0 },
+      from: { line, ch: result.location.line === null ? 0 : result.location.column ?? 0 },
+      to: { line, ch: result.location.line === null ? 0 : result.location.column ?? 0 },
     }, true);
   }
 
@@ -596,7 +599,10 @@ export default class LinkIntegrityPlugin extends Plugin {
     for (const rule of rules) {
       menu.addItem((item) => item
         .setTitle(rule.title)
-        .onClick(() => this.addIgnoreRule(rule.scope, rule.kind, rule.value, rule.title, anchor)));
+        .onClick(() => {
+          void this.addIgnoreRule(rule.scope, rule.kind, rule.value, rule.title, anchor)
+            .catch((error: unknown) => this.reportError(error));
+        }));
     }
     showMenuAtAnchor(menu, anchor);
   }
@@ -761,14 +767,14 @@ export default class LinkIntegrityPlugin extends Plugin {
     const isolatedFiles = expectedFilePaths === currentPaths
       ? this.settings.isolatedFiles
       : { ...this.settings.isolatedFiles, expectedFilePaths };
-    const ignoreRules = renameOccurrenceRuleSources(this.settings.ignoreRules, oldPath, newPath);
-    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === this.settings.ignoreRules) return;
+    const previousIgnoreRules = this.settings.ignoreRules;
+    const ignoreRules = renameOccurrenceRuleSources(previousIgnoreRules, oldPath, newPath);
+    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === previousIgnoreRules) return;
     this.updateSettings({
       ...this.settings,
       isolatedFiles,
       ignoreRules,
-    }, ignoreRules !== this.settings.ignoreRules &&
-        ignoreRules.some(({ scope }) => scope === "exclude-graph-contribution")
+    }, graphContributionRulesChanged(previousIgnoreRules, ignoreRules)
       ? "regraph"
       : "query-only");
   }
@@ -779,22 +785,22 @@ export default class LinkIntegrityPlugin extends Plugin {
       oldPath,
       newPath,
     );
-    const ignoreRules = renameOccurrenceRuleSources(this.settings.ignoreRules, oldPath, newPath);
-    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === this.settings.ignoreRules) return;
+    const previousIgnoreRules = this.settings.ignoreRules;
+    const ignoreRules = renameOccurrenceRuleSources(previousIgnoreRules, oldPath, newPath);
+    if (isolatedFiles === this.settings.isolatedFiles && ignoreRules === previousIgnoreRules) return;
     this.updateSettings({ ...this.settings, isolatedFiles, ignoreRules },
-      ignoreRules !== this.settings.ignoreRules &&
-          ignoreRules.some(({ scope }) => scope === "exclude-graph-contribution")
+      graphContributionRulesChanged(previousIgnoreRules, ignoreRules)
         ? "regraph"
         : "query-only");
   }
 
-  private addIgnoreRule(
+  private async addIgnoreRule(
     scope: IgnoreRuleScope,
     kind: IgnoreMatcherKind,
     value: string,
     label: string,
     anchor: HTMLElement,
-  ): void {
+  ): Promise<void> {
     const suffix = anchor.ownerDocument.defaultView?.crypto.randomUUID?.() ??
       Date.now().toString(36);
     const rule: IgnoreRule = {
@@ -805,7 +811,8 @@ export default class LinkIntegrityPlugin extends Plugin {
       createdAt: Date.now(),
       note: `Added from sidebar: ${label}`,
     };
-    const preview = this.previewIgnoreRule(rule);
+    const preview = await this.previewIgnoreRule(rule);
+    if (this.unloaded) return;
     this.updateSettings({
       ...this.settings,
       ignoreRules: [...this.settings.ignoreRules, rule],
@@ -889,48 +896,14 @@ export default class LinkIntegrityPlugin extends Plugin {
     const policy: GraphContributionPolicy = service.getGraphContributionRules().length === 0
       ? ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY
       : {
-        allows: ({ occurrence, sourceFile }) => {
-          const classification = classifyFileExtension(sourceFile.path);
-          return !service.shouldExcludeGraphContribution({
-            sourcePath: occurrence.sourcePath,
-            targetPath: occurrence.targetPath,
-            occurrenceId: occurrence.id,
-            formatFamilyIds: classification.familyIds,
-            extension: sourceFile.extension,
-          });
-        },
+        allows: ({ occurrence, sourceFile }) =>
+          !service.shouldExcludeGraphContribution(
+            createOccurrenceIgnoreContext(occurrence, sourceFile.extension),
+          ),
       };
-    this.coordinator.regraph(policy);
-  }
-
-  private getIgnorePreviewContexts(rule: IgnoreRule): readonly IgnoreEvaluationContext[] {
-    if (rule.scope === "exclude-isolated-candidate") {
-      return this.coordinator.index.files.map((file) => {
-        const classification = classifyFileExtension(file.path);
-        return {
-          candidatePath: file.path,
-          formatFamilyIds: classification.familyIds,
-          extension: file.extension,
-        };
-      });
-    }
-    const occurrences = rule.scope === "exclude-graph-contribution"
-      ? this.coordinator.index.occurrences.filter(({ fileStatus, targetPath }) =>
-        fileStatus === "resolved" && targetPath !== null)
-      : queryBrokenLinks(this.coordinator.index).map(({ occurrence }) => occurrence);
-    return occurrences.map((occurrence) => {
-      const sourceFile = this.coordinator.index.getFile(occurrence.sourcePath);
-      const classification = sourceFile === null
-        ? null
-        : classifyFileExtension(sourceFile.path);
-      return {
-        sourcePath: occurrence.sourcePath,
-        targetPath: occurrence.targetPath ?? occurrence.linkpath,
-        occurrenceId: occurrence.id,
-        formatFamilyIds: classification?.familyIds,
-        extension: sourceFile?.extension ?? null,
-      };
-    });
+    void this.coordinator.regraph(policy).then(() => {
+      if (this.query !== undefined) this.query.notifyResults();
+    }).catch((error: unknown) => this.reportError(error));
   }
 
   private reportError(error: unknown): void {
@@ -942,6 +915,16 @@ export default class LinkIntegrityPlugin extends Plugin {
   public reportSettingsError(error: unknown): void {
     this.reportError(error);
   }
+}
+
+function graphContributionRulesChanged(
+  before: readonly IgnoreRule[],
+  after: readonly IgnoreRule[],
+): boolean {
+  const beforeGraphRules = before.filter(({ scope }) => scope === "exclude-graph-contribution");
+  const afterGraphRules = after.filter(({ scope }) => scope === "exclude-graph-contribution");
+  return beforeGraphRules.length !== afterGraphRules.length ||
+    beforeGraphRules.some((rule, index) => rule !== afterGraphRules[index]);
 }
 
 function errorMessage(error: unknown): string {

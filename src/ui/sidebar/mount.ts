@@ -105,9 +105,6 @@ export function mountSidebar(
     for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
       const key = details.dataset.disclosureKey;
       if (key !== undefined) disclosures.set(key, details.open);
-      if (details.parentElement?.hasAttribute("aria-expanded")) {
-        details.parentElement.setAttribute("aria-expanded", String(details.open));
-      }
     }
     const nextResultsKey = JSON.stringify([
       options.translator.locale, options.model.activeTab, options.model.search,
@@ -118,8 +115,7 @@ export function mountSidebar(
     ]);
     if (resultsKey === nextResultsKey) return;
     resultsKey = nextResultsKey;
-    const focused = container.ownerDocument.activeElement;
-    const restoreFocus = focused instanceof HTMLElement && results.contains(focused);
+    const focusKey = resultFocusKey(container.ownerDocument.activeElement, results);
     results.replaceChildren();
     if (idle) {
       renderEmptyState(results, options.translator.t("status.idle"),
@@ -130,7 +126,7 @@ export function mountSidebar(
     } else {
       renderIsolatedResults(results, options);
     }
-    if (restoreFocus && results.contains(focused)) focused.focus();
+    restoreResultFocus(results, focusKey);
     for (const [key, row] of rows) if (!results.contains(row.element)) rows.delete(key);
   };
   update(initialOptions);
@@ -145,4 +141,16 @@ export function mountSidebar(
       container.removeAttribute("dir");
     },
   };
+}
+
+function resultFocusKey(activeElement: Element | null, results: HTMLElement): string | null {
+  if (!(activeElement instanceof HTMLElement) || !results.contains(activeElement)) return null;
+  return activeElement.closest<HTMLElement>("[data-focus-key]")?.dataset.focusKey ?? null;
+}
+
+function restoreResultFocus(results: HTMLElement, focusKey: string | null): void {
+  if (focusKey === null) return;
+  const controls = Array.from(results.querySelectorAll<HTMLElement>("[data-focus-key]"));
+  const exact = controls.find((element) => element.dataset.focusKey === focusKey);
+  (exact ?? controls[0])?.focus();
 }

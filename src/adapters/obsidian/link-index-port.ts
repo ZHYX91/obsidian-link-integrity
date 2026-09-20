@@ -26,7 +26,7 @@ import {
 } from "../../core/occurrence-identity";
 import {
   extractBasesExplicitReferences,
-  extractMarkdownExplicitReferences,
+  extractMarkdownExplicitReferencesAsync,
   isExternalReference,
   type ParsedExplicitReference,
 } from "./explicit-link-parser";
@@ -178,7 +178,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       }
       if (node.type === "text" && typeof node.text === "string") {
         const lineStarts = createLineStarts(node.text);
-        for (const reference of extractMarkdownExplicitReferences(node.text)) {
+        for (const reference of await extractMarkdownExplicitReferencesAsync(node.text, scheduler)) {
           inputs.push({
             raw: reference.raw,
             linktext: reference.linktext,
@@ -212,7 +212,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     scheduler?: WorkScheduler,
   ): Promise<SourceSnapshot> {
     const lineStarts = createLineStarts(source);
-    return this.resolveSnapshot(file.path, extractMarkdownExplicitReferences(source).map(
+    return this.resolveSnapshot(file.path, (await extractMarkdownExplicitReferencesAsync(source, scheduler)).map(
       (reference, ordinal) => ({
         raw: reference.raw,
         linktext: reference.linktext,

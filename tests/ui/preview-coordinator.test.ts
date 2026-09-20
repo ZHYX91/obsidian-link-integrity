@@ -3,6 +3,22 @@ import { describe, expect, it, vi } from "vitest";
 import { PreviewRequestCoordinator } from "../../src/ui/settings";
 
 describe("PreviewRequestCoordinator", () => {
+  it("cancels work when a newer draft or generation replaces it", async () => {
+    const coordinator = new PreviewRequestCoordinator<string, number>();
+    const signals: AbortSignal[] = [];
+    const load = (signal: AbortSignal): Promise<number> => {
+      signals.push(signal);
+      return Promise.resolve(1);
+    };
+    const first = coordinator.request("rule", load, vi.fn());
+    const second = coordinator.request("rule", load, vi.fn());
+    expect(signals[0]?.aborted).toBe(true);
+    expect(signals[1]?.aborted).toBe(false);
+    coordinator.beginGeneration();
+    expect(signals[1]?.aborted).toBe(true);
+    await Promise.all([first, second]);
+  });
+
   it("drops completion from a hidden or re-rendered generation", async () => {
     const coordinator = new PreviewRequestCoordinator<string, number>();
     const first = deferred<number>();

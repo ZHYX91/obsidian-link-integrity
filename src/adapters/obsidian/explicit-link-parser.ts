@@ -1,3 +1,6 @@
+import { WorkScheduler } from "../../scheduling/work-scheduler";
+import { indexMarkdownDestinations, type MarkdownDestinationIndex } from "./markdown-destination-index";
+
 export interface ParsedExplicitReference {
   readonly raw: string;
   readonly linktext: string;
@@ -6,34 +9,53 @@ export interface ParsedExplicitReference {
   readonly endOffset: number;
 }
 
-const WIKI_LINK = /(!)?\[\[([^\]\n]+)\]\]/gu;
 const BASES_LINK_FUNCTION = /\blink\(\s*(["'])((?:\\.|(?!\1)[^\\\r\n])*)\1(?:\s*,[^\r\n)]*)?\)/gu;
 
 export function extractMarkdownExplicitReferences(
   source: string,
 ): readonly ParsedExplicitReference[] {
-  const masked = maskMarkdownNonContent(source);
-  const references: ParsedExplicitReference[] = [];
-  for (const match of masked.matchAll(WIKI_LINK)) {
-    const startOffset = match.index;
-    const raw = source.slice(startOffset, startOffset + match[0].length);
-    const wikiContent = source.slice(
-      startOffset + (match[1] == null ? 2 : 3),
-      startOffset + match[0].length - 2,
-    );
-    const linktext = readWikiLinktext(wikiContent).trim();
-    if (linktext.length > 0) {
-      references.push({
-        raw,
-        linktext,
-        embedded: match[1] != null,
-        startOffset,
-        endOffset: startOffset + match[0].length,
-      });
-    }
+  const steps = extractMarkdownSteps(source);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export async function extractMarkdownExplicitReferencesAsync(
+  source: string,
+  scheduler = new WorkScheduler(),
+): Promise<readonly ParsedExplicitReference[]> {
+  const steps = extractMarkdownSteps(source);
+  let step = steps.next();
+  while (!step.done) {
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    step = steps.next();
   }
-  references.push(...extractInlineMarkdownLinks(source, masked));
-  return references.sort((left, right) => left.startOffset - right.startOffset);
+  return step.value;
+}
+
+function* extractMarkdownSteps(source: string): Generator<void, readonly ParsedExplicitReference[]> {
+  const masked = maskMarkdownNonContent(source);
+  yield;
+  const { references: wikiReferences, ranges } = yield* extractWikiLinks(source, masked);
+  const destinations = yield* indexMarkdownDestinations(masked);
+  const markdown = yield* extractInlineMarkdownLinks(source, masked, ranges, destinations);
+  const references: ParsedExplicitReference[] = [];
+  let wiki = 0;
+  let inline = 0;
+  while (wiki < wikiReferences.length || inline < markdown.length) {
+    const left = wikiReferences[wiki];
+    const right = markdown[inline];
+    if (left !== undefined && (right === undefined || left.startOffset <= right.startOffset)) {
+      references.push(left);
+      wiki += 1;
+    } else if (right !== undefined) {
+      references.push(right);
+      inline += 1;
+    }
+    if (references.length % 128 === 0) yield;
+  }
+  return references;
 }
 
 export function extractBasesExplicitReferences(
@@ -69,80 +91,177 @@ export function isExternalReference(linktext: string): boolean {
   );
 }
 
-function extractInlineMarkdownLinks(
+interface ExtractedWikiLinks {
+  readonly references: ParsedExplicitReference[];
+  readonly ranges: MaskedRange[];
+}
+
+function* extractWikiLinks(source: string, masked: string): Generator<void, ExtractedWikiLinks> {
+  const references: ParsedExplicitReference[] = [];
+  const ranges: MaskedRange[] = [];
+  let index = 0;
+  while (index < masked.length) {
+    if (index % 1024 === 0) yield;
+    const embedded = masked[index] === "!" && masked[index + 1] === "[" &&
+      masked[index + 2] === "[" && !isEscaped(masked, index + 1);
+    const startOffset = index;
+    const opening = embedded ? index + 1 : index;
+    if (
+      masked[opening] !== "[" ||
+      masked[opening + 1] !== "[" ||
+      isEscaped(masked, opening)
+    ) {
+      index += 1;
+      continue;
+    }
+    const contentStart = opening + 2;
+    const closing = yield* findWikiClosing(masked, contentStart);
+    if (closing < 0) {
+      index = lineEndOffset(masked, contentStart);
+      continue;
+    }
+    const endOffset = closing + 2;
+    ranges.push({ start: startOffset, end: endOffset });
+    const wikiContent = source.slice(contentStart, closing);
+    const linktext = readWikiLinktext(wikiContent).trim();
+    if (linktext.length > 0) {
+      references.push({
+        raw: source.slice(startOffset, endOffset),
+        linktext,
+        embedded,
+        startOffset,
+        endOffset,
+      });
+    }
+    index = endOffset;
+  }
+  return { references, ranges };
+}
+
+function* extractInlineMarkdownLinks(
   source: string,
   masked: string,
-): ParsedExplicitReference[] {
+  wikiRanges: readonly MaskedRange[],
+  destinations: MarkdownDestinationIndex,
+): Generator<void, ParsedExplicitReference[]> {
   const references: ParsedExplicitReference[] = [];
-  for (let index = 0; index < masked.length; index += 1) {
-    const embedded = masked[index] === "!" && masked[index + 1] === "[";
-    const labelStart = embedded ? index + 1 : index;
-    if (masked[labelStart] !== "[" || masked[labelStart + 1] === "[") continue;
-    const labelEnd = findUnescaped(masked, "]", labelStart + 1);
-    if (labelEnd < 0 || masked[labelEnd + 1] !== "(") continue;
-    const parsedDestination = readMarkdownDestination(masked, labelEnd + 2);
-    if (parsedDestination == null) continue;
+  const labelStack: number[] = [];
+  let wikiRangeIndex = 0;
+  let index = 0;
+  while (index < masked.length) {
+    if (index % 1024 === 0) yield;
+    const wikiRange = wikiRanges[wikiRangeIndex];
+    if (wikiRange !== undefined && index >= wikiRange.end) {
+      wikiRangeIndex += 1;
+      continue;
+    }
+    if (wikiRange !== undefined && index >= wikiRange.start) {
+      labelStack.length = 0;
+      index = wikiRange.end;
+      wikiRangeIndex += 1;
+      continue;
+    }
+
+    const character = masked[index];
+    if (character === "\n" || character === "\r") {
+      labelStack.length = 0;
+      index += 1;
+      continue;
+    }
+    if (character === "\\") {
+      index += Math.min(2, masked.length - index);
+      continue;
+    }
+    if (character === "[" && masked[index + 1] !== "[") {
+      labelStack.push(index);
+      index += 1;
+      continue;
+    }
+    if (character !== "]" || labelStack.length === 0) {
+      index += 1;
+      continue;
+    }
+
+    const labelStart = labelStack.pop();
+    if (labelStart === undefined || masked[index + 1] !== "(") {
+      index += 1;
+      continue;
+    }
+    const parsedDestination = readMarkdownDestination(masked, index + 2, destinations);
+    if (parsedDestination === null) {
+      index += 1;
+      continue;
+    }
+    const embedded = labelStart > 0 && source[labelStart - 1] === "!" &&
+      !isEscaped(source, labelStart - 1);
+    const startOffset = embedded ? labelStart - 1 : labelStart;
     const linktext = source
       .slice(parsedDestination.destinationStart, parsedDestination.destinationEnd)
       .replace(/^<|>$/gu, "")
       .trim();
     if (linktext.length > 0) {
       references.push({
-        raw: source.slice(index, parsedDestination.linkEnd),
+        raw: source.slice(startOffset, parsedDestination.linkEnd),
         linktext: unescapeMarkdownDestination(linktext),
         embedded,
-        startOffset: index,
+        startOffset,
         endOffset: parsedDestination.linkEnd,
       });
     }
-    index = parsedDestination.linkEnd - 1;
+    labelStack.length = 0;
+    index = parsedDestination.linkEnd;
   }
   return references;
+}
+
+function* findWikiClosing(source: string, start: number): Generator<void, number> {
+  for (let index = start; index < source.length; index += 1) {
+    if (index % 1024 === 0) yield;
+    const character = source[index];
+    if (character === "\n" || character === "\r") return -1;
+    if (character === "\\") {
+      index += 1;
+      continue;
+    }
+    if (character === "]" && source[index + 1] === "]") return index;
+  }
+  return -1;
+}
+
+function lineEndOffset(source: string, start: number): number {
+  let index = start;
+  while (index < source.length && source[index] !== "\n" && source[index] !== "\r") index += 1;
+  return index < source.length ? index + 1 : source.length;
 }
 
 function readMarkdownDestination(
   source: string,
   start: number,
+  boundaries: MarkdownDestinationIndex,
 ): { destinationStart: number; destinationEnd: number; linkEnd: number } | null {
-  let index = start;
-  while (source[index] === " " || source[index] === "\t") index += 1;
-  const destinationStart = index;
-  if (source[index] === "<") {
-    const closing = findUnescaped(source, ">", index + 1);
-    if (closing < 0) return null;
-    index = closing + 1;
-  } else {
-    let depth = 0;
-    for (; index < source.length; index += 1) {
-      const character = source[index];
-      if (character === "\\") {
-        index += 1;
-        continue;
-      }
-      if (character === "(" && depth < 1) {
-        depth += 1;
-        continue;
-      }
-      if (character === ")") {
-        if (depth === 0) break;
-        depth -= 1;
-        continue;
-      }
-      if ((character === " " || character === "\t") && depth === 0) break;
-      if (character === "\n" || character === "\r") return null;
-    }
-  }
-  const destinationEnd = index;
-  while (source[index] === " " || source[index] === "\t") index += 1;
+  const destinationStart = boundaries.afterWhitespace[start] ?? source.length;
+  const closing = boundaries.closing[destinationStart] ?? -1;
+  const destinationEnd = source[destinationStart] === "<"
+    ? closing < 0 ? -1 : closing + 1
+    : boundaries.bareEnd[destinationStart] ?? -1;
+  if (destinationEnd < 0) return null;
+  let index = boundaries.afterWhitespace[destinationEnd] ?? source.length;
   const quote = source[index];
   if (quote === '"' || quote === "'") {
-    const titleEnd = findUnescaped(source, quote, index + 1);
+    const titleEnd = boundaries.closing[index] ?? -1;
     if (titleEnd < 0) return null;
-    index = titleEnd + 1;
-    while (source[index] === " " || source[index] === "\t") index += 1;
+    index = boundaries.afterWhitespace[titleEnd + 1] ?? source.length;
   }
   if (source[index] !== ")") return null;
   return { destinationStart, destinationEnd, linkEnd: index + 1 };
+}
+
+function isEscaped(source: string, index: number): boolean {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && source[cursor] === "\\"; cursor -= 1) {
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
 }
 
 function maskMarkdownNonContent(source: string): string {
@@ -375,11 +494,15 @@ function maskIndentedCodeBlocks(
 ): void {
   let inBlock = false;
   let previousBlank = true;
+  let excludedRangeIndex = 0;
+  const ranges = [...excludedRanges].sort((left, right) => left.start - right.start);
   for (const line of sourceLineRanges(source)) {
+    while (ranges[excludedRangeIndex] !== undefined &&
+      (ranges[excludedRangeIndex]?.end ?? 0) <= line.start) excludedRangeIndex += 1;
+    const range = ranges[excludedRangeIndex];
+    const excluded = range !== undefined && line.start >= range.start && line.start < range.end;
     const content = source.slice(line.start, line.contentEnd);
     const blank = content.trim().length === 0;
-    const excluded = excludedRanges.some((range) =>
-      line.start >= range.start && line.start < range.end);
     const indented = /^(?: {4,}| {0,3}\t)/u.test(content);
     if (excluded) {
       inBlock = false;
@@ -426,26 +549,10 @@ function readWikiLinktext(content: string): string {
       escaped = false;
       continue;
     }
-    if (character === "\\") {
-      escaped = true;
-    } else if (character === "|") {
-      return content.slice(0, index);
-    }
+    if (character === "\\") escaped = true;
+    else if (character === "|") return content.slice(0, index);
   }
   return content;
-}
-
-function findUnescaped(source: string, needle: string, start: number): number {
-  for (let index = start; index < source.length; index += 1) {
-    if (source[index] === "\\") {
-      index += 1;
-    } else if (source[index] === needle) {
-      return index;
-    } else if (source[index] === "\n" || source[index] === "\r") {
-      return -1;
-    }
-  }
-  return -1;
 }
 
 function maskRange(characters: string[], start: number, end: number): void {

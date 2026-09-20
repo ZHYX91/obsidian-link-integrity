@@ -254,7 +254,7 @@ export const FR_MESSAGES = localizedCatalog({
   "settings.ignore.matcher.extension": "Extension",
   "ignore.scope.hideBroken": "Masquer le résultat du lien rompu",
   "ignore.scope.excludeIsolated": "Exclure le fichier candidat isolé",
-  "ignore.scope.ignoreTarget": "Ignorer la cible",
+  "ignore.scope.ignoreTarget": "Ignorer tout le fichier cible",
   "ignore.scope.ignoreOccurrence": "Ignorer une occurrence",
   "ignore.scope.excludeGraph": "Exclure la contribution au graphe (avancé)",
   "settings.futureSchema.title": "Les paramètres ont été créés par une version plus récente du module",

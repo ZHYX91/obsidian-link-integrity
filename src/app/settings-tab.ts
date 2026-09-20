@@ -184,7 +184,7 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   private refreshIgnorePreview(rule: IgnoreRule): void {
     void this.ignorePreviewRequests.request(
       rule.id,
-      () => Promise.resolve(this.owner.previewIgnoreRule(rule)),
+      (signal) => Promise.resolve(this.owner.previewIgnoreRule(rule, signal)),
       (state) => {
         if (state.state === "ready") this.ignorePreviews.set(rule.id, state.value);
         else this.ignorePreviews.delete(rule.id);

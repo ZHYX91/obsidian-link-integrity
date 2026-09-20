@@ -254,7 +254,7 @@ export const KO_MESSAGES = localizedCatalog({
   "settings.ignore.matcher.extension": "확장자",
   "ignore.scope.hideBroken": "끊어진 링크 결과 숨기기",
   "ignore.scope.excludeIsolated": "고립 파일 후보 제외",
-  "ignore.scope.ignoreTarget": "대상 무시",
+  "ignore.scope.ignoreTarget": "대상 파일 전체 무시",
   "ignore.scope.ignoreOccurrence": "발생 한 건 무시",
   "ignore.scope.excludeGraph": "그래프 기여 제외(고급)",
   "settings.futureSchema.title": "설정이 더 최신 플러그인 버전에서 만들어졌습니다",

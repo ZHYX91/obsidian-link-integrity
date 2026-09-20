@@ -63,14 +63,22 @@ describe("scheduled sidebar rendering", () => {
     f.publish(next);
     await vi.waitFor(() => expect(f.view.contentEl.querySelectorAll(".link-integrity-result-row")).toHaveLength(1));
     expect(f.view.contentEl.querySelector(".link-integrity-result-row")).toBe(firstRow);
+    const oldButton = f.view.contentEl.querySelector<HTMLButtonElement>(".link-integrity-result-main")!;
+    oldButton.focus();
     next = f.index.fork();
     next.replaceSourceSnapshot("A.md", snapshot("A.md", [{
       ...occurrence("A.md", "A.md", { fileStatus: "missing" }),
       position: { line: 42, column: 3, endLine: 42, endColumn: 12, property: null, canvasNodeId: null },
     }]));
     f.publish(next);
-    await vi.waitFor(() => expect(f.view.contentEl.querySelector(".link-integrity-result-path")?.textContent).toBe("A.md:43"));
-    f.view.contentEl.querySelector<HTMLButtonElement>(".link-integrity-result-main")!.click();
+    await vi.waitFor(() => expect(Array.from(
+      f.view.contentEl.querySelectorAll(".link-integrity-result-context"),
+    ).some(({ textContent }) => textContent?.includes("L43") === true)).toBe(true));
+    expect(f.view.contentEl.querySelector(".link-integrity-result-path")?.textContent).toBe("A.md");
+    const newButton = f.view.contentEl.querySelector<HTMLButtonElement>(".link-integrity-result-main")!;
+    expect(newButton).not.toBe(oldButton);
+    expect(document.activeElement).toBe(newButton);
+    newButton.click();
     expect(f.open).toHaveBeenLastCalledWith(expect.objectContaining({ location: expect.objectContaining({ line: 42, column: 3 }) }));
     expect(f.view.contentEl.querySelector(".link-integrity-result-row")).not.toBe(firstRow);
   });

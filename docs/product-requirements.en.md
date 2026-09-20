@@ -38,6 +38,8 @@ Opening a result should open its source and, where the source type permits, navi
 
 Ordinary result-hiding rules change diagnostic visibility only. They do not change valid file connections or erase the risk signal attached to an isolated result.
 
+Target ignores match the entire file, including its heading and block references, without changing graph contribution. Occurrence ignores retain position-independent semantic identities. Rule previews run in slices, restart when the index is replaced, and cancel superseded requests.
+
 ## Isolated files
 
 A file is isolated by default only when both conditions are true in the valid graph:
