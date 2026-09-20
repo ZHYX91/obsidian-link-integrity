@@ -51,6 +51,10 @@ The adapter builds a complete snapshot for every supported explicit source. Mark
 
 The Markdown fallback preserves UTF-16 source offsets while masking fenced and indented code, inline code, Obsidian comments, and YAML comment ranges inside BOM-aware `---`/`...` frontmatter. It retains explicit links in frontmatter values and ordinary Markdown text. Canvas text nodes use the same fallback, so transient startup parsing and Canvas diagnostics share one false-positive boundary.
 
+Markdown destination and title boundaries are indexed once, including failed attempts, and parsing checkpoints yield through the shared scheduler. Frontmatter navigation uses YAML syntax-node source ranges for complete property paths; malformed or ambiguous paths decline precise positioning.
+
+Ignore previews use the execution matcher, visit stored occurrences in scheduled batches, cancel superseded drafts, and restart if the authoritative index changes while counting. Single-source and occurrence rules restrict enumeration to the source snapshot.
+
 Core lookup-key normalization is used only for conservative revalidation after namespace changes. It neither replaces the official resolver nor decides the final target.
 
 ## Graph and query invariants

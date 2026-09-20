@@ -1,3 +1,5 @@
+import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
+import { IgnorePreviewService } from "./ignore-preview-service";
 import {
   MarkdownView,
   Menu,
@@ -14,13 +16,11 @@ import {
 import { ObsidianLinkIndexPort } from "../adapters/obsidian";
 import {
   ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY,
-  classifyFileExtension,
   getExpectedRuleStats,
   LinkIndex,
   type ExpectedIsolationRule,
   type ExpectedRuleStats,
   type GraphContributionPolicy,
-  type LinkOccurrence,
 } from "../core";
 import {
   LinkIndexCoordinator,
@@ -28,13 +28,11 @@ import {
   type IndexDiagnosticsSnapshot,
   type SourceEvent,
 } from "../features/index";
-import { diagnoseOccurrence } from "../features/queries";
 import { createTranslator } from "../shared/i18n";
 import {
   createOccurrenceIgnoreContext,
   IgnoreService,
   renameOccurrenceRuleSources,
-  type IgnoreEvaluationContext,
   type IgnoreMatcherKind,
   type IgnoreRule,
   type IgnoreRulePreview,
@@ -213,9 +211,8 @@ export default class LinkIntegrityPlugin extends Plugin {
     };
   }
 
-  public previewIgnoreRule(rule: IgnoreRule): IgnoreRulePreview {
-    const service = new IgnoreService([rule]);
-    return service.preview(rule, this.getIgnorePreviewContexts(rule));
+  public previewIgnoreRule(rule: IgnoreRule, signal?: AbortSignal): Promise<IgnoreRulePreview> {
+    return new IgnorePreviewService(() => this.coordinator.index).preview(rule, signal);
   }
 
   public updateSettings(
@@ -602,7 +599,10 @@ export default class LinkIntegrityPlugin extends Plugin {
     for (const rule of rules) {
       menu.addItem((item) => item
         .setTitle(rule.title)
-        .onClick(() => this.addIgnoreRule(rule.scope, rule.kind, rule.value, rule.title, anchor)));
+        .onClick(() => {
+          void this.addIgnoreRule(rule.scope, rule.kind, rule.value, rule.title, anchor)
+            .catch((error: unknown) => this.reportError(error));
+        }));
     }
     showMenuAtAnchor(menu, anchor);
   }
@@ -794,13 +794,13 @@ export default class LinkIntegrityPlugin extends Plugin {
         : "query-only");
   }
 
-  private addIgnoreRule(
+  private async addIgnoreRule(
     scope: IgnoreRuleScope,
     kind: IgnoreMatcherKind,
     value: string,
     label: string,
     anchor: HTMLElement,
-  ): void {
+  ): Promise<void> {
     const suffix = anchor.ownerDocument.defaultView?.crypto.randomUUID?.() ??
       Date.now().toString(36);
     const rule: IgnoreRule = {
@@ -811,7 +811,8 @@ export default class LinkIntegrityPlugin extends Plugin {
       createdAt: Date.now(),
       note: `Added from sidebar: ${label}`,
     };
-    const preview = this.previewIgnoreRule(rule);
+    const preview = await this.previewIgnoreRule(rule);
+    if (this.unloaded) return;
     this.updateSettings({
       ...this.settings,
       ignoreRules: [...this.settings.ignoreRules, rule],
@@ -905,45 +906,6 @@ export default class LinkIntegrityPlugin extends Plugin {
     }).catch((error: unknown) => this.reportError(error));
   }
 
-  private *getIgnorePreviewContexts(rule: IgnoreRule): Iterable<IgnoreEvaluationContext> {
-    const index = this.coordinator.index;
-    if (rule.scope === "exclude-isolated-candidate") {
-      for (const file of index.iterateFiles()) {
-        const classification = classifyFileExtension(file.path);
-        yield {
-          candidatePath: file.path,
-          formatFamilyIds: classification.familyIds,
-          extension: file.extension,
-        };
-      }
-      return;
-    }
-
-    for (const occurrence of this.previewOccurrenceCandidates(rule)) {
-      if (rule.scope === "exclude-graph-contribution") {
-        if (occurrence.fileStatus !== "resolved" || occurrence.targetPath === null) continue;
-      } else if (diagnoseOccurrence(occurrence) === null) {
-        continue;
-      }
-      const sourceFile = index.getFile(occurrence.sourcePath);
-      yield createOccurrenceIgnoreContext(occurrence, sourceFile?.extension ?? null);
-    }
-  }
-
-  private *previewOccurrenceCandidates(rule: IgnoreRule): Iterable<LinkOccurrence> {
-    const index = this.coordinator.index;
-    if (rule.matcher.kind === "occurrence-id") {
-      const occurrence = index.getOccurrence(rule.matcher.value);
-      if (occurrence !== null) yield occurrence;
-      return;
-    }
-    if (rule.matcher.kind === "source-path") {
-      yield* index.getSourceSnapshot(rule.matcher.value)?.occurrences ?? [];
-      return;
-    }
-    yield* index.iterateOccurrences();
-  }
-
   private reportError(error: unknown): void {
     const message = errorMessage(error);
     console.error("Link Integrity:", error);
@@ -953,21 +915,6 @@ export default class LinkIntegrityPlugin extends Plugin {
   public reportSettingsError(error: unknown): void {
     this.reportError(error);
   }
-}
-
-function findFrontmatterPropertyLine(source: string, property: string): number | null {
-  const lines = source.split(/\r?\n/u);
-  const first = lines[0]?.replace(/^\uFEFF/u, "").trim();
-  if (first !== "---") return null;
-  const candidates = new Set([property, property.split(".").at(-1) ?? property]);
-  for (let line = 1; line < lines.length; line += 1) {
-    const text = lines[line]?.trim() ?? "";
-    if (text === "---" || text === "...") return null;
-    const match = /^([^:#][^:]*):/u.exec(text);
-    const key = match?.[1]?.trim().replace(/^(?:"([^"]*)"|'([^']*)')$/u, "$1$2");
-    if (key !== undefined && candidates.has(key)) return line;
-  }
-  return null;
 }
 
 function graphContributionRulesChanged(

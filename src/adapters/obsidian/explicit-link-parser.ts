@@ -1,3 +1,6 @@
+import { WorkScheduler } from "../../scheduling/work-scheduler";
+import { indexMarkdownDestinations, type MarkdownDestinationIndex } from "./markdown-destination-index";
+
 export interface ParsedExplicitReference {
   readonly raw: string;
   readonly linktext: string;
@@ -11,10 +14,48 @@ const BASES_LINK_FUNCTION = /\blink\(\s*(["'])((?:\\.|(?!\1)[^\\\r\n])*)\1(?:\s*
 export function extractMarkdownExplicitReferences(
   source: string,
 ): readonly ParsedExplicitReference[] {
+  const steps = extractMarkdownSteps(source);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export async function extractMarkdownExplicitReferencesAsync(
+  source: string,
+  scheduler = new WorkScheduler(),
+): Promise<readonly ParsedExplicitReference[]> {
+  const steps = extractMarkdownSteps(source);
+  let step = steps.next();
+  while (!step.done) {
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    step = steps.next();
+  }
+  return step.value;
+}
+
+function* extractMarkdownSteps(source: string): Generator<void, readonly ParsedExplicitReference[]> {
   const masked = maskMarkdownNonContent(source);
-  const { references: wikiReferences, ranges: wikiRanges } = extractWikiLinks(source, masked);
-  return [...wikiReferences, ...extractInlineMarkdownLinks(source, masked, wikiRanges)]
-    .sort((left, right) => left.startOffset - right.startOffset);
+  yield;
+  const { references: wikiReferences, ranges } = yield* extractWikiLinks(source, masked);
+  const destinations = yield* indexMarkdownDestinations(masked);
+  const markdown = yield* extractInlineMarkdownLinks(source, masked, ranges, destinations);
+  const references: ParsedExplicitReference[] = [];
+  let wiki = 0;
+  let inline = 0;
+  while (wiki < wikiReferences.length || inline < markdown.length) {
+    const left = wikiReferences[wiki];
+    const right = markdown[inline];
+    if (left !== undefined && (right === undefined || left.startOffset <= right.startOffset)) {
+      references.push(left);
+      wiki += 1;
+    } else if (right !== undefined) {
+      references.push(right);
+      inline += 1;
+    }
+    if (references.length % 128 === 0) yield;
+  }
+  return references;
 }
 
 export function extractBasesExplicitReferences(
@@ -55,11 +96,12 @@ interface ExtractedWikiLinks {
   readonly ranges: MaskedRange[];
 }
 
-function extractWikiLinks(source: string, masked: string): ExtractedWikiLinks {
+function* extractWikiLinks(source: string, masked: string): Generator<void, ExtractedWikiLinks> {
   const references: ParsedExplicitReference[] = [];
   const ranges: MaskedRange[] = [];
   let index = 0;
   while (index < masked.length) {
+    if (index % 1024 === 0) yield;
     const embedded = masked[index] === "!" && masked[index + 1] === "[" &&
       masked[index + 2] === "[" && !isEscaped(masked, index + 1);
     const startOffset = index;
@@ -73,7 +115,7 @@ function extractWikiLinks(source: string, masked: string): ExtractedWikiLinks {
       continue;
     }
     const contentStart = opening + 2;
-    const closing = findWikiClosing(masked, contentStart);
+    const closing = yield* findWikiClosing(masked, contentStart);
     if (closing < 0) {
       index = lineEndOffset(masked, contentStart);
       continue;
@@ -96,16 +138,18 @@ function extractWikiLinks(source: string, masked: string): ExtractedWikiLinks {
   return { references, ranges };
 }
 
-function extractInlineMarkdownLinks(
+function* extractInlineMarkdownLinks(
   source: string,
   masked: string,
   wikiRanges: readonly MaskedRange[],
-): ParsedExplicitReference[] {
+  destinations: MarkdownDestinationIndex,
+): Generator<void, ParsedExplicitReference[]> {
   const references: ParsedExplicitReference[] = [];
   const labelStack: number[] = [];
   let wikiRangeIndex = 0;
   let index = 0;
   while (index < masked.length) {
+    if (index % 1024 === 0) yield;
     const wikiRange = wikiRanges[wikiRangeIndex];
     if (wikiRange !== undefined && index >= wikiRange.end) {
       wikiRangeIndex += 1;
@@ -143,7 +187,7 @@ function extractInlineMarkdownLinks(
       index += 1;
       continue;
     }
-    const parsedDestination = readMarkdownDestination(masked, index + 2);
+    const parsedDestination = readMarkdownDestination(masked, index + 2, destinations);
     if (parsedDestination === null) {
       index += 1;
       continue;
@@ -170,8 +214,9 @@ function extractInlineMarkdownLinks(
   return references;
 }
 
-function findWikiClosing(source: string, start: number): number {
+function* findWikiClosing(source: string, start: number): Generator<void, number> {
   for (let index = start; index < source.length; index += 1) {
+    if (index % 1024 === 0) yield;
     const character = source[index];
     if (character === "\n" || character === "\r") return -1;
     if (character === "\\") {
@@ -192,61 +237,23 @@ function lineEndOffset(source: string, start: number): number {
 function readMarkdownDestination(
   source: string,
   start: number,
+  boundaries: MarkdownDestinationIndex,
 ): { destinationStart: number; destinationEnd: number; linkEnd: number } | null {
-  let index = skipHorizontalWhitespace(source, start);
-  const destinationStart = index;
-  if (source[index] === "<") {
-    const closing = findUnescapedBeforeLineEnd(source, ">", index + 1);
-    if (closing < 0) return null;
-    index = closing + 1;
-  } else {
-    let depth = 0;
-    for (; index < source.length; index += 1) {
-      const character = source[index];
-      if (character === "\\") {
-        index += 1;
-        continue;
-      }
-      if (character === "(") {
-        depth += 1;
-        continue;
-      }
-      if (character === ")") {
-        if (depth === 0) break;
-        depth -= 1;
-        continue;
-      }
-      if ((character === " " || character === "\t") && depth === 0) break;
-      if (character === "\n" || character === "\r") return null;
-    }
-    if (depth !== 0) return null;
-  }
-  const destinationEnd = index;
-  index = skipHorizontalWhitespace(source, index);
+  const destinationStart = boundaries.afterWhitespace[start] ?? source.length;
+  const closing = boundaries.closing[destinationStart] ?? -1;
+  const destinationEnd = source[destinationStart] === "<"
+    ? closing < 0 ? -1 : closing + 1
+    : boundaries.bareEnd[destinationStart] ?? -1;
+  if (destinationEnd < 0) return null;
+  let index = boundaries.afterWhitespace[destinationEnd] ?? source.length;
   const quote = source[index];
   if (quote === '"' || quote === "'") {
-    const titleEnd = findUnescapedBeforeLineEnd(source, quote, index + 1);
+    const titleEnd = boundaries.closing[index] ?? -1;
     if (titleEnd < 0) return null;
-    index = skipHorizontalWhitespace(source, titleEnd + 1);
+    index = boundaries.afterWhitespace[titleEnd + 1] ?? source.length;
   }
   if (source[index] !== ")") return null;
   return { destinationStart, destinationEnd, linkEnd: index + 1 };
-}
-
-function skipHorizontalWhitespace(source: string, start: number): number {
-  let index = start;
-  while (source[index] === " " || source[index] === "\t") index += 1;
-  return index;
-}
-
-function findUnescapedBeforeLineEnd(source: string, needle: string, start: number): number {
-  for (let index = start; index < source.length; index += 1) {
-    const character = source[index];
-    if (character === "\\") index += 1;
-    else if (character === needle) return index;
-    else if (character === "\n" || character === "\r") return -1;
-  }
-  return -1;
 }
 
 function isEscaped(source: string, index: number): boolean {

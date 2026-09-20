@@ -254,7 +254,7 @@ export const ZH_TW_MESSAGES = {
   "settings.ignore.matcher.extension": "副檔名",
   "ignore.scope.hideBroken": "隱藏無效連結結果",
   "ignore.scope.excludeIsolated": "排除孤立候選",
-  "ignore.scope.ignoreTarget": "忽略目標",
+  "ignore.scope.ignoreTarget": "忽略整個目標檔案",
   "ignore.scope.ignoreOccurrence": "忽略單一 occurrence",
   "ignore.scope.excludeGraph": "排除圖貢獻（進階）",
   "settings.futureSchema.title": "設定來自較新的外掛版本",

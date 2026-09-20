@@ -1,6 +1,6 @@
 {
   "name": "obsidian-link-integrity",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Continuously find broken internal links and isolated files across an Obsidian Vault.",
   "type": "module",
   "main": "dist/main.js",
@@ -59,5 +59,8 @@
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "dependencies": {
+    "yaml": "2.9.1"
   }
 }

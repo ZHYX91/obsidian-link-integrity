@@ -254,7 +254,7 @@ export const ES_MESSAGES = localizedCatalog({
   "settings.ignore.matcher.extension": "Extensión",
   "ignore.scope.hideBroken": "Ocultar resultado de enlace roto",
   "ignore.scope.excludeIsolated": "Excluir candidato a archivo aislado",
-  "ignore.scope.ignoreTarget": "Ignorar destino",
+  "ignore.scope.ignoreTarget": "Ignorar todo el archivo de destino",
   "ignore.scope.ignoreOccurrence": "Ignorar una aparición",
   "ignore.scope.excludeGraph": "Excluir contribución al grafo (avanzado)",
   "settings.futureSchema.title": "La configuración fue creada por una versión más reciente del complemento",

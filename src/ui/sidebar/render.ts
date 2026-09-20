@@ -809,9 +809,9 @@ function formatBrokenMetadata(item: BrokenLinkResult): string {
   const parts: string[] = [];
   const folder = parentPath(item.sourcePath);
   if (folder.length > 0) parts.push(folder);
+  if (item.location.canvasNodeId !== null) parts.push(`Canvas · ${item.location.canvasNodeId}`);
+  if (item.location.property !== null) parts.push(`YAML · ${item.location.property}`);
   if (item.location.line !== null) parts.push(`L${item.location.line + 1}`);
-  else if (item.location.property !== null) parts.push(`YAML · ${item.location.property}`);
-  else if (item.location.canvasNodeId !== null) parts.push(`Canvas · ${item.location.canvasNodeId}`);
   return parts.join(" · ");
 }
 

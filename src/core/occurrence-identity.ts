@@ -45,6 +45,12 @@ export function occurrenceIdMatches(expected: string, actual: string | null | un
     saved[2] === current[6] && saved[3] === current[7];
 }
 
+export function occurrenceIdSource(occurrenceId: string): string | null {
+  const parts = occurrenceId.split(SEPARATOR);
+  if (parts.length === 8 && parts[0] === OCCURRENCE_ID_PREFIX) return parts[1] ?? null;
+  return parts.length === 4 ? parts[0] ?? null : null;
+}
+
 export function renameOccurrenceIdSource(
   occurrenceId: string,
   oldPathInput: string,

@@ -254,7 +254,7 @@ export const VI_MESSAGES = localizedCatalog({
   "settings.ignore.matcher.extension": "Phần mở rộng",
   "ignore.scope.hideBroken": "Ẩn kết quả liên kết hỏng",
   "ignore.scope.excludeIsolated": "Loại trừ ứng viên tệp cô lập",
-  "ignore.scope.ignoreTarget": "Bỏ qua đích",
+  "ignore.scope.ignoreTarget": "Bỏ qua toàn bộ tệp đích",
   "ignore.scope.ignoreOccurrence": "Bỏ qua một lần xuất hiện",
   "ignore.scope.excludeGraph": "Loại trừ đóng góp vào đồ thị (nâng cao)",
   "settings.futureSchema.title": "Cài đặt được tạo bởi phiên bản plugin mới hơn",

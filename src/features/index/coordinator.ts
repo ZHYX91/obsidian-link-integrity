@@ -251,9 +251,11 @@ export class LinkIndexCoordinator {
 
   public async whenIdle(): Promise<void> {
     while (true) {
+      const pendingRebuild = this.rebuildPromise;
+      if (pendingRebuild !== null) await pendingRebuild;
       await this.incremental.whenIdle();
       const pendingRegraph = this.regraphPromise;
-      if (pendingRegraph === null) return;
+      if (pendingRegraph === null && this.rebuildPromise === null) return;
       await pendingRegraph;
     }
   }

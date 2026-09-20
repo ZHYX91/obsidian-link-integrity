@@ -275,7 +275,7 @@ export const EN_MESSAGES = {
   "settings.ignore.matcher.extension": "Extension",
   "ignore.scope.hideBroken": "Hide broken-link result",
   "ignore.scope.excludeIsolated": "Exclude isolated-file candidate",
-  "ignore.scope.ignoreTarget": "Ignore target",
+  "ignore.scope.ignoreTarget": "Ignore entire target file",
   "ignore.scope.ignoreOccurrence": "Ignore one occurrence",
   "ignore.scope.excludeGraph": "Exclude graph contribution (advanced)",
   "settings.futureSchema.title": "Settings were created by a newer plugin version",

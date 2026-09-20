@@ -499,6 +499,62 @@ describe("index coordinator", () => {
     );
   });
 
+  it.each(["policy", "modify", "rename", "restart", "rebuild"] as const)(
+    "settles staged regraph during %s without losing updates", async (change) => {
+      const vault = new VirtualVault({ "Source.md": ["Target"], "Target.md": [], "Other.md": [] });
+      const gate = deferred<void>();
+      const yielded = deferred<void>();
+      let hold = false;
+      const coordinator = new LinkIndexCoordinator(vault, new LinkIndex(), {}, {
+        yieldEvery: 1, yieldControl: async () => {
+          if (hold) { yielded.resolve(); await gate.promise; }
+        },
+      });
+      coordinator.start();
+      await coordinator.rebuild();
+      const before = coordinator.index;
+      hold = true;
+      const pending = coordinator.regraph({ allows: () => false });
+      await yielded.promise;
+      const policy: GraphContributionPolicy = { allows: ({ occurrence: link }) => link.targetPath !== "Other.md" };
+      if (change === "modify") {
+        vault.setLinks("Source.md", ["Other"]);
+        coordinator.enqueue({ type: "modify", path: "Source.md" });
+      } else if (change === "rename") {
+        vault.rename("Target.md", "Renamed.md");
+        coordinator.enqueue({ type: "rename", oldPath: "Target.md", path: "Renamed.md" });
+      } else if (change === "restart") {
+        coordinator.stop();
+        coordinator.start();
+      }
+      const latest = coordinator.regraph(policy);
+      const rebuilding = change === "rebuild" ? coordinator.rebuild() : Promise.resolve();
+      expect(coordinator.index).toBe(before);
+      hold = false;
+      gate.resolve();
+      await Promise.all([pending, latest, rebuilding]);
+      await coordinator.whenIdle();
+      expect(coordinator.index.toCanonicalState()).toEqual((await buildOracle(vault, policy)).toCanonicalState());
+      expect(before.getOutgoingNeighborCount("Source.md")).toBe(1);
+      coordinator.stop();
+    },
+  );
+
+  it("retains the published index on a failed regraph and permits a corrected policy", async () => {
+    const vault = new VirtualVault({ "Source.md": ["Target"], "Target.md": [] });
+    const coordinator = new LinkIndexCoordinator(vault);
+    coordinator.start();
+    await coordinator.rebuild();
+    const before = coordinator.index;
+    await expect(coordinator.regraph({ allows: () => { throw new Error("policy failed"); } }))
+      .rejects.toThrow("policy failed");
+    expect(coordinator.index).toBe(before);
+    await coordinator.regraph({ allows: () => false });
+    await coordinator.whenIdle();
+    expect(coordinator.index.getOutgoingNeighborCount("Source.md")).toBe(0);
+    coordinator.stop();
+  });
+
   it("recovers its lifecycle when draining pre-rebuild incremental work fails", async () => {
     const vault = new VirtualVault({ "A.md": [] });
     const baseBuild = vault.buildSourceSnapshot;

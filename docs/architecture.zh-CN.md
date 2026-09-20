@@ -50,6 +50,10 @@ adapter 为每个可作为显式来源的文件构建完整快照：Markdown 和
 
 Markdown 降级解析器在保留 UTF-16 源 offset 的同时屏蔽 fenced/indented code、inline code、Obsidian comment，以及支持 BOM 和 `---`/`...` 边界的 frontmatter 内 YAML comment；frontmatter value 和普通 Markdown 文本中的显式链接继续保留。Canvas text node 使用同一降级路径，因此启动期临时解析和 Canvas 诊断共用同一个 false-positive 边界。
 
+Markdown 目的地址和标题边界只索引一次，包括匹配失败的情况；解析检查点通过共享调度器让出执行时间。Frontmatter 导航依据 YAML 语法节点的源码范围匹配完整属性路径；语法错误或路径歧义时不进行精确定位。
+
+忽略预览与实际执行共用匹配器，分片遍历已有 occurrence，取消被新草稿替代的请求，并在计数期间权威索引变化时重新开始。单来源和 occurrence 规则只枚举对应来源快照。
+
 core 的规范化 lookup key 只用于命名空间变化后的保守重验证。它不替代官方 resolver，也不决定最终目标。
 
 ## 图与查询不变量

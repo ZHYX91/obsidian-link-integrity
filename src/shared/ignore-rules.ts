@@ -231,13 +231,26 @@ export function previewIgnoreRule(
   contexts: Iterable<IgnoreEvaluationContext>,
   sampleLimit = 5,
 ): IgnoreRulePreview {
+  const steps = previewIgnoreRuleSteps(rule, contexts, sampleLimit);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export function* previewIgnoreRuleSteps(
+  rule: IgnoreRule,
+  contexts: Iterable<IgnoreEvaluationContext | null>,
+  sampleLimit = 5,
+): Generator<void, IgnoreRulePreview> {
   const limit = Number.isFinite(sampleLimit) ? Math.max(0, Math.floor(sampleLimit)) : 5;
   let matchCount = 0;
   const samples: string[] = [];
   for (const context of contexts) {
-    if (!ignoreMatcherMatches(rule, context)) continue;
-    matchCount += 1;
-    if (samples.length < limit) samples.push(describeContext(context));
+    if (context !== null && ignoreMatcherMatches(rule, context)) {
+      matchCount += 1;
+      if (samples.length < limit) samples.push(describeContext(context));
+    }
+    yield;
   }
   return { matchCount, samples };
 }

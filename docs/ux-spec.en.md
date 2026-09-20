@@ -119,7 +119,7 @@ An expected-isolation rule has a name, enabled state, and combined conditions:
 
 Different condition groups are combined with AND, while naming patterns inside a group are combined with OR. The periodic-notes preset provides configurable daily, weekly, monthly, quarterly, and yearly patterns: `YYYY-MM-DD`, `GGGG-[W]WW`, `YYYY-MM`, `YYYY-[Q]Q`, and `YYYY`. It creates Link Integrity rules only and never reads Chrono Notes data or code.
 
-An ignore rule states its actual scope: hide broken diagnostics, exclude isolated candidates, ignore a target, ignore an occurrence, or exclude graph contribution. Disabling or deleting a rule recalculates projections from the same authoritative index.
+An ignore rule states its actual scope: hide broken diagnostics, exclude isolated candidates, ignore an entire target file, ignore an occurrence, or exclude graph contribution. Disabling or deleting a rule recalculates projections from the same authoritative index.
 
 ## 6. Saving, errors, and recovery
 
