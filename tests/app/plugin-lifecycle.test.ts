@@ -622,8 +622,8 @@ describe("plugin index lifecycle", () => {
       reason: "missing-file",
       location: { line: 2, column: 4, property: null, canvasNodeId: "node-7" },
     });
-    expect(messages.at(-1)).toContain("Canvas node node-7");
-    expect(messages.at(-1)).toContain("line 3:5");
+    expect(messages.at(-1)).toContain("node:node-7");
+    expect(messages.at(-1)).toContain("L3:C5");
 
     await runtime.openBrokenLink({
       id: "base",
@@ -635,7 +635,7 @@ describe("plugin index lifecycle", () => {
       reason: "missing-file",
       location: { line: 8, column: 2, property: null, canvasNodeId: null },
     });
-    expect(messages.at(-1)).toContain("line 9:3");
+    expect(messages.at(-1)).toContain("L9:C3");
     expect(messages.at(-1)).toContain('link("Missing")');
   });
   it("does not retain an unbounded event history when the first baseline is unavailable", () => {
