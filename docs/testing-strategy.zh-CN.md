@@ -28,9 +28,9 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 - 标题和块成功、缺失、等待或无法验证状态；
 - 文件存在但子路径缺失时仍保留文件级边；
 - Markdown、嵌入、Frontmatter、Canvas 和 Bases 显式来源类型；
-- 降级解析器屏蔽 fenced/indented code 和 frontmatter YAML comment，同时保留 frontmatter value 与 paragraph continuation 中的链接；
+- 降级解析器屏蔽 fenced/indented code 和 frontmatter YAML comment，同时保留 frontmatter value 与 paragraph continuation 中的链接；fenced code 回归必须覆盖 LF/CRLF、空块、相邻块、两种围栏字符、不同长度、未闭合块和 astral 字符前缀下的 UTF-16 offset；
 - 自链接、外部 URL 和重复 occurrence；
-- Bases 动态结果不形成显式边；
+- Bases 动态结果不形成显式边；语义测试只允许 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 中的静态显式引用，并用视图名称、`properties` 展示字符串和公式内部普通字符串作为负例；
 - 候选、诊断和贡献范围互不污染。
 
 Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文本或无关链接后，其忽略匹配仍然保持；文件与文件夹重命名事件会迁移持久化身份中的来源部分。插入无法区分的同语义重复项时，重复集合基数必须变化，并让旧规则匹配零个结果，由规则预览明确呈现，而不是误匹配另一处 occurrence。Workflow contract 的语法验证会把提取出的 shell 片段合并后交给单个 `bash -n` 进程，避免 Windows 门禁为每个代码块重复承担 Git Bash 启动开销。
@@ -48,9 +48,9 @@ Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文
 - 默认从主结果和主计数排除，高级显示时分类为 expected-isolated；
 - 预期分类不创建任何图边；
 - 文件类型、文件夹和命名条件使用 AND，多个命名模式使用 OR；
-- exact/recursive 文件夹、日期格式、glob、regex、匹配数和样例；
+- exact/recursive 文件夹、日期格式、glob、安全子集 regex、匹配数和样例；regex 测试必须覆盖超长输入、非法 flag、嵌套量词、量化歧义分组、反向引用和 lookaround 的拒绝，以及普通有界模式的正向匹配；
 - 日、周、月、季、年周期笔记预设及可配置路径和格式；
-- 无效规则不静默匹配所有文件。
+- 无效规则不静默匹配所有文件；持久化的无效命名条件必须保留用于诊断并整体停用规则，不能因归一化删除条件而扩大匹配。
 - 精确文件路径的规范化、去重、主计数排除、rename 跟随，以及缺失路径在设置中的可见移除。
 
 ## 全量与增量一致性
@@ -69,7 +69,7 @@ Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文
 
 协调器测试覆盖重建期间事件缓冲与重放、同生命周期并发 rebuild single-flight、预重建增量失败后的生命周期恢复、stop 后旧重建不能发布或继续领取来源，以及 stop→start 后旧操作 finalizer 不能清理新控制器。时间片测试使用可注入 `yieldControl` 与可控时钟，分别验证文件数上限和主线程时间预算都会触发让步；进度测试验证节流和最终进度。
 
-故障测试不应只断言抛错，还要断言可信索引是否保留、待处理事件能否继续处理，以及状态是否诚实标记为 failed 或 stale。同步 reducer 的定向 fault injection 会让同一批次的后一个来源制造跨来源 occurrence ID 冲突，并断言 batch 预验证在任何文件元数据或快照发布前失败。
+故障测试不应只断言抛错，还要断言可信索引是否保留、待处理事件能否继续处理，以及状态是否诚实标记为 failed 或 stale。首次 baseline 失败且尚无可信索引时，还要用大批事件证明插件层不会线性保留历史队列；下一轮完整重建仍必须从当前 Vault 建立完整状态。同步 reducer 的定向 fault injection 会让同一批次的后一个来源制造跨来源 occurrence ID 冲突，并断言 batch 预验证在任何文件元数据或快照发布前失败。
 
 ## UI、设置与多语言测试
 
@@ -77,7 +77,7 @@ Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文
 
 规范检查 `npm run check` 必须执行覆盖率阈值；发布检查还必须实际执行快速与 5 万文件规模基准。大型来源文本基准覆盖显式链接位置换算与行内代码屏蔽，避免按链接数或反引号数退化为二次复杂度。
 
-设置测试覆盖 schema 归一化、迁移、未来 schema 写保护、串行合并保存、失败待重试，以及所有受支持 Obsidian 版本共用的 imperative 顶部页签实现。测试还必须证明 declarative definitions 保持为空，避免 Obsidian 绕过页签布局。键盘测试覆盖 tablist 角色、roving tabindex、方向键、Home/End、焦点保持和 RTL；DOM 测试不能代替真实 Obsidian 的样式和焦点验收。
+设置测试覆盖 schema 归一化、迁移、未来 schema 写保护、串行合并保存、失败待重试，以及所有受支持 Obsidian 版本共用的 imperative 顶部页签实现。规则编辑器测试还覆盖类型、匹配对象、模式与 flags 的可访问名称、验证消息关联以及无效草稿在预览前禁用保存；导航测试覆盖非 Markdown 来源无法精确定位时仍暴露节点或行列上下文。测试还必须证明 declarative definitions 保持为空，避免 Obsidian 绕过页签布局。键盘测试覆盖 tablist 角色、roving tabindex、方向键、Home/End、焦点保持和 RTL；DOM 测试不能代替真实 Obsidian 的样式和焦点验收。
 
 宿主样式几何回归通过无额外依赖的真实 Chrome/Chromium 进程加载仓库中的实际 `styles.css` 和一份最小 Obsidian 宿主样式合同。它测量多行结果的行盒与溢出、长俄文徽标、宿主复选框的方形外观与至少 34px 的独立点击目标、原生 disclosure marker、对宿主按钮背景/阴影的覆盖、禁用 container query 时仍不溢出的 220px 侧栏回退、450px 自定义设置正文，以及 RTL 逻辑缩进。该测试属于自动浏览器证据并进入常规测试门禁；运行环境必须提供 Chrome/Chromium，或通过 `LINK_INTEGRITY_CHROME_PATH` 指定可执行文件。它不能替代真实主题、系统缩放、真实 RTL、粗指针设备或移动宿主验收。
 
