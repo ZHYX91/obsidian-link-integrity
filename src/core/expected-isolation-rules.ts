@@ -562,9 +562,11 @@ function normalizeLabel(value: unknown): string | null {
   return trimmed.length > 0 && trimmed.length <= 120 ? trimmed : null;
 }
 
-function normalizePattern(value: unknown, _kind: unknown): string | null {
+function normalizePattern(value: unknown, kind: unknown): string | null {
   if (typeof value !== "string") return null;
-  return value.trim();
+  const trimmed = value.trim();
+  const maximum = kind === "regex" ? 512 : 256;
+  return trimmed.length > 0 && trimmed.length <= maximum ? trimmed : null;
 }
 
 function normalizePatternFlags(
