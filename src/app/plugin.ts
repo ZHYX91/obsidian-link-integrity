@@ -571,11 +571,11 @@ export default class LinkIntegrityPlugin extends Plugin {
   private showNonMarkdownLocation(result: BrokenLinkResult): void {
     const parts: string[] = [];
     if (result.location.canvasNodeId !== null) {
-      parts.push(`Canvas node ${result.location.canvasNodeId}`);
+      parts.push(`node:${result.location.canvasNodeId}`);
     }
     if (result.location.line !== null) {
-      const column = result.location.column === null ? "" : `:${(result.location.column + 1).toString()}`;
-      parts.push(`line ${(result.location.line + 1).toString()}${column}`);
+      const column = result.location.column === null ? "" : `:C${(result.location.column + 1).toString()}`;
+      parts.push(`L${(result.location.line + 1).toString()}${column}`);
     }
     const raw = result.rawText.length > 120 ? `${result.rawText.slice(0, 117)}…` : result.rawText;
     if (raw.length > 0) parts.push(raw);
