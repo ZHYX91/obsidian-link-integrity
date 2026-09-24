@@ -11,6 +11,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ### Fixed
 
+- Keep long rule editors scrollable in short windows so preview results and Save remain reachable.
 - Parse empty, adjacent, and CRLF fenced code without losing real links or indexing code as links.
 - Restrict Bases references to formula fields and complete static link arguments; omit unavailable decoded YAML coordinates instead of reporting incorrect positions.
 - Preserve naming conditions across rule preview, save, and reload, and disable invalid persisted rules without broadening their scope.

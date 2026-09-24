@@ -773,6 +773,7 @@
 
 .link-integrity-rule-modal-panel {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   inline-size: min(44rem, 100%);
   max-block-size: min(50rem, calc(100vh - var(--size-4-8)));
   overflow: hidden;
@@ -807,6 +808,7 @@
 
 .link-integrity-rule-modal-content {
   display: grid;
+  min-block-size: 0;
   min-inline-size: 0;
   gap: var(--size-4-2);
   padding: var(--size-4-4);

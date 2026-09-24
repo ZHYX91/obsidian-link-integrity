@@ -19,6 +19,7 @@ const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const LAYOUT_RESULT_PATTERN = /<pre id="layout-results">([^<]+)<\/pre>/u;
 
 interface LayoutMeasurements {
+  readonly dialog: { readonly scrollable: boolean; readonly footerVisibleAfterScroll: boolean };
   readonly checkbox: {
     readonly height: number;
     readonly targetHeight: number;
@@ -83,6 +84,11 @@ describe("Obsidian host CSS layout contract", () => {
   beforeAll(async () => {
     measurements = await renderLayoutMeasurements();
   }, 30_000);
+
+  it("keeps the rule editor scrollable and its actions reachable in a short window", () => {
+    expect(measurements.dialog.scrollable).toBe(true);
+    expect(measurements.dialog.footerVisibleAfterScroll).toBe(true);
+  });
 
   it("keeps multi-line result content inside its row", () => {
     expect(measurements.result.lineOverlap).toBe(false);
@@ -401,6 +407,13 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
     <button class="link-integrity-settings-tab" type="button">Isolated files</button>
   </div>
 </section>
+<section class="link-integrity-rule-modal-panel" style="max-block-size:260px;inline-size:400px" id="dialog-panel">
+  <header><h3>Rule</h3></header>
+  <div class="link-integrity-rule-modal-content" id="dialog-content">
+    <div style="min-block-size:900px">Long advanced rule form</div>
+    <footer class="link-integrity-rule-modal-actions" id="dialog-actions"><button>Save</button></footer>
+  </div>
+</section>
 <pre id="layout-results"></pre>
 <script>
   const resultMain = document.getElementById("result-main");
@@ -420,7 +433,15 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const folderAction = document.querySelector(".link-integrity-isolated-folder-summary > .link-integrity-more-button").getBoundingClientRect();
   const settingsTabs = document.getElementById("settings-tabs");
   const settingsTabStyle = getComputedStyle(document.getElementById("settings-tab"));
+  const dialogContent = document.getElementById("dialog-content");
+  dialogContent.scrollTop = dialogContent.scrollHeight;
+  const dialogPanel = document.getElementById("dialog-panel").getBoundingClientRect();
+  const dialogActions = document.getElementById("dialog-actions").getBoundingClientRect();
   const measurements = {
+    dialog: {
+      scrollable: dialogContent.clientHeight > 0 && dialogContent.scrollHeight > dialogContent.clientHeight,
+      footerVisibleAfterScroll: dialogActions.top >= dialogPanel.top && dialogActions.bottom <= dialogPanel.bottom,
+    },
     checkbox: {
       height: checkbox.height,
       targetHeight: checkboxTarget.height,
