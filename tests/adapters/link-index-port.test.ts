@@ -192,8 +192,11 @@ describe("ObsidianLinkIndexPort", () => {
       "filters:",
       "  - 'file.folder == [[Target]]'",
       "  - 'file.hasTag(\"open\")'",
-      "properties:",
+      "formulas:",
       "  related: 'link(\"Missing.md\")'",
+      "properties:",
+      "  displayOnly:",
+      "    displayName: \"link(\'Not-a-reference.md\')\"",
     ].join("\n");
     const { port } = createPort([base, target], {
       content: { [base.path]: source },
