@@ -9,6 +9,8 @@ export interface ParsedExplicitReference {
   readonly embedded: boolean;
   readonly startOffset: number;
   readonly endOffset: number;
+  /** False when YAML decoding prevents exact offsets; offsets then identify the scalar only. */
+  readonly exactPosition?: boolean;
 }
 
 
@@ -76,7 +78,7 @@ export function extractBasesExplicitReferences(
   const appendScalar = (node: unknown): void => {
     if (!isScalar(node) || typeof node.value !== "string") return;
     const start = node.range?.[0] ?? 0;
-    const end = node.range?.[2] ?? node.range?.[1] ?? start;
+    const end = node.range?.[1] ?? start;
     scalars.push({ value: node.value, start, end });
   };
   const collectFilters = (node: unknown): void => {
@@ -122,7 +124,7 @@ export function extractBasesExplicitReferences(
 
   const references = scalars.flatMap((scalar) =>
     extractBasesFormulaReferences(source, scalar.value, scalar.start, scalar.end));
-  return deduplicateReferences(references).sort(
+  return references.sort(
     (left, right) => left.startOffset - right.startOffset,
   );
 }
@@ -136,7 +138,11 @@ function extractBasesFormulaReferences(
   const references: ParsedExplicitReference[] = [];
   const scalarSource = source.slice(scalarStart, scalarEnd);
   const exactValueOffset = scalarSource.indexOf(formula);
-  const baseOffset = scalarStart + Math.max(0, exactValueOffset);
+  const position = (start: number, end: number): Pick<ParsedExplicitReference,
+    "startOffset" | "endOffset" | "exactPosition"> => exactValueOffset < 0
+    ? { startOffset: scalarStart, endOffset: scalarEnd, exactPosition: false }
+    : { startOffset: scalarStart + exactValueOffset + start,
+      endOffset: scalarStart + exactValueOffset + end };
   let index = 0;
   while (index < formula.length) {
     const character = formula[index];
@@ -156,31 +162,32 @@ function extractBasesFormulaReferences(
             raw: formula.slice(index, closing + 2),
             linktext,
             embedded: embeddedWiki,
-            startOffset: baseOffset + index,
-            endOffset: baseOffset + closing + 2,
+            ...position(index, closing + 2),
           });
         }
         index = closing + 2;
         continue;
       }
     }
-    if (formula.startsWith("link", index) && !isFormulaIdentifierPart(formula[index - 1])) {
+    if (formula.startsWith("link", index) && !isFormulaIdentifierPart(formula[index - 1]) &&
+      formula.slice(0, index).trimEnd().at(-1) !== ".") {
       let cursor = index + 4;
       if (!isFormulaIdentifierPart(formula[cursor])) {
-        while (cursor < formula.length && /[ \t]/u.test(formula[cursor] ?? "")) cursor += 1;
+        while (cursor < formula.length && /\s/u.test(formula[cursor] ?? "")) cursor += 1;
         if (formula[cursor] === "(") {
           cursor += 1;
-          while (cursor < formula.length && /[ \t]/u.test(formula[cursor] ?? "")) cursor += 1;
+          while (cursor < formula.length && /\s/u.test(formula[cursor] ?? "")) cursor += 1;
           const parsed = readFormulaString(formula, cursor);
           if (parsed !== null) {
             const linktext = parsed.value.trim();
-            if (linktext.length > 0) {
+            let argumentEnd = parsed.end;
+            while (/\s/u.test(formula[argumentEnd] ?? "")) argumentEnd += 1;
+            if (linktext.length > 0 && (formula[argumentEnd] === ")" || formula[argumentEnd] === ",")) {
               references.push({
                 raw: formula.slice(index, parsed.end),
                 linktext,
                 embedded: false,
-                startOffset: baseOffset + index,
-                endOffset: baseOffset + parsed.end,
+                ...position(index, parsed.end),
               });
             }
             index = parsed.end;
@@ -719,18 +726,6 @@ function unescapeMarkdownDestination(value: string): string {
   return value.replace(/\\([()<>\\])/gu, "$1");
 }
 
-
-function deduplicateReferences(
-  references: readonly ParsedExplicitReference[],
-): ParsedExplicitReference[] {
-  const seen = new Set<string>();
-  return references.filter((reference) => {
-    const identity = `${reference.startOffset}:${reference.endOffset}:${reference.linktext}`;
-    if (seen.has(identity)) return false;
-    seen.add(identity);
-    return true;
-  });
-}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");

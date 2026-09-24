@@ -29,9 +29,32 @@
         "Modify one link and confirm the incremental projection equals a clean rebuild"
       ],
       "expected": [
-        "The deterministic fixture reports four broken diagnostics and four default isolated files",
+        "The deterministic fixture reports five broken diagnostics and four default isolated files",
         "Expected periodic isolation is separated from the default count",
         "Markdown, embeds, frontmatter, Canvas, and explicit Bases links contribute the documented edges"
+      ]
+    },
+    {
+      "id": "review-regression",
+      "title": "Explicit reference accuracy and bounded rule preview",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Open Broken links and inspect all five diagnostics; confirm Ghost, Missing view target, and Not a link are absent",
+        "Navigate the Missing folded target and Missing canvas target sources from their diagnostics",
+        "Open Link Integrity settings, switch to Isolated files, and preview the Bounded regex expected-isolation rule",
+        "Close and reopen settings, confirm the rule remains enabled with the same pattern, then rebuild the index and inspect both business tabs"
+      ],
+      "expected": [
+        "The initial and rebuilt results contain five broken diagnostics and four default isolated files; excluded formula strings, dynamic prefixes, and fenced Canvas content yield no diagnostic",
+        "Bases opens without fabricated link coordinates; Canvas exposes the broken-text-node identifier and its actual text location",
+        "The ambiguous regex previews zero matches without freezing; its saved pattern survives reopening, and the preview and naming controls remain usable"
       ]
     },
     {

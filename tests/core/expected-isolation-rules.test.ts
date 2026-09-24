@@ -101,7 +101,7 @@ describe("expected-isolated rules", () => {
     expect(matchesExpectedIsolationRule(createFileRecord("anything.md"), rule!)).toBe(false);
   });
 
-  it("rejects catastrophic regex constructs while accepting ordinary bounded patterns", () => {
+  it("matches formerly catastrophic constructs without backtracking", () => {
     const unsafe: ExpectedIsolationRule = {
       id: "unsafe",
       name: "Unsafe",
@@ -118,7 +118,7 @@ describe("expected-isolated rules", () => {
         target: "basename",
       }],
     };
-    expect(validateExpectedIsolationRule(unsafe).join(" ")).toContain("Nested or ambiguous");
+    expect(validateExpectedIsolationRule(unsafe)).toEqual([]);
     expect(matchesExpectedIsolationRule(createFileRecord(`${"a".repeat(200)}!.md`), unsafe)).toBe(false);
 
     const safe: ExpectedIsolationRule = {
@@ -146,5 +146,19 @@ describe("expected-isolated rules", () => {
       createFileRecord("Other/2026-08.md"),
     ], [rule], 1);
     expect(stats[0]).toMatchObject({ matchCount: 2, samples: ["Periodic/2026-07.md"] });
+  });
+
+  it("retains whitespace-sensitive naming semantics through save and load", () => {
+    const draft: ExpectedIsolationRule = {
+      id: "space", name: "Space", enabled: true, fileTypeFamilyIds: [],
+      fileTypeCategoryIds: [], fileExtensions: [], folder: null,
+      namingPatterns: [{ id: "name", kind: "regex", pattern: " a ", flags: "u", target: "basename" }],
+    };
+    const loaded = normalizeExpectedIsolationRules([draft])[0]!;
+    expect(loaded.namingPatterns[0]?.pattern).toBe(" a ");
+    for (const path of ["a.md", " a .md"]) {
+      expect(matchesExpectedIsolationRule(createFileRecord(path), loaded))
+        .toBe(matchesExpectedIsolationRule(createFileRecord(path), draft));
+    }
   });
 });

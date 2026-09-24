@@ -8,6 +8,7 @@ import {
 } from "./file-types";
 import type { FileRecord } from "./model";
 import { normalizeVaultPath } from "./model";
+import { compileBoundedRegex, type PatternMatcher } from "./bounded-regex";
 
 export const EXPECTED_NAMING_PATTERN_KINDS = ["date-format", "glob", "regex"] as const;
 export type ExpectedNamingPatternKind = (typeof EXPECTED_NAMING_PATTERN_KINDS)[number];
@@ -88,7 +89,7 @@ export const PERIODIC_NOTE_PRESETS: Readonly<Record<PeriodicNoteKind, {
   yearly: { defaultName: "Yearly notes", dateFormat: "YYYY" },
 };
 
-const compiledPatternCache = new WeakMap<ExpectedNamingPattern, RegExp>();
+const compiledPatternCache = new WeakMap<ExpectedNamingPattern, PatternMatcher>();
 const validationCache = new WeakMap<ExpectedIsolationRule, readonly string[]>();
 
 export function createDefaultPeriodicNotesPreset(): PeriodicNotesPreset {
@@ -272,11 +273,6 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
         errors.push(flagError);
         continue;
       }
-      const safetyError = validateRegexSafety(pattern.pattern);
-      if (safetyError !== null) {
-        errors.push(safetyError);
-        continue;
-      }
     }
     try {
       getCompiledPattern(pattern);
@@ -371,7 +367,7 @@ function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
     result.push({
       id,
       kind,
-      pattern: rawPattern.trim(),
+      pattern: rawPattern,
       flags: normalizePatternFlags(candidate.flags, kind, candidate.caseSensitive),
       target: candidate.target === "path" ? "path" : "basename",
     });
@@ -447,7 +443,7 @@ function matchesPattern(file: FileRecord, pattern: ExpectedNamingPattern): boole
   return getCompiledPattern(pattern).test(patternValue(file, pattern.target));
 }
 
-function getCompiledPattern(pattern: ExpectedNamingPattern): RegExp {
+function getCompiledPattern(pattern: ExpectedNamingPattern): PatternMatcher {
   const cached = compiledPatternCache.get(pattern);
   if (cached !== undefined) return cached;
   const compiled = compilePattern(pattern);
@@ -455,14 +451,14 @@ function getCompiledPattern(pattern: ExpectedNamingPattern): RegExp {
   return compiled;
 }
 
-function compilePattern(pattern: ExpectedNamingPattern): RegExp {
+function compilePattern(pattern: ExpectedNamingPattern): PatternMatcher {
   if (pattern.kind === "date-format") return compileDateFormat(pattern.pattern);
   if (pattern.kind === "glob") return compileGlob(pattern.pattern, pattern.flags.includes("i"));
   const flags = pattern.flags.includes("u") ? pattern.flags : `${pattern.flags}u`;
-  return new RegExp(pattern.pattern, flags);
+  return compileBoundedRegex(pattern.pattern, flags);
 }
 
-function compileGlob(pattern: string, caseInsensitive: boolean): RegExp {
+function compileGlob(pattern: string, caseInsensitive: boolean): PatternMatcher {
   if (pattern.length === 0) throw new Error("Glob pattern cannot be empty.");
   let source = "^";
   for (let index = 0; index < pattern.length; index += 1) {
@@ -475,7 +471,7 @@ function compileGlob(pattern: string, caseInsensitive: boolean): RegExp {
     } else if (character === "?") source += "[^/]";
     else source += escapeRegExp(character);
   }
-  return new RegExp(`${source}$`, caseInsensitive ? "iu" : "u");
+  return compileBoundedRegex(`${source}$`, caseInsensitive ? "iu" : "u");
 }
 
 function patternValue(file: FileRecord, target: ExpectedPatternTarget): string {
@@ -575,65 +571,6 @@ function validateRegexFlags(flags: string): string | null {
   if (/[^iu]/u.test(flags)) return "Regex flags: i/u only.";
   if (new Set(flags).size !== flags.length) return "Regex flags repeated.";
   return null;
-}
-
-function validateRegexSafety(source: string): string | null {
-  const groups = [0]; // bit 1: repetition, bit 2: alternation
-  let inClass = false;
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index] ?? "";
-    if (character === "\\") {
-      const next = source[index + 1] ?? "";
-      if (!inClass && (/[1-9]/u.test(next) || next === "k")) {
-        return "Backreferences unsupported.";
-      }
-      index += 1;
-      continue;
-    }
-    if (character === "[") {
-      if (!inClass) inClass = true;
-      continue;
-    }
-    if (character === "]" && inClass) {
-      inClass = false;
-      continue;
-    }
-    if (inClass) continue;
-    if (character === "(") {
-      if (source[index + 1] === "?") {
-        if (source[index + 2] !== ":") {
-          return "Lookaround/special groups unsupported.";
-        }
-        index += 2;
-      }
-      groups.push(0);
-      continue;
-    }
-    if (character === "|") {
-      groups[groups.length - 1] = (groups.at(-1) ?? 0) | 2;
-      continue;
-    }
-    if (character === ")" && groups.length > 1) {
-      const state = groups.pop() ?? 0;
-      if ((state & 1) !== 0) groups[groups.length - 1] = (groups.at(-1) ?? 0) | 1;
-      if (regexQuantifierEnd(source, index + 1) >= 0 && state !== 0) {
-        return "Nested or ambiguous quantifiers unsupported.";
-      }
-      continue;
-    }
-    if (regexQuantifierEnd(source, index) >= 0) {
-      groups[groups.length - 1] = (groups.at(-1) ?? 0) | 1;
-    }
-  }
-  return null;
-}
-
-function regexQuantifierEnd(source: string, start: number): number {
-  const character = source[start];
-  if (character === "*" || character === "+" || character === "?") return start + 1;
-  if (character !== "{") return -1;
-  const match = /^\{\d+(?:,\d*)?\}/u.exec(source.slice(start));
-  return match === null ? -1 : start + match[0].length;
 }
 
 function nestedValue(value: unknown, key: string): unknown {

@@ -7,6 +7,22 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-09-24
+
+### Fixed
+
+- Parse empty, adjacent, and CRLF fenced code without losing real links or indexing code as links.
+- Restrict Bases references to formula fields and complete static link arguments; omit unavailable decoded YAML coordinates instead of reporting incorrect positions.
+- Preserve naming conditions across rule preview, save, and reload, and disable invalid persisted rules without broadening their scope.
+- Match regex and glob rules without native backtracking, with bounded compiled state counts.
+- Stop accumulating events indefinitely when the first index baseline fails.
+- Expose available non-Markdown source locations and label advanced rule controls for accessibility.
+- Update the development dependency on js-yaml to the patched version and audit dependencies in CI.
+
+### Improved
+
+- Remove inactive declarative settings bridges while preserving the imperative tabbed settings surface.
+
 ## [0.2.7] - 2026-09-20
 
 ### Fixed

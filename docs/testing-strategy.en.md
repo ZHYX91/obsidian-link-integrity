@@ -31,7 +31,7 @@ Pure fixtures should cover:
 - Markdown, embed, Frontmatter, Canvas, and Bases explicit source kinds;
 - fallback-parser exclusion of fenced and indented code plus frontmatter YAML comments, while retaining links in frontmatter values and paragraph continuations; fenced-code regressions cover LF/CRLF, empty and adjacent blocks, both fence characters, variable lengths, unclosed blocks, and UTF-16 offsets after astral prefixes;
 - self-links, external URLs, and repeated occurrences;
-- absence of explicit edges from dynamic Bases results; semantic tests allow static explicit references only from `filters`, `formulas`, custom `summaries`, and view `filters`, with view names, `properties` display strings, and ordinary formula string literals as negative cases;
+- absence of explicit edges from dynamic Bases results; semantic tests allow static explicit references only from `filters`, `formulas`, custom `summaries`, and view `filters`, with view names, `properties` display strings, ordinary formula string literals, and dynamic first link arguments as negative cases; escaped/folded YAML must never fabricate link coordinates or collapse repeated occurrences;
 - separation of candidate, diagnostic, and contribution scopes.
 
 Occurrence-identity regressions prove that unrelated text and unrelated links inserted before a saved occurrence preserve its ignore match, while file and folder rename events migrate the persisted source identity. Inserting an indistinguishable duplicate must change duplicate-set cardinality and make the old rule match zero results, which the rule preview exposes, rather than matching a different occurrence. Workflow-contract syntax validation concatenates the extracted shell blocks into one `bash -n` process so the Windows gate does not pay one Git Bash startup per block.
@@ -49,7 +49,7 @@ Expected-isolation tests cover:
 - exclusion from main results and the main count by default, with `expected-isolated` classification when advanced display is enabled;
 - no graph edge creation by expected classification;
 - AND between file-type, folder, and naming conditions, with OR between multiple naming patterns;
-- exact/recursive folders, date formats, globs, safe-subset regular expressions, match counts, and samples; regex tests reject overlong input, invalid flags, nested quantifiers, quantified ambiguous groups, backreferences, and lookaround while retaining ordinary bounded patterns;
+- exact/recursive folders, date formats, globs, safe-subset regular expressions, match counts, and samples; regex tests reject overlong patterns, excessive repetition/state counts, invalid flags, backreferences, and lookaround; differential tests compare the supported subset with native Unicode regex semantics on short inputs, and adversarial benchmarks cover nested/ambiguous groups and adjacent repetitions without native backtracking;
 - daily, weekly, monthly, quarterly, and yearly periodic-note presets with configurable paths and formats;
 - prevention of an invalid rule from silently matching every file; an invalid persisted naming condition remains available for diagnosis and disables its whole rule instead of being normalized away and broadening the match.
 - exact-file path normalization, deduplication, main-count exclusion, rename following, and visible removal of missing paths in settings.

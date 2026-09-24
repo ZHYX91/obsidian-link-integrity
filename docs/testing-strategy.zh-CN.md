@@ -30,7 +30,7 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 - Markdown、嵌入、Frontmatter、Canvas 和 Bases 显式来源类型；
 - 降级解析器屏蔽 fenced/indented code 和 frontmatter YAML comment，同时保留 frontmatter value 与 paragraph continuation 中的链接；fenced code 回归必须覆盖 LF/CRLF、空块、相邻块、两种围栏字符、不同长度、未闭合块和 astral 字符前缀下的 UTF-16 offset；
 - 自链接、外部 URL 和重复 occurrence；
-- Bases 动态结果不形成显式边；语义测试只允许 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 中的静态显式引用，并用视图名称、`properties` 展示字符串和公式内部普通字符串作为负例；
+- Bases 动态结果不形成显式边；语义测试只允许 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 中的静态显式引用，并用视图名称、`properties` 展示字符串、公式内部普通字符串和 link 的动态第一参数作为负例；转义或折叠 YAML 不得伪造链接坐标或合并重复 occurrence；
 - 候选、诊断和贡献范围互不污染。
 
 Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文本或无关链接后，其忽略匹配仍然保持；文件与文件夹重命名事件会迁移持久化身份中的来源部分。插入无法区分的同语义重复项时，重复集合基数必须变化，并让旧规则匹配零个结果，由规则预览明确呈现，而不是误匹配另一处 occurrence。Workflow contract 的语法验证会把提取出的 shell 片段合并后交给单个 `bash -n` 进程，避免 Windows 门禁为每个代码块重复承担 Git Bash 启动开销。
@@ -48,7 +48,7 @@ Occurrence 身份回归测试证明：在已保存 occurrence 前插入无关文
 - 默认从主结果和主计数排除，高级显示时分类为 expected-isolated；
 - 预期分类不创建任何图边；
 - 文件类型、文件夹和命名条件使用 AND，多个命名模式使用 OR；
-- exact/recursive 文件夹、日期格式、glob、安全子集 regex、匹配数和样例；regex 测试必须覆盖超长输入、非法 flag、嵌套量词、量化歧义分组、反向引用和 lookaround 的拒绝，以及普通有界模式的正向匹配；
+- exact/recursive 文件夹、日期格式、glob、安全子集 regex、匹配数和样例；regex 测试必须覆盖超长模式、重复次数或状态数超限、非法 flag、反向引用和 lookaround 的拒绝；差分测试用短输入对比支持子集与原生 Unicode 正则的语义，对抗基准覆盖嵌套或歧义分组和相邻重复，证明不执行原生回溯；
 - 日、周、月、季、年周期笔记预设及可配置路径和格式；
 - 无效规则不静默匹配所有文件；持久化的无效命名条件必须保留用于诊断并整体停用规则，不能因归一化删除条件而扩大匹配。
 - 精确文件路径的规范化、去重、主计数排除、rename 跟随，以及缺失路径在设置中的可见移除。

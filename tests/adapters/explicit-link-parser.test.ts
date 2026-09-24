@@ -281,6 +281,39 @@ describe("extractBasesExplicitReferences", () => {
       "Invalid Bases source.",
     );
   });
+
+  it("requires the entire first link argument to be a literal, independent of the display argument", () => {
+    const formulas = [
+      'link("Projects/" + file.name)', 'link("Real.md".replace("R", "S"))',
+      'link("Real.md" [0])', 'link("Real.md" || file.name)', 'file.link("Method.md")',
+      'link(file.name)', 'link("Real.md", file.name)', 'link(\n"Other.md"\n)',
+    ];
+    const source = `formulas:\n${formulas.map((value, index) =>
+      `  f${index}: ${JSON.stringify(value)}`).join("\n")}`;
+    expect(extractBasesExplicitReferences(source).map(({ linktext }) => linktext))
+      .toEqual(["Real.md", "Other.md"]);
+  });
+
+  it("keeps exact plain offsets but does not invent positions after YAML decoding", () => {
+    const exact = 'formulas:\n  target: \'link("Real.md")\'\n';
+    expect(extractBasesExplicitReferences(exact)[0]).toMatchObject({
+      startOffset: exact.indexOf("link("),
+    });
+    for (const source of [
+      'formulas:\n  target: >-\n    if(true,\n      link("Real.md"),\n      null)\n',
+      `formulas:\n  target: ${JSON.stringify('link("Real.md")')}\n`,
+      'formulas:\n  target: \'link(\'\'Real.md\'\')\'\n',
+    ]) {
+      expect(extractBasesExplicitReferences(source)).toEqual([
+        expect.objectContaining({ linktext: "Real.md", exactPosition: false }),
+      ]);
+    }
+  });
+
+  it("preserves repeated references even when exact decoded positions are unavailable", () => {
+    const source = `formulas:\n  target: ${JSON.stringify('if(true, link("A"), link("A"))')}\n`;
+    expect(extractBasesExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["A", "A"]);
+  });
 });
 
 describe("isExternalReference", () => {

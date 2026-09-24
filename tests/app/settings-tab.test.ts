@@ -6,9 +6,9 @@ import { createDefaultSettings, type LinkIntegritySettings } from "../../src/sha
 import type { SettingsUiContext } from "../../src/ui/settings";
 
 describe("LinkIntegritySettingTab", () => {
-  it("bridges declarative controls and the shared settings context", async () => {
+  it("keeps declarative settings inactive and connects the imperative context", async () => {
     let settings: LinkIntegritySettings = createDefaultSettings();
-    let writeProtected = false;
+    const writeProtected = false;
     const owner = {
       getSettings: () => settings,
       isSettingsWriteProtected: () => writeProtected,
@@ -44,17 +44,8 @@ describe("LinkIntegritySettingTab", () => {
     };
     const tab = new LinkIntegritySettingTab({} as never, owner as never);
 
-    expect(tab.getControlValue("general.scanOnStartup")).toBe(false);
-    expect(tab.getControlValue("not-a-control")).toBeUndefined();
-    tab.setControlValue("general.scanOnStartup", true);
-    expect(settings.general.scanOnStartup).toBe(true);
-    writeProtected = true;
-    tab.setControlValue("general.scanOnStartup", false);
-    expect(settings.general.scanOnStartup).toBe(true);
-    writeProtected = false;
-
     expect(tab.getSettingDefinitions()).toEqual([]);
-    expect(tab.getDeclarativeSettingDefinitions()).not.toHaveLength(0);
+    (tab as unknown as { activateSurface(): void }).activateSurface();
     const context = (tab as unknown as { createContext(): SettingsUiContext }).createContext();
     expect(context.getSettings!()).toBe(settings);
     expect(context.createId!("expected-rule")).toMatch(/^expected-rule:/u);

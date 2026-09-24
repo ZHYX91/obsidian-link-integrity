@@ -3,6 +3,12 @@ filters:
     - file.inFolder("Connected")
 formulas:
   target: 'link("Connected/Target.md")'
+  dynamic: 'link("Ghost/" + file.name)'
+  escaped: "link(\"Connected/Target.md\")"
+  folded: >-
+    if(true,
+      link("Missing folded target"),
+      null)
 views:
   - type: table
-    name: Connected files
+    name: "link('Missing view target')"
