@@ -34,7 +34,7 @@ Results produced by dynamic Bases queries are not explicit references and do not
 
 Broken-link results are reported per occurrence instead of only per target. Confirmed reasons currently include a missing target file, an invalid internal link, a missing heading, and a missing block. A link waiting for host metadata is not a confirmed error, and an unsupported subpath is not presented as a confirmed error.
 
-Opening a result should open its source and, where the source type permits, navigate to a line, property, or Canvas node. When exact navigation is unavailable, the interface must honestly fall back to opening the source file and expose any available Canvas node ID, line/column, and raw-reference context; it must not silently imply that precise navigation succeeded.
+Opening a result should open its source and, where the source type permits, navigate to a line, property, or Canvas node. When exact navigation is unavailable, the interface must honestly fall back to opening the source file and expose any available Canvas node ID and line/column; it must not silently imply that precise navigation succeeded.
 
 Ordinary result-hiding rules change diagnostic visibility only. They do not change valid file connections or erase the risk signal attached to an isolated result.
 
