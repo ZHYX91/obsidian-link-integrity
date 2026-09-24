@@ -69,7 +69,7 @@ export function extractBasesExplicitReferences(
   });
   const root = document.contents;
   if (document.errors.length > 0 || !isMap(root)) {
-    throw new Error("Cannot parse Bases source.");
+    throw new Error("Invalid Bases source.");
   }
 
   const scalars: Array<{ readonly value: string; readonly start: number; readonly end: number }> = [];
