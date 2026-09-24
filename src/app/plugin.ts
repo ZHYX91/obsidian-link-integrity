@@ -426,6 +426,13 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private enqueue(event: SourceEvent): void {
     if (!this.runtimeStarted || this.unloaded) return;
+    // Without a complete baseline, a future rebuild reads authoritative current Vault state.
+    // Retaining arbitrary history after a failed first build only grows memory and cannot
+    // safely manufacture a partial index. Events that arrive during staging are still replayed.
+    if (!this.baselineAvailable && this.coordinator.state !== "rebuilding") {
+      this.discardPendingSourceEvents();
+      return;
+    }
     this.pendingSourceEvents.push(event);
     if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
     this.eventFlushTimer = window.setTimeout(() => {
