@@ -608,8 +608,11 @@ function validateRegexSafety(source: string): string | null {
     }
     if (inClass) continue;
     if (character === "(") {
-      if (source[index + 1] === "?" && source[index + 2] !== ":") {
-        return "Lookaround and other special groups are not supported in expected-isolation regular expressions.";
+      if (source[index + 1] === "?") {
+        if (source[index + 2] !== ":") {
+          return "Lookaround and other special groups are not supported in expected-isolation regular expressions.";
+        }
+        index += 2;
       }
       stack.push({ hasRepetition: false, hasAlternation: false });
       continue;
