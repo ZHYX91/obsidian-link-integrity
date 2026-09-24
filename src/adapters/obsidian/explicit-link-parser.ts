@@ -67,7 +67,8 @@ export function extractBasesExplicitReferences(
     logLevel: "silent",
     stringKeys: true,
   });
-  if (document.errors.length > 0 || !isMap(document.contents)) {
+  const root = document.contents;
+  if (document.errors.length > 0 || !isMap(root)) {
     throw new Error("Cannot parse Bases source.");
   }
 
@@ -100,7 +101,7 @@ export function extractBasesExplicitReferences(
     for (const pair of node.items) appendScalar(pair.value);
   };
   const topLevelValue = (key: string): unknown => {
-    for (const pair of document.contents.items) {
+    for (const pair of root.items) {
       if (isScalar(pair.key) && pair.key.value === key) return pair.value;
     }
     return undefined;
