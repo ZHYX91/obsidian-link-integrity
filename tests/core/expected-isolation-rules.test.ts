@@ -97,7 +97,7 @@ describe("expected-isolated rules", () => {
     expect(rule?.enabled).toBe(false);
     expect(rule?.namingPatterns).toHaveLength(1);
     expect(rule?.namingPatterns[0]?.pattern).toBe(overlong);
-    expect(validateExpectedIsolationRule(rule!)).toContain("regex pattern exceeds 512 characters.");
+    expect(validateExpectedIsolationRule(rule!)).toContain("regex pattern > 512 chars.");
     expect(matchesExpectedIsolationRule(createFileRecord("anything.md"), rule!)).toBe(false);
   });
 
