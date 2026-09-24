@@ -76,6 +76,51 @@ describe("extractMarkdownExplicitReferences", () => {
     ]);
   });
 
+  it("handles CRLF, empty, adjacent, and longer fenced code blocks", () => {
+    const source = [
+      "````md",
+      "[[hidden-long]]",
+      "````",
+      "```",
+      "```",
+      "~~~",
+      "[[hidden-tilde]]",
+      "~~~",
+      "[[kept]]",
+    ].join("\r\n");
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "kept",
+    ]);
+  });
+
+  it("keeps adjacent fenced blocks isolated from following content", () => {
+    const source = [
+      "```",
+      "[[hidden-one]]",
+      "```",
+      "```",
+      "[[hidden-two]]",
+      "```",
+      "[[shown]]",
+    ].join("\n");
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "shown",
+    ]);
+  });
+
+  it("masks an unclosed fence through end of source without shifting UTF-16 offsets", () => {
+    const source = ["😀 [[shown]]", "```", "[[hidden]]"].join("\n");
+    const references = extractMarkdownExplicitReferences(source);
+
+    expect(references).toEqual([
+      expect.objectContaining({
+        linktext: "shown",
+        startOffset: source.indexOf("[[shown]]"),
+      }),
+    ]);
+  });
   it("ignores indented code blocks without hiding paragraph continuations", () => {
     const source = [
       "    [[top-level code]]",
