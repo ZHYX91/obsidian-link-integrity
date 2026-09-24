@@ -227,7 +227,7 @@ describe("custom settings sections", () => {
     vi.advanceTimersByTime(300);
 
     const validation = dialog.querySelector<HTMLElement>(".link-integrity-rule-validation")!;
-    expect(validation.textContent).toContain("regex pattern exceeds 512 characters");
+    expect(validation.textContent).toContain("regex pattern > 512 chars");
     expect(requestExpectedRulePreview).not.toHaveBeenCalled();
     const save = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button"))
       .find(({ textContent }) => textContent === "Save");
