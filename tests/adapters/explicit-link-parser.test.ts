@@ -278,7 +278,7 @@ describe("extractBasesExplicitReferences", () => {
 
   it("rejects malformed Bases YAML instead of inventing a partial graph", () => {
     expect(() => extractBasesExplicitReferences("filters: [unterminated")).toThrow(
-      "Cannot parse Bases source.",
+      "Invalid Bases source.",
     );
   });
 });
