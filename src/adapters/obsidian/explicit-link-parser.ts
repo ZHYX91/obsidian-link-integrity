@@ -269,11 +269,7 @@ function maskMarkdownNonContent(source: string): string {
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.
   const characters = source.split("");
-  const fencedRanges = maskDelimitedBlocks(
-    characters,
-    source,
-    /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[^\n]*(?:\n|$)/gu,
-  );
+  const fencedRanges = maskDelimitedBlocks(characters, source);
   const frontmatterRange = findMarkdownFrontmatterRange(source);
   if (frontmatterRange !== null) {
     maskYamlCommentRanges(
@@ -299,25 +295,36 @@ interface MaskedRange {
 function maskDelimitedBlocks(
   characters: string[],
   source: string,
-  openingPattern: RegExp,
 ): MaskedRange[] {
   const ranges: MaskedRange[] = [];
-  openingPattern.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = openingPattern.exec(source)) !== null) {
-    const fence = match[2];
-    if (fence == null) continue;
-    const contentStart = match.index + match[0].length;
-    const closingPattern = new RegExp(
-      `(?:^|\\n)[ \\t]{0,3}${escapeRegExp(fence[0] ?? "")}{${fence.length},}[ \\t]*(?:\\n|$)`,
-      "gu",
+  let opening: { readonly character: string; readonly length: number; readonly start: number } | null = null;
+  for (const line of sourceLineRanges(source)) {
+    const content = source.slice(line.start, line.contentEnd);
+    if (opening === null) {
+      const match = /^[ \t]{0,3}(`{3,}|~{3,})[^\r\n]*$/u.exec(content);
+      const fence = match?.[1];
+      if (fence !== undefined) {
+        opening = {
+          character: fence[0] ?? "",
+          length: fence.length,
+          start: line.start,
+        };
+      }
+      continue;
+    }
+    const escaped = escapeRegExp(opening.character);
+    const closing = new RegExp(
+      `^[ \\t]{0,3}${escaped}{${opening.length},}[ \\t]*$`,
+      "u",
     );
-    closingPattern.lastIndex = contentStart;
-    const closing = closingPattern.exec(source);
-    const end = closing == null ? source.length : closing.index + closing[0].length;
-    maskRange(characters, match.index, end);
-    ranges.push({ start: match.index, end });
-    openingPattern.lastIndex = end;
+    if (!closing.test(content)) continue;
+    maskRange(characters, opening.start, line.end);
+    ranges.push({ start: opening.start, end: line.end });
+    opening = null;
+  }
+  if (opening !== null) {
+    maskRange(characters, opening.start, source.length);
+    ranges.push({ start: opening.start, end: source.length });
   }
   return ranges;
 }
