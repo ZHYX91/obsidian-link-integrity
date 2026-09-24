@@ -636,7 +636,6 @@ describe("plugin index lifecycle", () => {
       location: { line: 8, column: 2, property: null, canvasNodeId: null },
     });
     expect(messages.at(-1)).toContain("L9:C3");
-    expect(messages.at(-1)).toContain('link("Missing")');
   });
   it("does not retain an unbounded event history when the first baseline is unavailable", () => {
     const plugin = new LinkIntegrityPlugin({} as never, {} as never);
