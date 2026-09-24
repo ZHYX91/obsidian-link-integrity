@@ -43,7 +43,7 @@ The source-folder tree collapses deeper hierarchy by default, offers Expand all 
 
 - Missing files, headings, and blocks have distinct labels.
 - When a file exists but its subpath is missing, the target file can still be opened while retaining the subpath diagnostic.
-- Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases honestly fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID, line/column, and raw-reference context; merely opening the file must not masquerade as precise navigation.
+- Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases honestly fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID and line/column; merely opening the file must not masquerade as precise navigation.
 - A row menu can create an ignore rule for the occurrence, target, or source. It shows the scope and match preview before saving, then offers one immediate undo action.
 
 Search, grouping, sorting, and “show ignored” affect only the current projection, never the graph.
