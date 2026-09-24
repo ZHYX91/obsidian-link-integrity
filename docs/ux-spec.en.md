@@ -43,7 +43,7 @@ The source-folder tree collapses deeper hierarchy by default, offers Expand all 
 
 - Missing files, headings, and blocks have distinct labels.
 - When a file exists but its subpath is missing, the target file can still be opened while retaining the subpath diagnostic.
-- Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases honestly fall back to opening the source file or node when the host API cannot provide a stable exact position.
+- Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases honestly fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID, line/column, and raw-reference context; merely opening the file must not masquerade as precise navigation.
 - A row menu can create an ignore rule for the occurrence, target, or source. It shows the scope and match preview before saving, then offers one immediate undo action.
 
 Search, grouping, sorting, and “show ignored” affect only the current projection, never the graph.
@@ -117,7 +117,7 @@ An expected-isolation rule has a name, enabled state, and combined conditions:
 - exact or recursive folder scope;
 - date-format, glob, or advanced regular-expression patterns against a basename or full path.
 
-Different condition groups are combined with AND, while naming patterns inside a group are combined with OR. The periodic-notes preset provides configurable daily, weekly, monthly, quarterly, and yearly patterns: `YYYY-MM-DD`, `GGGG-[W]WW`, `YYYY-MM`, `YYYY-[Q]Q`, and `YYYY`. It creates Link Integrity rules only and never reads Chrono Notes data or code.
+Different condition groups are combined with AND, while naming patterns inside a group are combined with OR. Advanced regular expressions accept only a safe subset that keeps clearly high-risk backtracking structures off the main thread; overlong patterns, invalid flags, nested quantifiers, quantified ambiguous groups, backreferences, and lookaround fail validation before preview and disable Save. Existing settings that no longer satisfy this contract disable the whole affected rule on load instead of silently dropping a condition. Rule-kind, match-target, pattern, and flags controls all have accessible names and are associated with validation feedback. The periodic-notes preset provides configurable daily, weekly, monthly, quarterly, and yearly patterns: `YYYY-MM-DD`, `GGGG-[W]WW`, `YYYY-MM`, `YYYY-[Q]Q`, and `YYYY`. It creates Link Integrity rules only and never reads Chrono Notes data or code.
 
 An ignore rule states its actual scope: hide broken diagnostics, exclude isolated candidates, ignore an entire target file, ignore an occurrence, or exclude graph contribution. Disabling or deleting a rule recalculates projections from the same authoritative index.
 
