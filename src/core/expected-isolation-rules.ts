@@ -239,11 +239,11 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   const cached = validationCache.get(rule);
   if (cached !== undefined) return cached;
   const errors: string[] = [];
-  if (!isValidIdentifier(rule.id)) errors.push("Rule ID is invalid.");
+  if (!isValidIdentifier(rule.id)) errors.push("Invalid rule ID.");
   const nameLength = rule.name.trim().length;
-  if (nameLength === 0) errors.push("Rule name cannot be empty.");
-  else if (nameLength > 120) errors.push("Rule name cannot exceed 120 characters.");
-  if (!hasExpectedRuleCondition(rule)) errors.push("Rule must have at least one condition.");
+  if (nameLength === 0) errors.push("Rule name required.");
+  else if (nameLength > 120) errors.push("Rule name > 120 chars.");
+  if (!hasExpectedRuleCondition(rule)) errors.push("Rule needs a condition.");
   if (rule.folder !== null) {
     try {
       normalizeFolderPath(rule.folder.path);
@@ -253,17 +253,17 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   }
   const seenPatternIds = new Set<string>();
   for (const pattern of rule.namingPatterns) {
-    if (!isValidIdentifier(pattern.id)) errors.push("Naming pattern ID is invalid.");
-    else if (seenPatternIds.has(pattern.id)) errors.push(`Duplicate naming pattern ID: ${pattern.id}`);
+    if (!isValidIdentifier(pattern.id)) errors.push("Invalid pattern ID.");
+    else if (seenPatternIds.has(pattern.id)) errors.push(`Duplicate pattern ID: ${pattern.id}`);
     seenPatternIds.add(pattern.id);
     const length = pattern.pattern.trim().length;
     if (length === 0) {
-      errors.push("Naming pattern cannot be empty.");
+      errors.push("Pattern required.");
       continue;
     }
     const maximum = pattern.kind === "regex" ? 512 : 256;
     if (length > maximum) {
-      errors.push(`${pattern.kind} pattern exceeds ${maximum} characters.`);
+      errors.push(`${pattern.kind} pattern > ${maximum} chars.`);
       continue;
     }
     if (pattern.kind === "regex") {
@@ -572,8 +572,8 @@ function normalizePatternFlags(
 }
 
 function validateRegexFlags(flags: string): string | null {
-  if (/[^iu]/u.test(flags)) return "Regex flags may contain only i and u.";
-  if (new Set(flags).size !== flags.length) return "Regex flags cannot repeat.";
+  if (/[^iu]/u.test(flags)) return "Regex flags: i/u only.";
+  if (new Set(flags).size !== flags.length) return "Regex flags repeated.";
   return null;
 }
 
@@ -585,7 +585,7 @@ function validateRegexSafety(source: string): string | null {
     if (character === "\\") {
       const next = source[index + 1] ?? "";
       if (!inClass && (/[1-9]/u.test(next) || next === "k")) {
-        return "Backreferences are not supported.";
+        return "Backreferences unsupported.";
       }
       index += 1;
       continue;
@@ -602,7 +602,7 @@ function validateRegexSafety(source: string): string | null {
     if (character === "(") {
       if (source[index + 1] === "?") {
         if (source[index + 2] !== ":") {
-          return "Lookaround and special groups are not supported.";
+          return "Lookaround/special groups unsupported.";
         }
         index += 2;
       }
@@ -617,7 +617,7 @@ function validateRegexSafety(source: string): string | null {
       const state = groups.pop() ?? 0;
       if ((state & 1) !== 0) groups[groups.length - 1] = (groups.at(-1) ?? 0) | 1;
       if (regexQuantifierEnd(source, index + 1) >= 0 && state !== 0) {
-        return "Nested or ambiguous quantified groups are not supported.";
+        return "Nested or ambiguous quantifiers unsupported.";
       }
       continue;
     }
