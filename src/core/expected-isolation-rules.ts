@@ -90,6 +90,11 @@ export const PERIODIC_NOTE_PRESETS: Readonly<Record<PeriodicNoteKind, {
 
 const compiledPatternCache = new WeakMap<ExpectedNamingPattern, RegExp>();
 const validationCache = new WeakMap<ExpectedIsolationRule, readonly string[]>();
+const MAX_NAMING_PATTERN_LENGTH: Readonly<Record<ExpectedNamingPatternKind, number>> = {
+  "date-format": 256,
+  glob: 256,
+  regex: 512,
+};
 
 export function createDefaultPeriodicNotesPreset(): PeriodicNotesPreset {
   return {
@@ -240,7 +245,9 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   if (cached !== undefined) return cached;
   const errors: string[] = [];
   if (!isValidIdentifier(rule.id)) errors.push("Rule ID is invalid.");
-  if (rule.name.trim().length === 0) errors.push("Rule name cannot be empty.");
+  const nameLength = rule.name.trim().length;
+  if (nameLength === 0) errors.push("Rule name cannot be empty.");
+  else if (nameLength > 120) errors.push("Rule name cannot exceed 120 characters.");
   if (!hasExpectedRuleCondition(rule)) errors.push("Rule must have at least one condition.");
   if (rule.folder !== null) {
     try {
@@ -249,7 +256,32 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
       errors.push(error instanceof Error ? error.message : String(error));
     }
   }
+  const seenPatternIds = new Set<string>();
   for (const pattern of rule.namingPatterns) {
+    if (!isValidIdentifier(pattern.id)) errors.push("Naming pattern ID is invalid.");
+    else if (seenPatternIds.has(pattern.id)) errors.push(`Duplicate naming pattern ID: ${pattern.id}`);
+    seenPatternIds.add(pattern.id);
+    const length = pattern.pattern.trim().length;
+    if (length === 0) {
+      errors.push("Naming pattern cannot be empty.");
+      continue;
+    }
+    if (length > MAX_NAMING_PATTERN_LENGTH[pattern.kind]) {
+      errors.push(`${pattern.kind} pattern exceeds ${MAX_NAMING_PATTERN_LENGTH[pattern.kind]} characters.`);
+      continue;
+    }
+    if (pattern.kind === "regex") {
+      const flagError = validateRegexFlags(pattern.flags);
+      if (flagError !== null) {
+        errors.push(flagError);
+        continue;
+      }
+      const safetyError = validateRegexSafety(pattern.pattern);
+      if (safetyError !== null) {
+        errors.push(safetyError);
+        continue;
+      }
+    }
     try {
       getCompiledPattern(pattern);
     } catch (error) {
@@ -259,7 +291,6 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   validationCache.set(rule, errors);
   return errors;
 }
-
 export const validateExpectedIsolatedRule = validateExpectedIsolationRule;
 
 export function compileDateFormat(format: string): RegExp {
@@ -320,7 +351,13 @@ function normalizeExpectedIsolationRule(value: unknown): ExpectedIsolationRule |
     folder: normalizeFolderCondition(value.folder),
     namingPatterns: normalizeNamingPatterns(value.namingPatterns ?? value.patterns),
   };
-  return hasExpectedRuleCondition(rule) ? rule : { ...rule, enabled: false };
+  const rawPatterns = value.namingPatterns ?? value.patterns;
+  const malformedPatterns = Array.isArray(rawPatterns) &&
+    rawPatterns.some((candidate) => !isNormalizableNamingPattern(candidate));
+  const malformedFolder = value.folder !== undefined && value.folder !== null && rule.folder === null;
+  const valid = !malformedPatterns && !malformedFolder &&
+    validateExpectedIsolationRule(rule).length === 0;
+  return valid ? rule : { ...rule, enabled: false };
 }
 
 function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
@@ -332,13 +369,13 @@ function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
     const kind = candidate.kind;
     if (!isExpectedNamingPatternKind(kind)) continue;
     const id = normalizeIdentifier(candidate.id) ?? `pattern-${index + 1}`;
-    const pattern = normalizePattern(candidate.pattern ?? candidate.format ?? candidate.source, kind);
-    if (pattern === null || ids.has(id)) continue;
+    const rawPattern = candidate.pattern ?? candidate.format ?? candidate.source;
+    if (typeof rawPattern !== "string" || ids.has(id)) continue;
     ids.add(id);
     result.push({
       id,
       kind,
-      pattern,
+      pattern: rawPattern.trim(),
       flags: normalizePatternFlags(candidate.flags, kind, candidate.caseSensitive),
       target: candidate.target === "path" ? "path" : "basename",
     });
@@ -346,6 +383,11 @@ function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
   return result;
 }
 
+function isNormalizableNamingPattern(value: unknown): boolean {
+  if (!isRecord(value) || !isExpectedNamingPatternKind(value.kind)) return false;
+  const rawPattern = value.pattern ?? value.format ?? value.source;
+  return typeof rawPattern === "string";
+}
 function normalizeFolderCondition(value: unknown): ExpectedFolderCondition | null {
   if (!isRecord(value) || typeof value.path !== "string") return null;
   const mode = value.mode;
@@ -420,7 +462,10 @@ function getCompiledPattern(pattern: ExpectedNamingPattern): RegExp {
 function compilePattern(pattern: ExpectedNamingPattern): RegExp {
   if (pattern.kind === "date-format") return compileDateFormat(pattern.pattern);
   if (pattern.kind === "glob") return compileGlob(pattern.pattern, pattern.flags.includes("i"));
-  if (/[gy]/u.test(pattern.flags)) throw new Error("Regex flags g and y are not supported.");
+  const flagError = validateRegexFlags(pattern.flags);
+  if (flagError !== null) throw new Error(flagError);
+  const safetyError = validateRegexSafety(pattern.pattern);
+  if (safetyError !== null) throw new Error(safetyError);
   const flags = pattern.flags.includes("u") ? pattern.flags : `${pattern.flags}u`;
   return new RegExp(pattern.pattern, flags);
 }
@@ -517,20 +562,99 @@ function normalizeLabel(value: unknown): string | null {
   return trimmed.length > 0 && trimmed.length <= 120 ? trimmed : null;
 }
 
-function normalizePattern(value: unknown, kind: unknown): string | null {
+function normalizePattern(value: unknown, _kind: unknown): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  const maximum = kind === "regex" ? 512 : 256;
-  return trimmed.length > 0 && trimmed.length <= maximum ? trimmed : null;
+  return value.trim();
 }
 
-function normalizePatternFlags(value: unknown, kind: ExpectedNamingPatternKind, caseSensitive: unknown): string {
+function normalizePatternFlags(
+  value: unknown,
+  kind: ExpectedNamingPatternKind,
+  caseSensitive: unknown,
+): string {
   if (kind === "date-format") return "u";
   if (kind === "glob") return caseSensitive === true ? "u" : "iu";
-  const input = typeof value === "string" ? value : "u";
-  const flags = Array.from(new Set(input.split("").filter((flag) => flag === "i" || flag === "u")));
-  if (!flags.includes("u")) flags.push("u");
-  return flags.sort().join("");
+  return typeof value === "string" ? value.trim() : "u";
+}
+
+function validateRegexFlags(flags: string): string | null {
+  if (/[^iu]/u.test(flags)) return "Regular expression flags may contain only i and u.";
+  if (new Set(flags).size !== flags.length) return "Regular expression flags cannot repeat.";
+  return null;
+}
+
+function validateRegexSafety(source: string): string | null {
+  type GroupState = { hasRepetition: boolean; hasAlternation: boolean };
+  const stack: GroupState[] = [{ hasRepetition: false, hasAlternation: false }];
+  const closedGroups = new Map<number, GroupState>();
+  let inClass = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index] ?? "";
+    if (character === "\\") {
+      const next = source[index + 1] ?? "";
+      if (!inClass && /[1-9]/u.test(next)) {
+        return "Backreferences are not supported in expected-isolation regular expressions.";
+      }
+      index += 1;
+      continue;
+    }
+    if (character === "[" && !inClass) {
+      inClass = true;
+      continue;
+    }
+    if (character === "]" && inClass) {
+      inClass = false;
+      continue;
+    }
+    if (inClass) continue;
+    if (character === "(") {
+      if (source[index + 1] === "?" && source[index + 2] !== ":") {
+        return "Lookaround and other special groups are not supported in expected-isolation regular expressions.";
+      }
+      stack.push({ hasRepetition: false, hasAlternation: false });
+      continue;
+    }
+    if (character === ")") {
+      if (stack.length === 1) continue;
+      const group = stack.pop();
+      if (group !== undefined) {
+        closedGroups.set(index, group);
+        const parent = stack.at(-1);
+        if (parent !== undefined && group.hasRepetition) parent.hasRepetition = true;
+      }
+      continue;
+    }
+    if (character === "|") {
+      const current = stack.at(-1);
+      if (current !== undefined) current.hasAlternation = true;
+      continue;
+    }
+    const quantifier = readRegexQuantifier(source, index);
+    if (quantifier === null) continue;
+    const current = stack.at(-1);
+    if (current !== undefined) current.hasRepetition = true;
+    let previous = index - 1;
+    while (previous >= 0 && /\s/u.test(source[previous] ?? "")) previous -= 1;
+    if (source[previous] === ")") {
+      const group = closedGroups.get(previous);
+      if (group?.hasRepetition === true || group?.hasAlternation === true) {
+        return "Nested or ambiguous quantified groups are not supported because they can block Obsidian.";
+      }
+    }
+    index = quantifier.end - 1;
+  }
+  return null;
+}
+
+function readRegexQuantifier(
+  source: string,
+  start: number,
+): { readonly end: number } | null {
+  const character = source[start];
+  if (character === "*" || character === "+" || character === "?") return { end: start + 1 };
+  if (character !== "{") return null;
+  const match = /^\{\d+(?:,\d*)?\}/u.exec(source.slice(start));
+  return match === null ? null : { end: start + match[0].length };
 }
 
 function nestedValue(value: unknown, key: string): unknown {
