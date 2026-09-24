@@ -26,7 +26,7 @@ The currently supported explicit connection sources are:
 - internal links and embeds in Markdown bodies;
 - internal links recognized by Obsidian in Frontmatter;
 - explicit Canvas file nodes, background files, and resolvable internal links in text nodes;
-- explicit file references in Bases files.
+- statically identifiable explicit file references in Bases `filters`, `formulas`, custom `summaries`, and view `filters`; view names, `properties` display configuration, and ordinary string literals are not references.
 
 Results produced by dynamic Bases queries are not explicit references and do not create graph edges by default. Date adjacency between periodic notes does not create synthetic edges either.
 
@@ -34,7 +34,7 @@ Results produced by dynamic Bases queries are not explicit references and do not
 
 Broken-link results are reported per occurrence instead of only per target. Confirmed reasons currently include a missing target file, an invalid internal link, a missing heading, and a missing block. A link waiting for host metadata is not a confirmed error, and an unsupported subpath is not presented as a confirmed error.
 
-Opening a result should open its source and, where the source type permits, navigate to a line, property, or Canvas node. When exact navigation is unavailable, the interface must honestly fall back to opening the source file or node.
+Opening a result should open its source and, where the source type permits, navigate to a line, property, or Canvas node. When exact navigation is unavailable, the interface must honestly fall back to opening the source file and expose any available Canvas node ID and line/column; it must not silently imply that precise navigation succeeded.
 
 Ordinary result-hiding rules change diagnostic visibility only. They do not change valid file connections or erase the risk signal attached to an isolated result.
 
@@ -60,7 +60,7 @@ Some files may be isolated by workflow design, including periodic notes, templat
 - they do not create date-adjacency or other inferred connections;
 - they do not affect broken-link diagnostics or remove real graph contributions.
 
-A rule may combine file type, folder, and naming conditions. Different conditions use AND; multiple date-format, glob, or regular-expression naming patterns within one rule use OR. Rules have names and can report a match count with a bounded sample. The built-in periodic-note presets run independently of Chrono Notes or any other plugin, cover daily, weekly, monthly, quarterly, and yearly formats, and allow path and naming formats to be configured.
+A rule may combine file type, folder, and naming conditions. Different conditions use AND; multiple date-format, glob, or regular-expression naming patterns within one rule use OR. Rules have names and can report a match count with a bounded sample. Preview, save, and load must share one validation meaning: overlong, syntactically invalid, or out-of-safe-subset advanced regular expressions cannot be silently dropped in a way that broadens the rule, and an existing invalid rule is disabled as a unit until the user repairs it. The built-in periodic-note presets run independently of Chrono Notes or any other plugin, cover daily, weekly, monthly, quarterly, and yearly formats, and allow path and naming formats to be configured.
 
 A user may also choose “Mark as expected isolated” from one isolated-file row. This action stores only a normalized exact Vault path, creates no ignore rule, changes no file, and offers immediate undo. A folder menu in the isolated folder tree offers direct-folder or recursive scope; that action creates a folder rule without extra file-type or naming conditions and also offers immediate undo. Rename events update stored exact-file paths. Deleted or temporarily missing paths remain visibly marked as missing in settings until the user removes them. Exact paths and rule matches share the same expected-isolated classification but are managed separately in settings.
 

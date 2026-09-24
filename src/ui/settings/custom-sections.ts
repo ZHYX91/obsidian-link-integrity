@@ -625,12 +625,17 @@ function openExpectedRuleDialog(
 
     const validation = document.createElement("div");
     validation.className = "link-integrity-rule-validation";
+    validation.id = `link-integrity-rule-validation-${expectedRuleDialogCounter.toString()}`;
     validation.setAttribute("role", "alert");
+    validation.setAttribute("aria-live", "polite");
     const preview = document.createElement("div");
     preview.className = "link-integrity-settings-rule-preview";
     preview.setAttribute("role", "status");
     preview.setAttribute("aria-live", "polite");
     content.append(validation, preview);
+    for (const control of advanced.querySelectorAll<HTMLElement>("input, select, textarea")) {
+      control.setAttribute("aria-describedby", validation.id);
+    }
     const actions = document.createElement("footer");
     actions.className = "link-integrity-rule-modal-actions";
     if (sourceRule !== null) {
@@ -740,22 +745,28 @@ function renderExpectedPatternEditor(
     ["glob", t("settings.expected.glob")],
     ["regex", t("settings.expected.regex")],
   ], pattern.kind);
+  kind.setAttribute("aria-label", t("settings.expected.namingPatterns"));
   const target = select(document, [
     ["basename", t("settings.expected.patternTarget.basename")],
     ["path", t("settings.expected.patternTarget.path")],
   ], pattern.target);
+  target.setAttribute("aria-label", t("settings.expected.patternTarget"));
   const input = document.createElement("input");
   input.type = "text";
   input.value = pattern.pattern;
+  input.maxLength = pattern.kind === "regex" ? 512 : 256;
   input.setAttribute("aria-label", t("settings.expected.namingPatterns"));
   const flags = document.createElement("input");
   flags.type = "text";
   flags.value = pattern.flags;
   flags.className = "link-integrity-regex-flags";
+  flags.maxLength = 2;
+  flags.setAttribute("aria-label", t("settings.expected.regex"));
   flags.hidden = pattern.kind !== "regex";
   const update = (): void => {
     const nextKind = kind.value === "date-format" || kind.value === "regex" ? kind.value : "glob";
     flags.hidden = nextKind !== "regex";
+    input.maxLength = nextKind === "regex" ? 512 : 256;
     onChange({
       ...pattern,
       kind: nextKind,

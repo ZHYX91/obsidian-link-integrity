@@ -76,6 +76,51 @@ describe("extractMarkdownExplicitReferences", () => {
     ]);
   });
 
+  it("handles CRLF, empty, adjacent, and longer fenced code blocks", () => {
+    const source = [
+      "````md",
+      "[[hidden-long]]",
+      "````",
+      "```",
+      "```",
+      "~~~",
+      "[[hidden-tilde]]",
+      "~~~",
+      "[[kept]]",
+    ].join("\r\n");
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "kept",
+    ]);
+  });
+
+  it("keeps adjacent fenced blocks isolated from following content", () => {
+    const source = [
+      "```",
+      "[[hidden-one]]",
+      "```",
+      "```",
+      "[[hidden-two]]",
+      "```",
+      "[[shown]]",
+    ].join("\n");
+
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "shown",
+    ]);
+  });
+
+  it("masks an unclosed fence through end of source without shifting UTF-16 offsets", () => {
+    const source = ["😀 [[shown]]", "```", "[[hidden]]"].join("\n");
+    const references = extractMarkdownExplicitReferences(source);
+
+    expect(references).toEqual([
+      expect.objectContaining({
+        linktext: "shown",
+        startOffset: source.indexOf("[[shown]]"),
+      }),
+    ]);
+  });
   it("ignores indented code blocks without hiding paragraph continuations", () => {
     const source = [
       "    [[top-level code]]",
@@ -204,21 +249,70 @@ describe("extractMarkdownExplicitReferences", () => {
 });
 
 describe("extractBasesExplicitReferences", () => {
-  it("keeps explicit link literals without treating dynamic membership as an edge", () => {
+  it("keeps explicit formula literals without treating dynamic membership as an edge", () => {
     const source = [
       "filters:",
       "  and:",
       "    - 'file.folder == [[Projects]]'",
-      "properties:",
+      "formulas:",
       "  related: 'link(\"Reference.md\")'",
+      "  spaced: 'link(\"Spaced.md\" )'",
       "  dynamic: 'file.hasTag(\"active\")'",
+      "views:",
+      "  - type: table",
+      "    name: \"link('View-name.md')\"",
+      "    filters:",
+      "      - \"file.name.contains(\\\"link('String-only.md')\\\")\"",
+      "properties:",
+      "  status:",
+      "    displayName: \"[[Display-only.md]]\"",
       "# [[Commented.md]]",
     ].join("\n");
 
     expect(extractBasesExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
       "Projects",
       "Reference.md",
+      "Spaced.md",
     ]);
+  });
+
+  it("rejects malformed Bases YAML instead of inventing a partial graph", () => {
+    expect(() => extractBasesExplicitReferences("filters: [unterminated")).toThrow(
+      "Invalid Bases source.",
+    );
+  });
+
+  it("requires the entire first link argument to be a literal, independent of the display argument", () => {
+    const formulas = [
+      'link("Projects/" + file.name)', 'link("Real.md".replace("R", "S"))',
+      'link("Real.md" [0])', 'link("Real.md" || file.name)', 'file.link("Method.md")',
+      'link(file.name)', 'link("Real.md", file.name)', 'link(\n"Other.md"\n)',
+    ];
+    const source = `formulas:\n${formulas.map((value, index) =>
+      `  f${index}: ${JSON.stringify(value)}`).join("\n")}`;
+    expect(extractBasesExplicitReferences(source).map(({ linktext }) => linktext))
+      .toEqual(["Real.md", "Other.md"]);
+  });
+
+  it("keeps exact plain offsets but does not invent positions after YAML decoding", () => {
+    const exact = 'formulas:\n  target: \'link("Real.md")\'\n';
+    expect(extractBasesExplicitReferences(exact)[0]).toMatchObject({
+      startOffset: exact.indexOf("link("),
+    });
+    for (const source of [
+      'formulas:\n  target: >-\n    if(true,\n      link("Real.md"),\n      null)\n',
+      `formulas:\n  target: ${JSON.stringify('link("Real.md")')}\n`,
+      'formulas:\n  target: \'link(\'\'Real.md\'\')\'\n',
+    ]) {
+      expect(extractBasesExplicitReferences(source)).toEqual([
+        expect.objectContaining({ linktext: "Real.md", exactPosition: false }),
+      ]);
+    }
+  });
+
+  it("preserves repeated references even when exact decoded positions are unavailable", () => {
+    const source = `formulas:\n  target: ${JSON.stringify('if(true, link("A"), link("A"))')}\n`;
+    expect(extractBasesExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["A", "A"]);
   });
 });
 

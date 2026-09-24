@@ -1,3 +1,5 @@
+import { isMap, isScalar, isSeq, parseDocument } from "yaml";
+
 import { WorkScheduler } from "../../scheduling/work-scheduler";
 import { indexMarkdownDestinations, type MarkdownDestinationIndex } from "./markdown-destination-index";
 
@@ -7,9 +9,10 @@ export interface ParsedExplicitReference {
   readonly embedded: boolean;
   readonly startOffset: number;
   readonly endOffset: number;
+  /** False when YAML decoding prevents exact offsets; offsets then identify the scalar only. */
+  readonly exactPosition?: boolean;
 }
 
-const BASES_LINK_FUNCTION = /\blink\(\s*(["'])((?:\\.|(?!\1)[^\\\r\n])*)\1(?:\s*,[^\r\n)]*)?\)/gu;
 
 export function extractMarkdownExplicitReferences(
   source: string,
@@ -61,25 +64,182 @@ function* extractMarkdownSteps(source: string): Generator<void, readonly ParsedE
 export function extractBasesExplicitReferences(
   source: string,
 ): readonly ParsedExplicitReference[] {
-  const withoutComments = maskYamlComments(source);
-  const references = [...extractMarkdownExplicitReferences(withoutComments)];
-  for (const match of withoutComments.matchAll(BASES_LINK_FUNCTION)) {
-    const startOffset = match.index;
-    const encoded = match[2];
-    if (encoded == null) continue;
-    const linktext = unescapeQuotedValue(encoded).trim();
-    if (linktext.length === 0) continue;
-    references.push({
-      raw: source.slice(startOffset, startOffset + match[0].length),
-      linktext,
-      embedded: false,
-      startOffset,
-      endOffset: startOffset + match[0].length,
-    });
+  const document = parseDocument(source, {
+    schema: "failsafe",
+    logLevel: "silent",
+    stringKeys: true,
+  });
+  const root = document.contents;
+  if (document.errors.length > 0 || !isMap(root)) {
+    throw new Error("Invalid Bases source.");
   }
-  return deduplicateReferences(references).sort(
+
+  const scalars: Array<{ readonly value: string; readonly start: number; readonly end: number }> = [];
+  const appendScalar = (node: unknown): void => {
+    if (!isScalar(node) || typeof node.value !== "string") return;
+    const start = node.range?.[0] ?? 0;
+    const end = node.range?.[1] ?? start;
+    scalars.push({ value: node.value, start, end });
+  };
+  const collectFilters = (node: unknown): void => {
+    if (isScalar(node)) {
+      appendScalar(node);
+      return;
+    }
+    if (isSeq(node)) {
+      for (const item of node.items) collectFilters(item);
+      return;
+    }
+    if (!isMap(node)) return;
+    for (const pair of node.items) {
+      if (!isScalar(pair.key) || typeof pair.key.value !== "string") continue;
+      if (pair.key.value === "and" || pair.key.value === "or" || pair.key.value === "not") {
+        collectFilters(pair.value);
+      }
+    }
+  };
+  const collectFormulaMap = (node: unknown): void => {
+    if (!isMap(node)) return;
+    for (const pair of node.items) appendScalar(pair.value);
+  };
+  const topLevelValue = (key: string): unknown => {
+    for (const pair of root.items) {
+      if (isScalar(pair.key) && pair.key.value === key) return pair.value;
+    }
+    return undefined;
+  };
+
+  collectFilters(topLevelValue("filters"));
+  collectFormulaMap(topLevelValue("formulas"));
+  collectFormulaMap(topLevelValue("summaries"));
+  const views = topLevelValue("views");
+  if (isSeq(views)) {
+    for (const view of views.items) {
+      if (!isMap(view)) continue;
+      for (const pair of view.items) {
+        if (isScalar(pair.key) && pair.key.value === "filters") collectFilters(pair.value);
+      }
+    }
+  }
+
+  const references = scalars.flatMap((scalar) =>
+    extractBasesFormulaReferences(source, scalar.value, scalar.start, scalar.end));
+  return references.sort(
     (left, right) => left.startOffset - right.startOffset,
   );
+}
+
+function extractBasesFormulaReferences(
+  source: string,
+  formula: string,
+  scalarStart: number,
+  scalarEnd: number,
+): ParsedExplicitReference[] {
+  const references: ParsedExplicitReference[] = [];
+  const scalarSource = source.slice(scalarStart, scalarEnd);
+  const exactValueOffset = scalarSource.indexOf(formula);
+  const position = (start: number, end: number): Pick<ParsedExplicitReference,
+    "startOffset" | "endOffset" | "exactPosition"> => exactValueOffset < 0
+    ? { startOffset: scalarStart, endOffset: scalarEnd, exactPosition: false }
+    : { startOffset: scalarStart + exactValueOffset + start,
+      endOffset: scalarStart + exactValueOffset + end };
+  let index = 0;
+  while (index < formula.length) {
+    const character = formula[index];
+    if (character === "\"" || character === "'") {
+      index = skipFormulaString(formula, index);
+      continue;
+    }
+    const embeddedWiki = character === "!" && formula[index + 1] === "[" && formula[index + 2] === "[";
+    const plainWiki = character === "[" && formula[index + 1] === "[";
+    if (embeddedWiki || plainWiki) {
+      const opening = embeddedWiki ? index + 1 : index;
+      const closing = findFormulaWikiClosing(formula, opening + 2);
+      if (closing >= 0) {
+        const linktext = readWikiLinktext(formula.slice(opening + 2, closing)).trim();
+        if (linktext.length > 0) {
+          references.push({
+            raw: formula.slice(index, closing + 2),
+            linktext,
+            embedded: embeddedWiki,
+            ...position(index, closing + 2),
+          });
+        }
+        index = closing + 2;
+        continue;
+      }
+    }
+    if (formula.startsWith("link", index) && !isFormulaIdentifierPart(formula[index - 1]) &&
+      formula.slice(0, index).trimEnd().at(-1) !== ".") {
+      let cursor = index + 4;
+      if (!isFormulaIdentifierPart(formula[cursor])) {
+        while (cursor < formula.length && /\s/u.test(formula[cursor] ?? "")) cursor += 1;
+        if (formula[cursor] === "(") {
+          cursor += 1;
+          while (cursor < formula.length && /\s/u.test(formula[cursor] ?? "")) cursor += 1;
+          const parsed = readFormulaString(formula, cursor);
+          if (parsed !== null) {
+            const linktext = parsed.value.trim();
+            let argumentEnd = parsed.end;
+            while (/\s/u.test(formula[argumentEnd] ?? "")) argumentEnd += 1;
+            if (linktext.length > 0 && (formula[argumentEnd] === ")" || formula[argumentEnd] === ",")) {
+              references.push({
+                raw: formula.slice(index, parsed.end),
+                linktext,
+                embedded: false,
+                ...position(index, parsed.end),
+              });
+            }
+            index = parsed.end;
+            continue;
+          }
+        }
+      }
+    }
+    index += 1;
+  }
+  return references;
+}
+
+function findFormulaWikiClosing(source: string, start: number): number {
+  for (let index = start; index < source.length; index += 1) {
+    if (source[index] === "\\") {
+      index += 1;
+      continue;
+    }
+    if (source[index] === "]" && source[index + 1] === "]") return index;
+  }
+  return -1;
+}
+
+function skipFormulaString(source: string, start: number): number {
+  return readFormulaString(source, start)?.end ?? source.length;
+}
+
+function readFormulaString(
+  source: string,
+  start: number,
+): { readonly value: string; readonly end: number } | null {
+  const quote = source[start];
+  if (quote !== "\"" && quote !== "'") return null;
+  let value = "";
+  for (let index = start + 1; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "\\") {
+      const next = source[index + 1];
+      if (next === undefined) return null;
+      value += next;
+      index += 1;
+      continue;
+    }
+    if (character === quote) return { value, end: index + 1 };
+    value += character;
+  }
+  return null;
+}
+
+function isFormulaIdentifierPart(value: string | undefined): boolean {
+  return value !== undefined && /[A-Za-z0-9_$]/u.test(value);
 }
 
 export function isExternalReference(linktext: string): boolean {
@@ -269,11 +429,7 @@ function maskMarkdownNonContent(source: string): string {
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.
   const characters = source.split("");
-  const fencedRanges = maskDelimitedBlocks(
-    characters,
-    source,
-    /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[^\n]*(?:\n|$)/gu,
-  );
+  const fencedRanges = maskDelimitedBlocks(characters, source);
   const frontmatterRange = findMarkdownFrontmatterRange(source);
   if (frontmatterRange !== null) {
     maskYamlCommentRanges(
@@ -299,25 +455,36 @@ interface MaskedRange {
 function maskDelimitedBlocks(
   characters: string[],
   source: string,
-  openingPattern: RegExp,
 ): MaskedRange[] {
   const ranges: MaskedRange[] = [];
-  openingPattern.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = openingPattern.exec(source)) !== null) {
-    const fence = match[2];
-    if (fence == null) continue;
-    const contentStart = match.index + match[0].length;
-    const closingPattern = new RegExp(
-      `(?:^|\\n)[ \\t]{0,3}${escapeRegExp(fence[0] ?? "")}{${fence.length},}[ \\t]*(?:\\n|$)`,
-      "gu",
+  let opening: { readonly character: string; readonly length: number; readonly start: number } | null = null;
+  for (const line of sourceLineRanges(source)) {
+    const content = source.slice(line.start, line.contentEnd);
+    if (opening === null) {
+      const match = /^[ \t]{0,3}(`{3,}|~{3,})[^\r\n]*$/u.exec(content);
+      const fence = match?.[1];
+      if (fence !== undefined) {
+        opening = {
+          character: fence[0] ?? "",
+          length: fence.length,
+          start: line.start,
+        };
+      }
+      continue;
+    }
+    const escaped = escapeRegExp(opening.character);
+    const closing = new RegExp(
+      `^[ \\t]{0,3}${escaped}{${opening.length},}[ \\t]*$`,
+      "u",
     );
-    closingPattern.lastIndex = contentStart;
-    const closing = closingPattern.exec(source);
-    const end = closing == null ? source.length : closing.index + closing[0].length;
-    maskRange(characters, match.index, end);
-    ranges.push({ start: match.index, end });
-    openingPattern.lastIndex = end;
+    if (!closing.test(content)) continue;
+    maskRange(characters, opening.start, line.end);
+    ranges.push({ start: opening.start, end: line.end });
+    opening = null;
+  }
+  if (opening !== null) {
+    maskRange(characters, opening.start, source.length);
+    ranges.push({ start: opening.start, end: source.length });
   }
   return ranges;
 }
@@ -424,12 +591,6 @@ function maskInlineCodeAndComments(
     maskRange(characters, cursor, end);
     cursor = end;
   }
-}
-
-function maskYamlComments(source: string): string {
-  const characters = source.split("");
-  maskYamlCommentRanges(characters, source, 0, source.length);
-  return characters.join("");
 }
 
 function maskYamlCommentRanges(
@@ -565,21 +726,6 @@ function unescapeMarkdownDestination(value: string): string {
   return value.replace(/\\([()<>\\])/gu, "$1");
 }
 
-function unescapeQuotedValue(value: string): string {
-  return value.replace(/\\([\\"'])/gu, "$1");
-}
-
-function deduplicateReferences(
-  references: readonly ParsedExplicitReference[],
-): ParsedExplicitReference[] {
-  const seen = new Set<string>();
-  return references.filter((reference) => {
-    const identity = `${reference.startOffset}:${reference.endOffset}:${reference.linktext}`;
-    if (seen.has(identity)) return false;
-    seen.add(identity);
-    return true;
-  });
-}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");

@@ -382,7 +382,8 @@ function positionFromParsedReference(
   lineStarts: readonly number[],
   reference: ParsedExplicitReference,
   canvasNodeId: string | null,
-): SourcePosition {
+): SourcePosition | null {
+  if (reference.exactPosition === false) return null;
   const start = offsetToLineColumn(lineStarts, reference.startOffset);
   const end = offsetToLineColumn(lineStarts, reference.endOffset);
   return {

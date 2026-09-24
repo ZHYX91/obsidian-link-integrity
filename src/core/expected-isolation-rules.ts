@@ -8,6 +8,7 @@ import {
 } from "./file-types";
 import type { FileRecord } from "./model";
 import { normalizeVaultPath } from "./model";
+import { compileBoundedRegex, type PatternMatcher } from "./bounded-regex";
 
 export const EXPECTED_NAMING_PATTERN_KINDS = ["date-format", "glob", "regex"] as const;
 export type ExpectedNamingPatternKind = (typeof EXPECTED_NAMING_PATTERN_KINDS)[number];
@@ -88,7 +89,7 @@ export const PERIODIC_NOTE_PRESETS: Readonly<Record<PeriodicNoteKind, {
   yearly: { defaultName: "Yearly notes", dateFormat: "YYYY" },
 };
 
-const compiledPatternCache = new WeakMap<ExpectedNamingPattern, RegExp>();
+const compiledPatternCache = new WeakMap<ExpectedNamingPattern, PatternMatcher>();
 const validationCache = new WeakMap<ExpectedIsolationRule, readonly string[]>();
 
 export function createDefaultPeriodicNotesPreset(): PeriodicNotesPreset {
@@ -239,9 +240,11 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   const cached = validationCache.get(rule);
   if (cached !== undefined) return cached;
   const errors: string[] = [];
-  if (!isValidIdentifier(rule.id)) errors.push("Rule ID is invalid.");
-  if (rule.name.trim().length === 0) errors.push("Rule name cannot be empty.");
-  if (!hasExpectedRuleCondition(rule)) errors.push("Rule must have at least one condition.");
+  if (!isValidIdentifier(rule.id)) errors.push("Invalid rule ID.");
+  const nameLength = rule.name.trim().length;
+  if (nameLength === 0) errors.push("Rule name required.");
+  else if (nameLength > 120) errors.push("Rule name > 120 chars.");
+  if (!hasExpectedRuleCondition(rule)) errors.push("Rule needs a condition.");
   if (rule.folder !== null) {
     try {
       normalizeFolderPath(rule.folder.path);
@@ -249,7 +252,28 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
       errors.push(error instanceof Error ? error.message : String(error));
     }
   }
+  const seenPatternIds = new Set<string>();
   for (const pattern of rule.namingPatterns) {
+    if (!isValidIdentifier(pattern.id)) errors.push("Invalid pattern ID.");
+    else if (seenPatternIds.has(pattern.id)) errors.push(`Duplicate pattern ID: ${pattern.id}`);
+    seenPatternIds.add(pattern.id);
+    const length = pattern.pattern.trim().length;
+    if (length === 0) {
+      errors.push("Pattern required.");
+      continue;
+    }
+    const maximum = pattern.kind === "regex" ? 512 : 256;
+    if (length > maximum) {
+      errors.push(`${pattern.kind} pattern > ${maximum} chars.`);
+      continue;
+    }
+    if (pattern.kind === "regex") {
+      const flagError = validateRegexFlags(pattern.flags);
+      if (flagError !== null) {
+        errors.push(flagError);
+        continue;
+      }
+    }
     try {
       getCompiledPattern(pattern);
     } catch (error) {
@@ -259,7 +283,6 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   validationCache.set(rule, errors);
   return errors;
 }
-
 export const validateExpectedIsolatedRule = validateExpectedIsolationRule;
 
 export function compileDateFormat(format: string): RegExp {
@@ -320,7 +343,13 @@ function normalizeExpectedIsolationRule(value: unknown): ExpectedIsolationRule |
     folder: normalizeFolderCondition(value.folder),
     namingPatterns: normalizeNamingPatterns(value.namingPatterns ?? value.patterns),
   };
-  return hasExpectedRuleCondition(rule) ? rule : { ...rule, enabled: false };
+  const rawPatterns = value.namingPatterns ?? value.patterns;
+  const malformedPatterns = Array.isArray(rawPatterns) &&
+    rawPatterns.some((candidate) => !isNormalizableNamingPattern(candidate));
+  const malformedFolder = value.folder !== undefined && value.folder !== null && rule.folder === null;
+  const valid = !malformedPatterns && !malformedFolder &&
+    validateExpectedIsolationRule(rule).length === 0;
+  return valid ? rule : { ...rule, enabled: false };
 }
 
 function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
@@ -332,13 +361,13 @@ function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
     const kind = candidate.kind;
     if (!isExpectedNamingPatternKind(kind)) continue;
     const id = normalizeIdentifier(candidate.id) ?? `pattern-${index + 1}`;
-    const pattern = normalizePattern(candidate.pattern ?? candidate.format ?? candidate.source, kind);
-    if (pattern === null || ids.has(id)) continue;
+    const rawPattern = candidate.pattern ?? candidate.format ?? candidate.source;
+    if (typeof rawPattern !== "string" || ids.has(id)) continue;
     ids.add(id);
     result.push({
       id,
       kind,
-      pattern,
+      pattern: rawPattern,
       flags: normalizePatternFlags(candidate.flags, kind, candidate.caseSensitive),
       target: candidate.target === "path" ? "path" : "basename",
     });
@@ -346,6 +375,11 @@ function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
   return result;
 }
 
+function isNormalizableNamingPattern(value: unknown): boolean {
+  if (!isRecord(value) || !isExpectedNamingPatternKind(value.kind)) return false;
+  const rawPattern = value.pattern ?? value.format ?? value.source;
+  return typeof rawPattern === "string";
+}
 function normalizeFolderCondition(value: unknown): ExpectedFolderCondition | null {
   if (!isRecord(value) || typeof value.path !== "string") return null;
   const mode = value.mode;
@@ -409,7 +443,7 @@ function matchesPattern(file: FileRecord, pattern: ExpectedNamingPattern): boole
   return getCompiledPattern(pattern).test(patternValue(file, pattern.target));
 }
 
-function getCompiledPattern(pattern: ExpectedNamingPattern): RegExp {
+function getCompiledPattern(pattern: ExpectedNamingPattern): PatternMatcher {
   const cached = compiledPatternCache.get(pattern);
   if (cached !== undefined) return cached;
   const compiled = compilePattern(pattern);
@@ -417,15 +451,14 @@ function getCompiledPattern(pattern: ExpectedNamingPattern): RegExp {
   return compiled;
 }
 
-function compilePattern(pattern: ExpectedNamingPattern): RegExp {
+function compilePattern(pattern: ExpectedNamingPattern): PatternMatcher {
   if (pattern.kind === "date-format") return compileDateFormat(pattern.pattern);
   if (pattern.kind === "glob") return compileGlob(pattern.pattern, pattern.flags.includes("i"));
-  if (/[gy]/u.test(pattern.flags)) throw new Error("Regex flags g and y are not supported.");
   const flags = pattern.flags.includes("u") ? pattern.flags : `${pattern.flags}u`;
-  return new RegExp(pattern.pattern, flags);
+  return compileBoundedRegex(pattern.pattern, flags);
 }
 
-function compileGlob(pattern: string, caseInsensitive: boolean): RegExp {
+function compileGlob(pattern: string, caseInsensitive: boolean): PatternMatcher {
   if (pattern.length === 0) throw new Error("Glob pattern cannot be empty.");
   let source = "^";
   for (let index = 0; index < pattern.length; index += 1) {
@@ -438,7 +471,7 @@ function compileGlob(pattern: string, caseInsensitive: boolean): RegExp {
     } else if (character === "?") source += "[^/]";
     else source += escapeRegExp(character);
   }
-  return new RegExp(`${source}$`, caseInsensitive ? "iu" : "u");
+  return compileBoundedRegex(`${source}$`, caseInsensitive ? "iu" : "u");
 }
 
 function patternValue(file: FileRecord, target: ExpectedPatternTarget): string {
@@ -524,13 +557,20 @@ function normalizePattern(value: unknown, kind: unknown): string | null {
   return trimmed.length > 0 && trimmed.length <= maximum ? trimmed : null;
 }
 
-function normalizePatternFlags(value: unknown, kind: ExpectedNamingPatternKind, caseSensitive: unknown): string {
+function normalizePatternFlags(
+  value: unknown,
+  kind: ExpectedNamingPatternKind,
+  caseSensitive: unknown,
+): string {
   if (kind === "date-format") return "u";
   if (kind === "glob") return caseSensitive === true ? "u" : "iu";
-  const input = typeof value === "string" ? value : "u";
-  const flags = Array.from(new Set(input.split("").filter((flag) => flag === "i" || flag === "u")));
-  if (!flags.includes("u")) flags.push("u");
-  return flags.sort().join("");
+  return typeof value === "string" ? value.trim() : "u";
+}
+
+function validateRegexFlags(flags: string): string | null {
+  if (/[^iu]/u.test(flags)) return "Regex flags: i/u only.";
+  if (new Set(flags).size !== flags.length) return "Regex flags repeated.";
+  return null;
 }
 
 function nestedValue(value: unknown, key: string): unknown {

@@ -5,9 +5,23 @@ import { extractMarkdownExplicitReferences } from "../src/adapters/obsidian/expl
 import { IgnorePreviewService } from "../src/app/ignore-preview-service";
 import { LinkIndexCoordinator } from "../src/features/index/coordinator";
 import { occurrence, snapshot } from "../tests/core/test-helpers";
+import { compileBoundedRegex } from "../src/core/bounded-regex";
 
 const large = process.env.LINK_INTEGRITY_BENCHMARK_MODE === "large";
 const count = large ? 50_000 : 10_000;
+
+it("bounds ambiguous regex matching across increasing input lengths", () => {
+  for (const pattern of ["^((a|aa))+$", "^a+a+a+a+a+$", "a*a*a*a*a*b"]) {
+    const matcher = compileBoundedRegex(pattern, "u");
+    for (const size of [1000, 10_000, 50_000]) {
+      const start = performance.now();
+      expect(matcher.test(`${"a".repeat(size)}!`)).toBe(false);
+      const elapsed = performance.now() - start;
+      expect(elapsed).toBeLessThan(1000);
+      console.log(`Bounded regex: ${pattern}, ${size} characters, ${elapsed.toFixed(1)} ms`);
+    }
+  }
+});
 
 it("bounds failed destination scanning across explicit input sizes", () => {
   for (const repeats of [16_000, 32_000, 64_000]) {

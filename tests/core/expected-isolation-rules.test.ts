@@ -8,6 +8,7 @@ import {
   getExpectedRuleStats,
   matchesExpectedIsolationRule,
   normalizeExpectedIsolationRules,
+  validateExpectedIsolationRule,
   type ExpectedIsolationRule,
 } from "../../src/core/expected-isolation-rules";
 import { createFileRecord } from "../../src/core/model";
@@ -77,6 +78,64 @@ describe("expected-isolated rules", () => {
     expect(normalized[1]?.enabled).toBe(false);
   });
 
+  it("preserves invalid persisted naming conditions and disables the whole rule", () => {
+    const overlong = "a".repeat(513);
+    const [rule] = normalizeExpectedIsolationRules([{
+      id: "overlong",
+      name: "Overlong",
+      enabled: true,
+      fileTypeFamilyIds: ["markdown"],
+      namingPatterns: [{
+        id: "name",
+        kind: "regex",
+        pattern: overlong,
+        flags: "u",
+        target: "basename",
+      }],
+    }]);
+
+    expect(rule?.enabled).toBe(false);
+    expect(rule?.namingPatterns).toHaveLength(1);
+    expect(rule?.namingPatterns[0]?.pattern).toBe(overlong);
+    expect(validateExpectedIsolationRule(rule!)).toContain("regex pattern > 512 chars.");
+    expect(matchesExpectedIsolationRule(createFileRecord("anything.md"), rule!)).toBe(false);
+  });
+
+  it("matches formerly catastrophic constructs without backtracking", () => {
+    const unsafe: ExpectedIsolationRule = {
+      id: "unsafe",
+      name: "Unsafe",
+      enabled: true,
+      fileTypeFamilyIds: ["markdown"],
+      fileTypeCategoryIds: [],
+      fileExtensions: [],
+      folder: null,
+      namingPatterns: [{
+        id: "regex",
+        kind: "regex",
+        pattern: "^(a+)+$",
+        flags: "u",
+        target: "basename",
+      }],
+    };
+    expect(validateExpectedIsolationRule(unsafe)).toEqual([]);
+    expect(matchesExpectedIsolationRule(createFileRecord(`${"a".repeat(200)}!.md`), unsafe)).toBe(false);
+
+    const safe: ExpectedIsolationRule = {
+      ...unsafe,
+      id: "safe",
+      name: "Safe",
+      namingPatterns: [{
+        id: "regex",
+        kind: "regex",
+        pattern: "^(?:Daily|Weekly)-\\d{4}-\\d{2}$",
+        flags: "iu",
+        target: "basename",
+      }],
+    };
+    expect(validateExpectedIsolationRule(safe)).toEqual([]);
+    expect(matchesExpectedIsolationRule(createFileRecord("Daily-2026-09.md"), safe)).toBe(true);
+  });
   it("reports rule match counts and bounded examples", () => {
     const rule = createPeriodicExpectedIsolatedRule("monthly", {
       folderPath: "Periodic",
@@ -87,5 +146,19 @@ describe("expected-isolated rules", () => {
       createFileRecord("Other/2026-08.md"),
     ], [rule], 1);
     expect(stats[0]).toMatchObject({ matchCount: 2, samples: ["Periodic/2026-07.md"] });
+  });
+
+  it("retains whitespace-sensitive naming semantics through save and load", () => {
+    const draft: ExpectedIsolationRule = {
+      id: "space", name: "Space", enabled: true, fileTypeFamilyIds: [],
+      fileTypeCategoryIds: [], fileExtensions: [], folder: null,
+      namingPatterns: [{ id: "name", kind: "regex", pattern: " a ", flags: "u", target: "basename" }],
+    };
+    const loaded = normalizeExpectedIsolationRules([draft])[0]!;
+    expect(loaded.namingPatterns[0]?.pattern).toBe(" a ");
+    for (const path of ["a.md", " a .md"]) {
+      expect(matchesExpectedIsolationRule(createFileRecord(path), loaded))
+        .toBe(matchesExpectedIsolationRule(createFileRecord(path), draft));
+    }
   });
 });

@@ -426,6 +426,13 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private enqueue(event: SourceEvent): void {
     if (!this.runtimeStarted || this.unloaded) return;
+    // Without a complete baseline, a future rebuild reads authoritative current Vault state.
+    // Retaining arbitrary history after a failed first build only grows memory and cannot
+    // safely manufacture a partial index. Events that arrive during staging are still replayed.
+    if (!this.baselineAvailable && this.coordinator.state !== "rebuilding") {
+      this.discardPendingSourceEvents();
+      return;
+    }
     this.pendingSourceEvents.push(event);
     if (this.eventFlushTimer !== null) window.clearTimeout(this.eventFlushTimer);
     this.eventFlushTimer = window.setTimeout(() => {
@@ -545,19 +552,32 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private async openBrokenLink(result: BrokenLinkResult): Promise<void> {
     const leaf = await this.openFile(result.sourcePath);
-    if (!(leaf.view instanceof MarkdownView)) return;
+    if (!(leaf.view instanceof MarkdownView)) {
+      this.showNonMarkdownLocation(result);
+      return;
+    }
     const line = result.location.line ?? (result.location.property === null
       ? null
       : findFrontmatterPropertyLine(leaf.view.editor.getValue(), result.location.property));
     if (line === null) return;
-    leaf.view.editor.setCursor({
-      line,
-      ch: result.location.line === null ? 0 : result.location.column ?? 0,
-    });
+    const column = result.location.line === null ? 0 : result.location.column ?? 0;
+    leaf.view.editor.setCursor({ line, ch: column });
     leaf.view.editor.scrollIntoView({
-      from: { line, ch: result.location.line === null ? 0 : result.location.column ?? 0 },
-      to: { line, ch: result.location.line === null ? 0 : result.location.column ?? 0 },
+      from: { line, ch: column },
+      to: { line, ch: column },
     }, true);
+  }
+
+  private showNonMarkdownLocation(result: BrokenLinkResult): void {
+    const parts: string[] = [];
+    if (result.location.canvasNodeId !== null) {
+      parts.push(`node:${result.location.canvasNodeId}`);
+    }
+    if (result.location.line !== null) {
+      const column = result.location.column === null ? "" : `:C${(result.location.column + 1).toString()}`;
+      parts.push(`L${(result.location.line + 1).toString()}${column}`);
+    }
+    if (parts.length > 0) new Notice(`Link Integrity: ${parts.join(" · ")}`, 8_000);
   }
 
   private async openFile(path: string): Promise<WorkspaceLeaf> {

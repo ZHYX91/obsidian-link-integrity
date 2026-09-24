@@ -9,7 +9,7 @@ import {
   occurrenceIdMatches,
 } from "../../src/core/occurrence-identity";
 import { createDefaultSettings } from "../../src/shared/settings";
-import type { IndexStatus, SidebarViewState } from "../../src/ui/sidebar";
+import type { BrokenLinkResult, IndexStatus, SidebarViewState } from "../../src/ui/sidebar";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -596,6 +596,64 @@ describe("plugin index lifecycle", () => {
     plugin.onunload();
   });
 
+  it("surfaces Canvas and Bases locations when the host view cannot place a cursor", async () => {
+    const canvas = createMockFile("Map.canvas", 1);
+    const base = createMockFile("Index.base", 1);
+    const leaf = { view: {}, openFile: vi.fn(async () => undefined) };
+    const app = {
+      vault: {
+        getFileByPath: (path: string) => path === canvas.path ? canvas : path === base.path ? base : null,
+      },
+      workspace: { getLeaf: () => leaf },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    const messages = (Notice as unknown as { messages: string[] }).messages;
+    messages.splice(0);
+
+    await runtime.openBrokenLink({
+      id: "canvas",
+      sourcePath: canvas.path,
+      targetText: "Missing",
+      resolvedTargetPath: null,
+      rawText: "[[Missing]]",
+      context: "",
+      reason: "missing-file",
+      location: { line: 2, column: 4, property: null, canvasNodeId: "node-7" },
+    });
+    expect(messages.at(-1)).toContain("node:node-7");
+    expect(messages.at(-1)).toContain("L3:C5");
+
+    await runtime.openBrokenLink({
+      id: "base",
+      sourcePath: base.path,
+      targetText: "Missing",
+      resolvedTargetPath: null,
+      rawText: 'link("Missing")',
+      context: "",
+      reason: "missing-file",
+      location: { line: 8, column: 2, property: null, canvasNodeId: null },
+    });
+    expect(messages.at(-1)).toContain("L9:C3");
+  });
+  it("does not retain an unbounded event history when the first baseline is unavailable", () => {
+    const plugin = new LinkIntegrityPlugin({} as never, {} as never);
+    Object.assign(plugin, {
+      runtimeStarted: true,
+      unloaded: false,
+      baselineAvailable: false,
+      pendingSourceEvents: [],
+      coordinator: { state: "failed" },
+      eventFlushTimer: null,
+      eventMaxFlushTimer: null,
+    });
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    for (let count = 0; count < 10_000; count += 1) {
+      runtime.enqueue({ type: "modify", path: `Notes/${count.toString()}.md` });
+    }
+    expect(runtime.pendingSourceEvents).toHaveLength(0);
+  });
   it("invalidates cached projections after a failed rebuild drains buffered events", async () => {
     const plugin = new LinkIntegrityPlugin({} as never, {} as never);
     let replayDrained = false;
@@ -641,6 +699,9 @@ function testOccurrenceId(sourcePath: string, location: string, legacyOrdinal: n
 }
 
 interface PluginRuntimeInspection {
+  readonly openBrokenLink: (result: BrokenLinkResult) => Promise<void>;
+  readonly pendingSourceEvents: readonly unknown[];
+  readonly enqueue: (event: { readonly type: "modify"; readonly path: string }) => void;
   readonly initialMetadataState: "dormant" | "waiting" | "fallback" | "resolved";
   readonly query: {
     readonly getSnapshot: () => { readonly status: IndexStatus };

@@ -7,6 +7,26 @@
     "defaultSidebarTab": "broken-links"
   },
   "isolatedFiles": {
+    "expectedRules": [
+      {
+        "id": "bounded-regex",
+        "name": "Bounded regex",
+        "enabled": true,
+        "fileTypeFamilyIds": [],
+        "fileTypeCategoryIds": [],
+        "fileExtensions": [],
+        "folder": null,
+        "namingPatterns": [
+          {
+            "id": "ambiguous",
+            "kind": "regex",
+            "pattern": "^((a|aa))+$",
+            "flags": "u",
+            "target": "basename"
+          }
+        ]
+      }
+    ],
     "allowNoIncomingFilter": true,
     "showExpectedIsolatedFiles": false,
     "periodicNotesPreset": {

@@ -9,12 +9,6 @@ import type { ExpectedIsolationRule } from "../core";
 import { createTranslator } from "../shared/i18n";
 import type { IgnoreRule, IgnoreRulePreview } from "../shared/ignore-rules";
 import {
-  applySettingValue,
-  getSettingValue,
-  type SettingsControlKey,
-} from "../shared/settings";
-import {
-  getDeclarativeSettingDefinitions,
   PreviewRequestCoordinator,
   renderImperativeSettings,
   type ExpectedRulePreviewState,
@@ -23,29 +17,9 @@ import {
 } from "../ui/settings";
 import type LinkIntegrityPlugin from "./plugin";
 
-const SETTINGS_CONTROL_KEYS = new Set<SettingsControlKey>([
-  "general.locale",
-  "general.scanOnStartup",
-  "general.defaultSidebarTab",
-  "brokenLinks.diagnostics.missingFiles",
-  "brokenLinks.diagnostics.missingHeadings",
-  "brokenLinks.diagnostics.missingBlocks",
-  "brokenLinks.diagnostics.invalidLinks",
-  "brokenLinks.defaultView",
-  "brokenLinks.defaultGrouping",
-  "brokenLinks.defaultSort",
-  "brokenLinks.showIgnored",
-  "isolatedFiles.defaultView",
-  "isolatedFiles.defaultSort",
-  "isolatedFiles.allowNoIncomingFilter",
-  "isolatedFiles.showExpectedIsolatedFiles",
-  "isolatedFiles.showIgnored",
-]);
-
 // Declarative settings are intentionally inactive. Obsidian 1.13 bypasses
 // display() for non-empty definitions, removing the established top-tab surface
 // and degrading the settings experience. Retain dormant definitions for tests only.
-const ENABLE_DECLARATIVE_SETTINGS = false;
 
 export class LinkIntegritySettingTab extends PluginSettingTab {
   private activeTab: SettingsTabId = "general";
@@ -70,23 +44,7 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   }
 
   public override getSettingDefinitions(): SettingDefinitionItem[] {
-    return ENABLE_DECLARATIVE_SETTINGS ? this.getDeclarativeSettingDefinitions() : [];
-  }
-
-  public getDeclarativeSettingDefinitions(): SettingDefinitionItem[] {
-    this.activateSurface();
-    return getDeclarativeSettingDefinitions(this.createContext());
-  }
-
-  public override getControlValue(key: string): unknown {
-    return isSettingsControlKey(key) ? getSettingValue(this.owner.getSettings(), key) : undefined;
-  }
-
-  public override setControlValue(key: string, value: unknown): void {
-    if (!isSettingsControlKey(key) || this.owner.isSettingsWriteProtected()) return;
-    const result = applySettingValue(this.owner.getSettings(), key, value);
-    this.owner.updateSettings(result.settings, result.impact);
-    this.refreshSurface();
+    return [];
   }
 
   public override display(): void {
@@ -207,8 +165,4 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       `${Date.now().toString(36)}-${this.idCounter.toString(36)}`;
     return `${kind}:${uuid}`;
   }
-}
-
-function isSettingsControlKey(value: string): value is SettingsControlKey {
-  return SETTINGS_CONTROL_KEYS.has(value as SettingsControlKey);
 }

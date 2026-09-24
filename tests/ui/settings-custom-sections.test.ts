@@ -191,6 +191,50 @@ describe("custom settings sections", () => {
     cleanup();
   });
 
+  it("labels advanced pattern controls and blocks invalid regex drafts before preview or save", () => {
+    vi.useFakeTimers();
+    const rule = expectedRule();
+    const requestExpectedRulePreview = vi.fn();
+    const onSettingsChange = vi.fn();
+    const container = document.createElement("div");
+    renderCustomSetting(
+      container,
+      "expected-isolation-rules",
+      context(withExpectedRule(createDefaultSettings(), rule), {
+        onSettingsChange,
+        requestExpectedRulePreview,
+      }),
+    );
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Edit")
+      ?.click();
+    const dialog = document.querySelector<HTMLElement>('.link-integrity-rule-modal [role="dialog"]')!;
+    const patternRow = dialog.querySelector<HTMLElement>(".link-integrity-rule-pattern")!;
+    const selects = patternRow.querySelectorAll<HTMLSelectElement>("select");
+    const patternInput = patternRow.querySelector<HTMLInputElement>('input:not(.link-integrity-regex-flags)')!;
+    const flags = patternRow.querySelector<HTMLInputElement>(".link-integrity-regex-flags")!;
+    expect(selects[0]?.getAttribute("aria-label")).toBe("Naming patterns (match any)");
+    expect(selects[1]?.getAttribute("aria-label")).toBe("Match against");
+    expect(flags.getAttribute("aria-label")).toBe("Regular expression (advanced)");
+    expect(patternInput.getAttribute("aria-describedby")).toMatch(/^link-integrity-rule-validation-/u);
+
+    if (selects[0] !== undefined) {
+      selects[0].value = "regex";
+      selects[0].dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    patternInput.value = "a".repeat(513);
+    patternInput.dispatchEvent(new Event("input", { bubbles: true }));
+    vi.advanceTimersByTime(300);
+
+    const validation = dialog.querySelector<HTMLElement>(".link-integrity-rule-validation")!;
+    expect(validation.textContent).toContain("regex pattern > 512 chars");
+    expect(requestExpectedRulePreview).not.toHaveBeenCalled();
+    const save = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Save");
+    expect(save?.disabled).toBe(true);
+    save?.click();
+    expect(onSettingsChange).not.toHaveBeenCalled();
+  });
   it("shows a separate high-risk warning and preview for graph contribution rules", () => {
     const graphRule: IgnoreRule = {
       id: "generated",

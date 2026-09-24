@@ -16,6 +16,18 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it("omits unsupported decoded YAML coordinates without losing repeated occurrences", async () => {
+    const base = fakeFile("Escaped.base");
+    const { port } = createPort([base], {
+      content: { [base.path]: `formulas:\n  target: ${JSON.stringify('if(true, link("Missing"), link("Missing"))')}\n` },
+      caches: new Map(),
+      destinations: new Map(),
+    });
+    const snapshot = await port.buildSourceSnapshot(base.path);
+    expect(snapshot?.occurrences).toHaveLength(2);
+    expect(snapshot?.occurrences.map(({ position }) => position)).toEqual([null, null]);
+    expect(new Set(snapshot?.occurrences.map(({ id }) => id)).size).toBe(2);
+  });
   it("fingerprints target structure while ignoring link positions and ordinary edits", async () => {
     const source = fakeFile("Source.md");
     const caches = new Map<string, CachedMetadata>();
@@ -192,8 +204,11 @@ describe("ObsidianLinkIndexPort", () => {
       "filters:",
       "  - 'file.folder == [[Target]]'",
       "  - 'file.hasTag(\"open\")'",
-      "properties:",
+      "formulas:",
       "  related: 'link(\"Missing.md\")'",
+      "properties:",
+      "  displayOnly:",
+      "    displayName: \"link('Not-a-reference.md')\"",
     ].join("\n");
     const { port } = createPort([base, target], {
       content: { [base.path]: source },

@@ -14,7 +14,7 @@
       "background": "Connected/Target.md",
       "height": 200,
       "id": "broken-text-node",
-      "text": "[[Missing canvas target]]",
+      "text": "```\r\n```\r\n```\r\n[[Not a link]]\r\n```\r\n[[Missing canvas target]]",
       "type": "text",
       "width": 400,
       "x": 500,

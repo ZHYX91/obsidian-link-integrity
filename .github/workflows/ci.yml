@@ -38,8 +38,14 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
       - name: Run the canonical local gate
         run: npm run check
+
+      - name: Run the quick scale benchmark
+        run: npm run bench:index
 
       - name: Upload verified runtime assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
