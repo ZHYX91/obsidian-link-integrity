@@ -577,7 +577,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       const column = result.location.column === null ? "" : `:${(result.location.column + 1).toString()}`;
       parts.push(`line ${(result.location.line + 1).toString()}${column}`);
     }
-    const raw = result.raw.length > 120 ? `${result.raw.slice(0, 117)}…` : result.raw;
+    const raw = result.rawText.length > 120 ? `${result.rawText.slice(0, 117)}…` : result.rawText;
     if (raw.length > 0) parts.push(raw);
     if (parts.length > 0) new Notice(`Link Integrity: ${parts.join(" · ")}`, 8_000);
   }
