@@ -196,7 +196,7 @@ describe("ObsidianLinkIndexPort", () => {
       "  related: 'link(\"Missing.md\")'",
       "properties:",
       "  displayOnly:",
-      "    displayName: \"link(\'Not-a-reference.md\')\"",
+      "    displayName: \"link('Not-a-reference.md')\"",
     ].join("\n");
     const { port } = createPort([base, target], {
       content: { [base.path]: source },
