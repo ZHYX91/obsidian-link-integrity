@@ -29,9 +29,9 @@ Pure fixtures should cover:
 - successful, missing, pending, and unsupported heading or block states;
 - retention of a file-level edge when the file exists but its subpath is missing;
 - Markdown, embed, Frontmatter, Canvas, and Bases explicit source kinds;
-- fallback-parser exclusion of fenced and indented code plus frontmatter YAML comments, while retaining links in frontmatter values and paragraph continuations;
+- fallback-parser exclusion of fenced and indented code plus frontmatter YAML comments, while retaining links in frontmatter values and paragraph continuations; fenced-code regressions cover LF/CRLF, empty and adjacent blocks, both fence characters, variable lengths, unclosed blocks, and UTF-16 offsets after astral prefixes;
 - self-links, external URLs, and repeated occurrences;
-- absence of explicit edges from dynamic Bases results;
+- absence of explicit edges from dynamic Bases results; semantic tests allow static explicit references only from `filters`, `formulas`, custom `summaries`, and view `filters`, with view names, `properties` display strings, and ordinary formula string literals as negative cases;
 - separation of candidate, diagnostic, and contribution scopes.
 
 Occurrence-identity regressions prove that unrelated text and unrelated links inserted before a saved occurrence preserve its ignore match, while file and folder rename events migrate the persisted source identity. Inserting an indistinguishable duplicate must change duplicate-set cardinality and make the old rule match zero results, which the rule preview exposes, rather than matching a different occurrence. Workflow-contract syntax validation concatenates the extracted shell blocks into one `bash -n` process so the Windows gate does not pay one Git Bash startup per block.
@@ -49,9 +49,9 @@ Expected-isolation tests cover:
 - exclusion from main results and the main count by default, with `expected-isolated` classification when advanced display is enabled;
 - no graph edge creation by expected classification;
 - AND between file-type, folder, and naming conditions, with OR between multiple naming patterns;
-- exact/recursive folders, date formats, globs, regular expressions, match counts, and samples;
+- exact/recursive folders, date formats, globs, safe-subset regular expressions, match counts, and samples; regex tests reject overlong input, invalid flags, nested quantifiers, quantified ambiguous groups, backreferences, and lookaround while retaining ordinary bounded patterns;
 - daily, weekly, monthly, quarterly, and yearly periodic-note presets with configurable paths and formats;
-- prevention of an invalid rule from silently matching every file.
+- prevention of an invalid rule from silently matching every file; an invalid persisted naming condition remains available for diagnosis and disables its whole rule instead of being normalized away and broadening the match.
 - exact-file path normalization, deduplication, main-count exclusion, rename following, and visible removal of missing paths in settings.
 
 ## Full and incremental equivalence
@@ -70,7 +70,7 @@ Transactional tests verify that staging is invisible before completion and is pu
 
 Coordinator tests cover buffering and replay during rebuild, single-flight concurrent rebuilds within one lifecycle, lifecycle recovery after pre-rebuild incremental failure, prevention of an obsolete rebuild from publishing or claiming more sources after stop, and prevention of an old operation finalizer from cleaning up a new controller after stop→start. Yield tests inject `yieldControl` and a controlled clock to verify both file-count and main-thread-time budgets; progress tests verify throttling and final progress.
 
-Failure tests should assert more than an exception: they must verify whether a trustworthy index remains, whether queued events can continue, and whether status honestly becomes failed or stale. Targeted synchronous-reducer fault injection makes a later source in one batch introduce a cross-source occurrence-ID collision and asserts that batch prevalidation fails before any file metadata or snapshot is published.
+Failure tests should assert more than an exception: they must verify whether a trustworthy index remains, whether queued events can continue, and whether status honestly becomes failed or stale. After a first-baseline failure with no trustworthy index, a large event burst must also prove that the plugin layer does not retain history linearly; the next full rebuild still reads complete current Vault state. Targeted synchronous-reducer fault injection makes a later source in one batch introduce a cross-source occurrence-ID collision and asserts that batch prevalidation fails before any file metadata or snapshot is published.
 
 ## UI, settings, and localization tests
 
@@ -78,7 +78,7 @@ Automated UI tests should cover the two business tabs, three settings tabs, abse
 
 The canonical `npm run check` gate must enforce coverage thresholds. The release gate must execute both the quick and 50,000-file scale benchmarks. Large-source parsing benchmarks cover explicit-link position mapping and inline-code masking so neither path may regress quadratically with link or backtick count.
 
-Settings tests cover schema normalization, migration, future-schema write protection, serialized coalescing saves, retryable failures, and the imperative top-tab implementation used on every supported Obsidian version. They prove that declarative definitions remain empty so Obsidian cannot bypass the tab layout. Keyboard tests cover tablist roles, roving tabindex, arrow keys, Home/End, focus retention, and RTL. DOM tests cannot replace real Obsidian style and focus acceptance.
+Settings tests cover schema normalization, migration, future-schema write protection, serialized coalescing saves, retryable failures, and the imperative top-tab implementation used on every supported Obsidian version. Rule-editor tests also cover accessible names for kind, match target, pattern, and flags controls, association with validation feedback, and invalid drafts disabling Save before preview; navigation tests cover node or line/column context when a non-Markdown source cannot be positioned precisely. They prove that declarative definitions remain empty so Obsidian cannot bypass the tab layout. Keyboard tests cover tablist roles, roving tabindex, arrow keys, Home/End, focus retention, and RTL. DOM tests cannot replace real Obsidian style and focus acceptance.
 
 The host-style geometry regression launches a real Chrome/Chromium process without adding a package dependency and loads the repository's actual `styles.css` together with a minimal Obsidian host-style contract. It measures multiline result line boxes and overflow, a long Russian badge, square host checkboxes with separate targets of at least 34px, native disclosure markers, overrides of host button backgrounds and shadows, a non-overflowing 220px sidebar fallback with container queries disabled, a 450px custom-settings body, and logical RTL indentation. This is automated browser evidence in the regular test gate; the environment must provide Chrome/Chromium or set `LINK_INTEGRITY_CHROME_PATH` to an executable. It does not replace acceptance with real themes, system scaling, a real RTL interface, coarse-pointer devices, or a mobile host.
 
