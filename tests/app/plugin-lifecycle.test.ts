@@ -596,6 +596,23 @@ describe("plugin index lifecycle", () => {
     plugin.onunload();
   });
 
+  it("does not retain an unbounded event history when the first baseline is unavailable", () => {
+    const plugin = new LinkIntegrityPlugin({} as never, {} as never);
+    Object.assign(plugin, {
+      runtimeStarted: true,
+      unloaded: false,
+      baselineAvailable: false,
+      pendingSourceEvents: [],
+      coordinator: { state: "failed" },
+      eventFlushTimer: null,
+      eventMaxFlushTimer: null,
+    });
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    for (let count = 0; count < 10_000; count += 1) {
+      runtime.enqueue({ type: "modify", path: `Notes/${count.toString()}.md` });
+    }
+    expect(runtime.pendingSourceEvents).toHaveLength(0);
+  });
   it("invalidates cached projections after a failed rebuild drains buffered events", async () => {
     const plugin = new LinkIntegrityPlugin({} as never, {} as never);
     let replayDrained = false;
@@ -641,6 +658,8 @@ function testOccurrenceId(sourcePath: string, location: string, legacyOrdinal: n
 }
 
 interface PluginRuntimeInspection {
+  readonly pendingSourceEvents: readonly unknown[];
+  readonly enqueue: (event: { readonly type: "modify"; readonly path: string }) => void;
   readonly initialMetadataState: "dormant" | "waiting" | "fallback" | "resolved";
   readonly query: {
     readonly getSnapshot: () => { readonly status: IndexStatus };
