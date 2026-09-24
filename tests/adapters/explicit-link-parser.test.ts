@@ -249,21 +249,37 @@ describe("extractMarkdownExplicitReferences", () => {
 });
 
 describe("extractBasesExplicitReferences", () => {
-  it("keeps explicit link literals without treating dynamic membership as an edge", () => {
+  it("keeps explicit formula literals without treating dynamic membership as an edge", () => {
     const source = [
       "filters:",
       "  and:",
       "    - 'file.folder == [[Projects]]'",
-      "properties:",
+      "formulas:",
       "  related: 'link(\"Reference.md\")'",
+      "  spaced: 'link(\"Spaced.md\" )'",
       "  dynamic: 'file.hasTag(\"active\")'",
+      "views:",
+      "  - type: table",
+      "    name: \"link('View-name.md')\"",
+      "    filters:",
+      "      - 'file.name.contains(\"link(\\\'String-only.md\\\')\")'",
+      "properties:",
+      "  status:",
+      "    displayName: \"[[Display-only.md]]\"",
       "# [[Commented.md]]",
     ].join("\n");
 
     expect(extractBasesExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
       "Projects",
       "Reference.md",
+      "Spaced.md",
     ]);
+  });
+
+  it("rejects malformed Bases YAML instead of inventing a partial graph", () => {
+    expect(() => extractBasesExplicitReferences("filters: [unterminated")).toThrow(
+      "Cannot parse Bases source.",
+    );
   });
 });
 
