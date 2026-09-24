@@ -90,11 +90,6 @@ export const PERIODIC_NOTE_PRESETS: Readonly<Record<PeriodicNoteKind, {
 
 const compiledPatternCache = new WeakMap<ExpectedNamingPattern, RegExp>();
 const validationCache = new WeakMap<ExpectedIsolationRule, readonly string[]>();
-const MAX_NAMING_PATTERN_LENGTH: Readonly<Record<ExpectedNamingPatternKind, number>> = {
-  "date-format": 256,
-  glob: 256,
-  regex: 512,
-};
 
 export function createDefaultPeriodicNotesPreset(): PeriodicNotesPreset {
   return {
@@ -266,8 +261,9 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
       errors.push("Naming pattern cannot be empty.");
       continue;
     }
-    if (length > MAX_NAMING_PATTERN_LENGTH[pattern.kind]) {
-      errors.push(`${pattern.kind} pattern exceeds ${MAX_NAMING_PATTERN_LENGTH[pattern.kind]} characters.`);
+    const maximum = pattern.kind === "regex" ? 512 : 256;
+    if (length > maximum) {
+      errors.push(`${pattern.kind} pattern exceeds ${maximum} characters.`);
       continue;
     }
     if (pattern.kind === "regex") {
@@ -576,8 +572,8 @@ function normalizePatternFlags(
 }
 
 function validateRegexFlags(flags: string): string | null {
-  if (/[^iu]/u.test(flags)) return "Regular expression flags may contain only i and u.";
-  if (new Set(flags).size !== flags.length) return "Regular expression flags cannot repeat.";
+  if (/[^iu]/u.test(flags)) return "Regex flags may contain only i and u.";
+  if (new Set(flags).size !== flags.length) return "Regex flags cannot repeat.";
   return null;
 }
 
@@ -589,7 +585,7 @@ function validateRegexSafety(source: string): string | null {
     if (character === "\\") {
       const next = source[index + 1] ?? "";
       if (!inClass && (/[1-9]/u.test(next) || next === "k")) {
-        return "Backreferences are not supported in expected-isolation regular expressions.";
+        return "Backreferences are not supported.";
       }
       index += 1;
       continue;
@@ -606,7 +602,7 @@ function validateRegexSafety(source: string): string | null {
     if (character === "(") {
       if (source[index + 1] === "?") {
         if (source[index + 2] !== ":") {
-          return "Lookaround and other special groups are not supported in expected-isolation regular expressions.";
+          return "Lookaround and special groups are not supported.";
         }
         index += 2;
       }
@@ -621,7 +617,7 @@ function validateRegexSafety(source: string): string | null {
       const state = groups.pop() ?? 0;
       if ((state & 1) !== 0) groups[groups.length - 1] = (groups.at(-1) ?? 0) | 1;
       if (regexQuantifierEnd(source, index + 1) >= 0 && state !== 0) {
-        return "Nested or ambiguous quantified groups are not supported because they can block Obsidian.";
+        return "Nested or ambiguous quantified groups are not supported.";
       }
       continue;
     }
