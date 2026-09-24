@@ -462,10 +462,6 @@ function getCompiledPattern(pattern: ExpectedNamingPattern): RegExp {
 function compilePattern(pattern: ExpectedNamingPattern): RegExp {
   if (pattern.kind === "date-format") return compileDateFormat(pattern.pattern);
   if (pattern.kind === "glob") return compileGlob(pattern.pattern, pattern.flags.includes("i"));
-  const flagError = validateRegexFlags(pattern.flags);
-  if (flagError !== null) throw new Error(flagError);
-  const safetyError = validateRegexSafety(pattern.pattern);
-  if (safetyError !== null) throw new Error(safetyError);
   const flags = pattern.flags.includes("u") ? pattern.flags : `${pattern.flags}u`;
   return new RegExp(pattern.pattern, flags);
 }
@@ -586,22 +582,20 @@ function validateRegexFlags(flags: string): string | null {
 }
 
 function validateRegexSafety(source: string): string | null {
-  type GroupState = { hasRepetition: boolean; hasAlternation: boolean };
-  const stack: GroupState[] = [{ hasRepetition: false, hasAlternation: false }];
-  const closedGroups = new Map<number, GroupState>();
+  const groups = [0]; // bit 1: repetition, bit 2: alternation
   let inClass = false;
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index] ?? "";
     if (character === "\\") {
       const next = source[index + 1] ?? "";
-      if (!inClass && /[1-9]/u.test(next)) {
+      if (!inClass && (/[1-9]/u.test(next) || next === "k")) {
         return "Backreferences are not supported in expected-isolation regular expressions.";
       }
       index += 1;
       continue;
     }
-    if (character === "[" && !inClass) {
-      inClass = true;
+    if (character === "[") {
+      if (!inClass) inClass = true;
       continue;
     }
     if (character === "]" && inClass) {
@@ -616,50 +610,34 @@ function validateRegexSafety(source: string): string | null {
         }
         index += 2;
       }
-      stack.push({ hasRepetition: false, hasAlternation: false });
-      continue;
-    }
-    if (character === ")") {
-      if (stack.length === 1) continue;
-      const group = stack.pop();
-      if (group !== undefined) {
-        closedGroups.set(index, group);
-        const parent = stack.at(-1);
-        if (parent !== undefined && group.hasRepetition) parent.hasRepetition = true;
-      }
+      groups.push(0);
       continue;
     }
     if (character === "|") {
-      const current = stack.at(-1);
-      if (current !== undefined) current.hasAlternation = true;
+      groups[groups.length - 1] = (groups.at(-1) ?? 0) | 2;
       continue;
     }
-    const quantifier = readRegexQuantifier(source, index);
-    if (quantifier === null) continue;
-    const current = stack.at(-1);
-    if (current !== undefined) current.hasRepetition = true;
-    let previous = index - 1;
-    while (previous >= 0 && /\s/u.test(source[previous] ?? "")) previous -= 1;
-    if (source[previous] === ")") {
-      const group = closedGroups.get(previous);
-      if (group?.hasRepetition === true || group?.hasAlternation === true) {
+    if (character === ")" && groups.length > 1) {
+      const state = groups.pop() ?? 0;
+      if ((state & 1) !== 0) groups[groups.length - 1] = (groups.at(-1) ?? 0) | 1;
+      if (regexQuantifierEnd(source, index + 1) >= 0 && state !== 0) {
         return "Nested or ambiguous quantified groups are not supported because they can block Obsidian.";
       }
+      continue;
     }
-    index = quantifier.end - 1;
+    if (regexQuantifierEnd(source, index) >= 0) {
+      groups[groups.length - 1] = (groups.at(-1) ?? 0) | 1;
+    }
   }
   return null;
 }
 
-function readRegexQuantifier(
-  source: string,
-  start: number,
-): { readonly end: number } | null {
+function regexQuantifierEnd(source: string, start: number): number {
   const character = source[start];
-  if (character === "*" || character === "+" || character === "?") return { end: start + 1 };
-  if (character !== "{") return null;
+  if (character === "*" || character === "+" || character === "?") return start + 1;
+  if (character !== "{") return -1;
   const match = /^\{\d+(?:,\d*)?\}/u.exec(source.slice(start));
-  return match === null ? null : { end: start + match[0].length };
+  return match === null ? -1 : start + match[0].length;
 }
 
 function nestedValue(value: unknown, key: string): unknown {
