@@ -262,7 +262,7 @@ describe("extractBasesExplicitReferences", () => {
       "  - type: table",
       "    name: \"link('View-name.md')\"",
       "    filters:",
-      "      - 'file.name.contains(\"link(\\\'String-only.md\\\')\")'",
+      "      - \"file.name.contains(\\\"link('String-only.md')\\\")\"",
       "properties:",
       "  status:",
       "    displayName: \"[[Display-only.md]]\"",
