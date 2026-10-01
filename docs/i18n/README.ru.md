@@ -75,7 +75,11 @@ Link Integrity — локальный диагностический плаги�
 
 ## Поддержка
 
-Для воспроизводимых ошибок и конкретных предложений используйте [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues). Не публикуйте приватные пути Vault, содержимое заметок и диагностические образцы.
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a): Вопросы по использованию и настройке.
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): Предварительные идеи функций и рабочих процессов.
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): Советы, рабочие процессы и примеры реализации.
+
+Для воспроизводимых ошибок и конкретных предложений используйте [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose). Не публикуйте приватные пути Vault, содержимое заметок и диагностические образцы.
 
 ## Лицензия
 

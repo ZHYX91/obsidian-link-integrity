@@ -75,7 +75,11 @@ Node.js 24.19.0 と npm 11.17.0 を使用し、`npm ci` の後に `npm run check
 
 ## サポート
 
-再現可能な不具合や具体的な提案は [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues) へ報告してください。非公開の Vault パス、ノート内容、診断例は投稿しないでください。
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a)：使用方法や設定に関する質問。
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas)：機能やワークフローについての初期段階のアイデア。
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell)：ヒント、ワークフロー、参考実装。
+
+再現可能な不具合や具体的な提案は [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose) へ報告してください。非公開の Vault パス、ノート内容、診断例は投稿しないでください。
 
 ## ライセンス
 

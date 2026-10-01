@@ -82,7 +82,11 @@ Project links: [Contributing](https://github.com/ZHYX91/obsidian-link-integrity/
 
 ## Support
 
-Use [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues) for reproducible bugs and concrete feature requests. Never post private Vault paths, note content, diagnostic samples, or personal information publicly.
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a): Usage and configuration questions.
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): Early feature and workflow ideas.
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): Tips, workflows, and reference implementations.
+
+Use [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose) for reproducible bugs and concrete feature requests. Never post private Vault paths, note content, diagnostic samples, or personal information publicly.
 
 ## License
 

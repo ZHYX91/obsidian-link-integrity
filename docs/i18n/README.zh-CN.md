@@ -80,7 +80,11 @@ Bases 动态查询结果不算显式边。文件目标已解析但标题或块�
 
 ## 支持
 
-可复现缺陷和明确的功能建议请使用 [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues)。不要在公开页面发布真实 Vault 路径、笔记内容、诊断样例或个人信息。
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a)：使用和配置问题。
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas)：尚待讨论的功能与工作流想法。
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell)：技巧、工作流和参考实现。
+
+可复现缺陷和明确的功能建议请使用 [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose)。不要在公开页面发布真实 Vault 路径、笔记内容、诊断样例或个人信息。
 
 ## 许可证
 

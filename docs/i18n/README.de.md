@@ -75,7 +75,11 @@ Dauerhafte Verträge: [Produkt](../product-requirements.en.md), [UX](../ux-spec.
 
 ## Support
 
-Reproduzierbare Fehler und konkrete Vorschläge gehören in [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues). Keine privaten Vault-Pfade, Notizinhalte oder Diagnosedaten öffentlich posten.
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a): Fragen zur Nutzung und Konfiguration.
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): Erste Ideen für Funktionen und Arbeitsabläufe.
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): Tipps, Arbeitsabläufe und Referenzimplementierungen.
+
+Reproduzierbare Fehler und konkrete Vorschläge gehören in [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose). Keine privaten Vault-Pfade, Notizinhalte oder Diagnosedaten öffentlich posten.
 
 ## Lizenz
 

@@ -75,7 +75,11 @@ Hợp đồng ổn định: [sản phẩm](../product-requirements.en.md), [UX](
 
 ## Hỗ trợ
 
-Dùng [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues) cho lỗi tái hiện được và yêu cầu cụ thể. Không đăng công khai đường dẫn Vault, nội dung ghi chú hoặc mẫu chẩn đoán riêng tư.
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a): Câu hỏi về cách sử dụng và cấu hình.
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): Ý tưởng ban đầu về tính năng và quy trình làm việc.
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): Mẹo, quy trình làm việc và bản triển khai tham khảo.
+
+Dùng [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose) cho lỗi tái hiện được và yêu cầu cụ thể. Không đăng công khai đường dẫn Vault, nội dung ghi chú hoặc mẫu chẩn đoán riêng tư.
 
 ## Giấy phép
 

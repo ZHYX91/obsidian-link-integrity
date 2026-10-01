@@ -75,7 +75,11 @@ Contratos estáveis: [produto](../product-requirements.en.md), [UX](../ux-spec.e
 
 ## Suporte
 
-Use [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues) para erros reproduzíveis e solicitações concretas. Não publique caminhos do Vault, conteúdo de notas ou amostras privadas.
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a): Dúvidas de uso e configuração.
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): Ideias iniciais de recursos e fluxos de trabalho.
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): Dicas, fluxos de trabalho e implementações de referência.
+
+Use [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose) para erros reproduzíveis e solicitações concretas. Não publique caminhos do Vault, conteúdo de notas ou amostras privadas.
 
 ## Licença
 

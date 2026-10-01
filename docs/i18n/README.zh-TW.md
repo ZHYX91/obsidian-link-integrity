@@ -80,7 +80,11 @@ Bases 動態查詢結果不算明確圖邊。若檔案已解析但標題或區�
 
 ## 支援
 
-可重現錯誤與明確功能建議請使用 [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues)。不要在公開頁面張貼真實 Vault 路徑、筆記內容、診斷樣例或個人資訊。
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a)：使用和設定問題。
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas)：尚待討論的功能與工作流程想法。
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell)：技巧、工作流程和參考實作。
+
+可重現錯誤與明確功能建議請使用 [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose)。不要在公開頁面張貼真實 Vault 路徑、筆記內容、診斷樣例或個人資訊。
 
 ## 授權
 

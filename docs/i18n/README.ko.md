@@ -75,7 +75,11 @@ Node.js 24.19.0과 npm 11.17.0을 사용합니다. `npm ci` 다음 `npm run chec
 
 ## 지원
 
-재현 가능한 오류와 구체적인 제안은 [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues)를 사용하세요. 비공개 Vault 경로, 노트 내용 또는 진단 샘플을 게시하지 마세요.
+- [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a): 사용 및 설정 질문.
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): 초기 기능 및 워크플로 아이디어.
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): 팁, 워크플로 및 참고 구현.
+
+재현 가능한 오류와 구체적인 제안은 [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose)를 사용하세요. 비공개 Vault 경로, 노트 내용 또는 진단 샘플을 게시하지 마세요.
 
 ## 라이선스
 
