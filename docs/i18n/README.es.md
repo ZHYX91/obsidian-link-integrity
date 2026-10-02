@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
-Link Integrity es un complemento de diagnóstico local y de solo lectura para Obsidian, centrado en Broken links e Isolated files.
+Link Integrity es un complemento local y de solo lectura para Obsidian que ayuda a encontrar Broken links e Isolated files.
 
 ## Capturas de pantalla
 
@@ -12,74 +12,74 @@ Revisa enlaces rotos y archivos aislados en una barra lateral compacta:
 
 ![Archivos aislados agrupados por carpeta](../assets/link-integrity-isolated-en.png)
 
-Configura el índice, las reglas de exclusión, los tipos de archivo y el aislamiento esperado en los ajustes de Obsidian:
+Gestiona el índice, las reglas de exclusión, los tipos de archivo y las reglas de aislamiento esperado en los ajustes de Obsidian:
 
 ![Configuración de Link Integrity](../assets/link-integrity-settings-en.png)
 
 ## Funciones
 
-- Informa referencias internas rotas a archivos, encabezados y bloques desde Markdown, incrustaciones, Frontmatter, Canvas y referencias explícitas de archivo en Bases.
-- Encuentra archivos sin conexión entrante ni saliente válida con otro archivo existente del Vault; los autoenlaces y las URL externas no crean conexiones.
-- Marca con menor confianza los archivos aislados que contienen enlaces salientes rotos.
-- Muestra opcionalmente notas periódicas, plantillas y archivos como Expected isolated sin inventar aristas.
-- Filtra archivos de Obsidian, familias de imágenes, audio, vídeo, PDF y extensiones de adjuntos configuradas.
-- Construye una base completa cuando hace falta y después aplica actualizaciones incrementales.
-- Abre cada diagnóstico en su origen; todo el análisis y el índice permanecen locales.
+- Encuentra enlaces internos a archivos, encabezados y bloques que faltan en Markdown, incrustaciones, Frontmatter, Canvas y referencias explícitas de archivo en Bases.
+- Encuentra archivos sin ninguna conexión entrante o saliente válida con otro archivo existente del Vault. Los enlaces al propio archivo y las URL externas no cuentan como conexiones del Vault.
+- Avisa cuando un archivo aislado también contiene enlaces salientes rotos, para no confundirlo con un archivo que claramente pueda eliminarse.
+- Las notas periódicas, plantillas, archivos de archivo y elementos similares pueden marcarse como Expected isolated. Esto solo cambia su clasificación en los resultados; no altera sus enlaces reales.
+- Filtra archivos aislados por archivos de Obsidian, formatos de imagen, audio, vídeo, PDF y extensiones de adjuntos configuradas.
+- Construye un índice completo cuando hace falta y lo mantiene actualizado automáticamente a medida que cambia el Vault.
+- Abre cada problema en su origen cuando hay navegación precisa disponible. El análisis y la indexación se realizan de forma local.
 
-Los resultados dinámicos de Bases no son aristas explícitas. Si el archivo se resuelve pero falta el encabezado o bloque, la conexión de archivo sigue siendo válida y se informa el subtrayecto por separado.
+Los resultados dinámicos de Bases no se tratan automáticamente como enlaces. Si existe el archivo de destino pero falta un encabezado o bloque, los archivos siguen considerándose conectados y se informa por separado de lo que falta.
 
 ## Requisitos y compatibilidad
 
 - Obsidian 1.12.7 o posterior.
 - Compatible con Obsidian para escritorio y móvil.
-- Solo diagnostica el Vault actual y no comprueba la web externa.
+- Solo comprueba el Vault actual. No revisa sitios web externos ni recursos remotos.
 
 ## Instalación
 
-Abre **Ajustes → Complementos de la comunidad → Explorar**, busca **Link Integrity** e instálalo. Si no aparece en el catálogo, descarga `link-integrity-<version>.zip` desde la [última versión de GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
+Abre **Ajustes → Complementos de la comunidad → Explorar**, busca **Link Integrity** e instálalo. Si todavía no aparece en el catálogo, descarga `link-integrity-<version>.zip` desde la [última versión de GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
-Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` en `Vault/.obsidian/plugins/link-integrity/`. Al actualizar, sustituye solo esos tres archivos y conserva `data.json` salvo que quieras restablecer los ajustes.
+Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` en `Vault/.obsidian/plugins/link-integrity/`. Al actualizar, sustituye solo esos tres archivos y conserva `data.json`, salvo que quieras restablecer la configuración.
 
 ## Uso
 
 1. Activa Link Integrity en los complementos de la comunidad.
-2. Abre la barra lateral desde la cinta o la paleta de comandos y cambia entre **Broken links** e **Isolated files**.
-3. Selecciona un diagnóstico para abrir su origen; los filtros solo cambian la vista actual.
-4. Si el análisis inicial está desactivado o la base falló, usa **Crear índice** o **Reconstruir índice** en General. Después las actualizaciones incrementales mantienen los resultados al día.
+2. Abre Link Integrity desde la cinta o la paleta de comandos. La barra lateral contiene **Broken links** e **Isolated files**.
+3. Selecciona un resultado para abrir su origen. Los filtros de archivos aislados solo cambian la vista actual y no modifican los valores predeterminados guardados.
+4. El análisis al iniciar está desactivado de forma predeterminada. Al abrir la barra lateral, el índice se crea cuando es necesario; también puedes usar **Crear índice** o **Reconstruir índice** en General. Después de la primera creación correcta, los cambios del Vault actualizan los resultados automáticamente.
 
 ## Ajustes
 
-- **General**: idioma, análisis al inicio, agrupación y acciones de índice. El idioma predeterminado es **Seguir Obsidian**.
-- **Broken links**: categorías de diagnóstico y reglas de exclusión con nombre y vista previa.
-- **Isolated files**: tipos predeterminados, análisis opcional sin enlaces entrantes, visibilidad Expected isolated y reglas.
-- Las reglas de aislamiento esperado combinan tipo, carpeta exacta o recursiva, formato de fecha, glob y expresión regular; el ajuste periódico cubre día, semana, mes, trimestre y año.
+- **General**: idioma, análisis al inicio, vistas predeterminadas y acciones para crear o reconstruir el índice. El idioma predeterminado es **Seguir Obsidian**.
+- **Broken links**: qué problemas se muestran y qué reglas de exclusión con nombre se aplican, con vista previa de coincidencias.
+- **Isolated files**: tipos de archivo predeterminados, vista opcional sin enlaces entrantes, Expected isolated, reglas de exclusión y reglas de aislamiento esperado.
+- Las reglas de aislamiento esperado pueden combinar tipo de archivo, una carpeta o una carpeta con subcarpetas, formatos de fecha, patrones glob y expresiones regulares avanzadas. El ajuste de notas periódicas admite día, semana, mes, trimestre y año.
 
-Los ajustes y reglas se guardan en `data.json`; el grafo derivado no se conserva.
+Los ajustes y las reglas del usuario se guardan en `data.json`. El índice de enlaces calculado se mantiene en memoria y se vuelve a crear después de reiniciar.
 
 ## Limitaciones
 
-- No elimina archivos ni reescribe enlaces automáticamente.
-- Las URL externas no se solicitan a través de la red.
-- Las consultas dinámicas de Bases no cuentan como conexiones explícitas.
-- Las reglas Expected isolated solo afectan a la proyección de candidatos y nunca ocultan enlaces rotos.
+- Link Integrity no elimina archivos, no reescribe enlaces ni decide automáticamente qué debería borrarse.
+- Las URL externas están fuera de alcance y nunca se consultan por la red.
+- Los resultados dinámicos de Bases no cuentan como conexiones directas entre archivos; solo cuentan las referencias explícitas.
+- Las reglas de aislamiento esperado solo cambian la clasificación de archivos que ya están aislados. No ocultan enlaces rotos ni eliminan conexiones reales.
 
 ## Privacidad y seguridad
 
-Todo se procesa localmente. Link Integrity no sube el contenido del Vault, no requiere cuenta, no modifica notas ni conserva el grafo derivado.
+La indexación y la evaluación de reglas se realizan localmente. Link Integrity no sube contenido del Vault, no requiere cuenta y no modifica notas. Las rutas y ejemplos de diagnóstico permanecen en la sesión actual de Obsidian salvo que decidas compartirlos.
 
 ## Desarrollo
 
 Usa Node.js 24.19.0 y npm 11.17.0. Ejecuta `npm ci` y después `npm run check`.
 
-Contratos estables: [producto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitectura](../architecture.en.md), [pruebas](../testing-strategy.en.md). Las fuentes chinas correspondientes están en la misma carpeta.
+Documentación para desarrollo: [producto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitectura](../architecture.en.md), [pruebas](../testing-strategy.en.md). Las fuentes chinas correspondientes están en la misma carpeta.
 
 ## Soporte
 
 - [Q&A](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/q-a): Preguntas de uso y configuración.
-- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): Ideas iniciales de funciones y flujos de trabajo.
-- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): Consejos, flujos de trabajo e implementaciones de referencia.
+- [Ideas](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/ideas): Ideas de funciones y flujos de trabajo todavía en discusión.
+- [Show and tell](https://github.com/ZHYX91/obsidian-link-integrity/discussions/categories/show-and-tell): Consejos, flujos de trabajo y ejemplos.
 
-Usa [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose) para errores reproducibles y solicitudes concretas. No publiques rutas del Vault, contenido de notas ni muestras privadas.
+Usa [GitHub Issues](https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose) para errores reproducibles y solicitudes concretas. No publiques rutas privadas del Vault, contenido de notas, ejemplos de diagnóstico ni información personal.
 
 ## Licencia
 

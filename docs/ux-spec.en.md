@@ -10,8 +10,8 @@ translation_status: synced
 
 Link Integrity is a read-only diagnostic tool. The interface helps a user understand a problem and navigate to its source or target; it does not offer bulk deletion, automatic rewriting, or imply that a file is safe to remove. Counts and labels preserve these distinctions:
 
-- A broken link is an occurrence-level diagnostic; repeated references remain individually navigable.
-- An isolated file is a file-level projection of the valid explicit-link graph.
+- A broken link is recorded for each individual reference; repeated references remain individually navigable.
+- An isolated file is determined from the valid explicit connections between files.
 - Expected isolated is a separate user-rule state, not an invented graph connection.
 - “Isolated · N broken links” is low confidence and must not appear as a high-confidence cleanup candidate.
 - Candidate scope, diagnostic visibility, and graph contribution are independent concepts.
@@ -22,12 +22,12 @@ Desktop and mobile use the same product semantics. A narrow layout may rearrange
 
 The sidebar starts with the two business tabs. It does not repeat the plugin title or keep a permanent refresh/settings action row. Plugin settings are entered through Obsidian's plugin settings page. The tabs are:
 
-1. **Broken links**, with the number of currently visible occurrences.
-2. **Isolated files**, with the main projection count, excluding expected isolated files by default.
+1. **Broken links**, with the number of currently visible problems.
+2. **Isolated files**, with the main result count, excluding expected isolated files by default.
 
-The ready state consumes no permanent status row. Progress appears only while scanning; stale or failed state appears contextually in the current panel with a Retry rebuild action. With no baseline, opening the sidebar starts the first complete build automatically while retaining a discoverable Build index action. A full-rebuild failure must never replace the last-known-good result with an empty list.
+The ready state consumes no permanent status row. Progress appears only while scanning; stale or failed state appears contextually in the current panel with a Retry rebuild action. With no usable index, opening the sidebar starts the first complete build automatically while retaining a discoverable Build index action. A full-rebuild failure must never replace the most recent trustworthy result with an empty list.
 
-Result DOM is bounded to 100 occurrences or files per page. Previous/next controls preserve access to the complete filtered and sorted projection; badges show full-result counts and the range label identifies the current page. After an index change, an inactive tab whose projection has not refreshed shows a pending marker instead of presenting an old count as current. Changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
+Result DOM is bounded to 100 problem rows or files per page. Previous/next controls preserve access to the complete filtered and sorted result set; badges show full-result counts and the range label identifies the current page. After an index change, an inactive tab whose results have not refreshed shows a pending marker instead of presenting an old count as current. Changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
 The search input keeps its DOM identity, focus, and caret during typing, selection replacement, and index notifications. IME composition retains unfinished text and publishes the query after composition ends. Unchanged toolbar controls survive index notifications. Expansion choices for isolated folders, broken-link groups, and file-type filters belong to the sidebar session: they survive refreshes and temporary filtering, are released when the sidebar closes, and are not saved in settings.
 
@@ -37,14 +37,14 @@ Toolbar hierarchy follows interaction frequency: search receives the primary ava
 
 ### 2.1 Broken links tab
 
-Results are grouped by link target by default, with source-file grouping, source-folder grouping, and an occurrence list as alternatives. Group selection is contained in the primary switch and uses compact labels such as “Group · Target / Source / Folder”; menus, tooltips, and accessible names use the full terms instead of relying on the compact labels. Source-folder mode builds a tree only from real source paths and never guesses a folder for a missing target. A folder count is its subtree occurrence count, while a file count is the occurrence count for that source file.
+Results are grouped by link target by default, with source-file grouping, source-folder grouping, and an individual-reference list as alternatives. Group selection is contained in the primary switch and uses compact labels such as “Group · Target / Source / Folder”; menus, tooltips, and accessible names use the full terms instead of relying on the compact labels. Source-folder mode builds a tree only from real source paths and never guesses a folder for a missing target. A folder count is the number of problems in its subtree, while a file count is the number of problems in that source file.
 
-The source-folder tree collapses deeper hierarchy by default, offers Expand all and Collapse all, and persists folder expansion state. A collapsed branch does not materialize descendant result DOM. Path sort compares sibling paths; problem-count sort compares subtree or source occurrence counts. Target, source-file, and source-folder grouping each expose name/path and problem-count ordering with labels specific to the current object. The occurrence list remains ordered by source location and hides the sort control. The summary reports targets, source files, or source folders for the active grouping, while list mode reports only occurrences.
+The source-folder tree collapses deeper hierarchy by default, offers Expand all and Collapse all, and persists folder expansion state. A collapsed branch does not materialize descendant result DOM. Path sort compares sibling paths; problem-count sort compares subtree or source-file problem counts. Target, source-file, and source-folder grouping each expose name/path and problem-count ordering with labels specific to the current object. The individual-reference list remains ordered by source location and hides the sort control. The summary reports targets, source files, or source folders for the active grouping, while list mode reports only the number of problems.
 
 - Missing files, headings, and blocks have distinct labels.
 - When a file exists but its subpath is missing, the target file can still be opened while retaining the subpath diagnostic.
-- Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases honestly fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID and line/column; merely opening the file must not masquerade as precise navigation.
-- A row menu can create an ignore rule for the occurrence, target, or source. It shows the scope and match preview before saving, then offers one immediate undo action.
+- Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID and line/column; merely opening the file must not masquerade as precise navigation.
+- A row menu can create an ignore rule for the current reference, target, or source. It shows the scope and match preview before saving, then offers one immediate undo action.
 
 Search, grouping, sorting, and “show ignored” affect only the current projection, never the graph.
 
@@ -79,7 +79,7 @@ After filtering, the count is shown as “visible / configured-scope total” so
 
 ## 4. Settings interface
 
-Settings use the imperative top-tab surface on every supported Obsidian version and contain three tabs: General, Broken links, and Isolated files. Declarative settings remain disabled because they bypass this layout. All tabs share one settings model, value sources, and side effects.
+Settings use the plugin-rendered top-tab surface on every supported Obsidian version and contain three tabs: General, Broken links, and Isolated files. Declarative settings remain disabled because they bypass this layout. All tabs share one settings model, value sources, and side effects.
 
 ### 4.1 General
 
@@ -119,7 +119,7 @@ An expected-isolation rule has a name, enabled state, and combined conditions:
 
 Different condition groups are combined with AND, while naming patterns inside a group are combined with OR. Advanced regular expressions use a bounded state-set matcher, so nested and ambiguous repetitions do not trigger native backtracking. Overlong patterns, excessive repetition counts or compiled state counts, invalid flags, backreferences, and lookaround fail validation before preview and disable Save. Existing settings that no longer satisfy this contract disable the whole affected rule on load instead of silently dropping a condition. Rule-kind, match-target, pattern, and flags controls all have accessible names and are associated with validation feedback. The periodic-notes preset provides configurable daily, weekly, monthly, quarterly, and yearly patterns: `YYYY-MM-DD`, `GGGG-[W]WW`, `YYYY-MM`, `YYYY-[Q]Q`, and `YYYY`. It creates Link Integrity rules only and never reads Chrono Notes data or code.
 
-An ignore rule states its actual scope: hide broken diagnostics, exclude isolated candidates, ignore an entire target file, ignore an occurrence, or exclude graph contribution. Disabling or deleting a rule recalculates projections from the same authoritative index.
+An ignore rule states its actual scope: hide broken diagnostics, exclude isolated candidates, ignore an entire target file, ignore one specific reference, or exclude matching links from connection analysis. Disabling or deleting a rule recalculates the affected results from the same authoritative index.
 
 ## 6. Saving, errors, and recovery
 
@@ -134,7 +134,7 @@ Scan errors and settings-save errors are separate states and are presented indep
 
 ## 7. Accessibility and mobile
 
-- Tabs use `tablist`, `tab`, and `tabpanel` semantics with roving tabindex; the active tab combines an accent underline with a semibold label, and stable space separates the baseline from the content panel.
+- Tabs use `tablist`, `tab`, and `tabpanel` semantics with roving tabindex; the active tab combines an accent underline with a semibold label, and stable space separates the tab row from the content panel.
 - Arrow keys, Home, and End work, and focus remains sensible after switching.
 - Tabs may scroll horizontally on narrow screens; RTL keeps ordering and icon meaning correct.
 - Coarse-pointer targets are at least 44 CSS pixels.

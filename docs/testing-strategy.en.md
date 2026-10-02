@@ -40,7 +40,7 @@ File-type registry tests cover the classification hierarchy, extension aliases, 
 
 ## Isolation and rule tests
 
-Isolation projections must prove that the default definition requires both valid incoming and outgoing neighbor counts to be zero. A file with only broken outgoing links remains isolated and carries a broken-occurrence count and low confidence; self-links and external URLs do not change isolation.
+Isolation-result tests must prove that the default definition requires both valid incoming and outgoing neighbor counts to be zero. A file with only broken outgoing links remains isolated and shows the number of broken references and a cautionary state; self-links and external URLs do not change isolation.
 
 The no-incoming query is tested separately so a file with valid outgoing links cannot enter the default isolated result. Candidate-type filtering must not remove real connections contributed by unselected files.
 
@@ -56,21 +56,21 @@ Expected-isolation tests cover:
 
 ## Full and incremental equivalence
 
-A clean rebuild is the correctness oracle for the incremental implementation. Tests maintain a mutable virtual Vault and, after every create, modify, delete, or rename:
+A clean rebuild is the correctness reference for the incremental implementation. Tests maintain a mutable virtual Vault and, after every create, modify, delete, or rename:
 
 1. let the incremental controller process the event and reach idle;
 2. rebuild a clean index from the current virtual Vault;
 3. compare normalized files, snapshots, occurrence statuses, edge counts, and self-links.
 
-Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, absorption of pre-scan event storms by the new baseline without duplicate snapshot work, buffered replay of create/modify/delete/rename after a scan has begun, one late host-wide `resolved` correction after a Metadata Cache timeout, and bounded concurrency. Graph-contribution rule tests use the same normalized state as a stable differential fingerprint to prove that regraph equals a clean materialization under the new policy without increasing adapter-read or source-parse counts.
+Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, absorption of pre-scan event storms by the new complete initial index without duplicate snapshot work, buffered replay of create/modify/delete/rename after a scan has begun, one late host-wide `resolved` correction after a Metadata Cache timeout, and bounded concurrency. Graph-contribution rule tests use the same normalized state as a stable differential fingerprint to prove that regraph equals a clean materialization under the new policy without increasing adapter-read or source-parse counts.
 
 ## Rebuild and failure tests
 
-Transactional tests verify that staging is invisible before completion and is published atomically only after success. On build failure, the store retains the same last-known-good object and generation.
+Transactional tests verify that staging is invisible before completion and is published atomically only after success. On build failure, the store retains the same most-recent trustworthy object and generation.
 
 Coordinator tests cover buffering and replay during rebuild, single-flight concurrent rebuilds within one lifecycle, lifecycle recovery after pre-rebuild incremental failure, prevention of an obsolete rebuild from publishing or claiming more sources after stop, and prevention of an old operation finalizer from cleaning up a new controller after stop→start. Yield tests inject `yieldControl` and a controlled clock to verify both file-count and main-thread-time budgets; progress tests verify throttling and final progress.
 
-Failure tests should assert more than an exception: they must verify whether a trustworthy index remains, whether queued events can continue, and whether status honestly becomes failed or stale. After a first-baseline failure with no trustworthy index, a large event burst must also prove that the plugin layer does not retain history linearly; the next full rebuild still reads complete current Vault state. Targeted synchronous-reducer fault injection makes a later source in one batch introduce a cross-source occurrence-ID collision and asserts that batch prevalidation fails before any file metadata or snapshot is published.
+Failure tests should assert more than an exception: they must verify whether a trustworthy index remains, whether queued events can continue, and whether status honestly becomes failed or stale. After the first complete build fails with no trustworthy index, a large event burst must also prove that the plugin layer does not retain history linearly; the next full rebuild still reads complete current Vault state. Targeted synchronous-reducer fault injection makes a later source in one batch introduce a cross-source occurrence-ID collision and asserts that batch prevalidation fails before any file metadata or snapshot is published.
 
 ## UI, settings, and localization tests
 
@@ -115,4 +115,4 @@ check into navigation, live-event, or emulator evidence.
 
 A candidate may make a claim only when evidence exists separately for that fact: automated gates pass, the candidate asset contract passes, the target Obsidian version passes in an isolated Vault, or the emulator passes. Android physical devices and iOS are not acceptance levels for this project. Missing evidence at one supported level does not invalidate lower-level evidence, but lower-level evidence must never be promoted into a higher-level acceptance claim.
 
-When a failure is found, record the smallest reproduction, the affected semantic invariant, the last-known-good state, and the regression test added after repair. Any production Vault deployment requires separate authorization after isolated acceptance is complete.
+When a failure is found, record the smallest reproduction, the affected semantic invariant, the most recent trustworthy state, and the regression test added after repair. Any production Vault deployment requires separate authorization after isolated acceptance is complete.

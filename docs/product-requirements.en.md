@@ -10,7 +10,7 @@ This document defines the current product behavior of Link Integrity. It describ
 
 ## Product position
 
-Link Integrity is a fully local, read-only Obsidian Vault diagnostic plugin. It provides two business views: Broken links and Isolated files. The plugin helps users find relationships that need review, but it does not delete files, bulk-rewrite links, check external URLs, or present a diagnostic result as permission to clean up automatically.
+Link Integrity is a fully local, read-only Obsidian Vault diagnostic plugin. It provides two main views: Broken links and Isolated files. The plugin helps users find relationships that need review, but it does not delete files, bulk-rewrite links, check external URLs, or present a diagnostic result as permission to clean up automatically.
 
 ## Valid Vault connections
 
@@ -19,7 +19,7 @@ A valid connection is an explicit internal reference whose source points to anot
 - A self-link does not connect two files, so it does not contribute valid in-degree or out-degree.
 - An external URL is not a Vault connection.
 - When the target file exists but a heading or block is missing, the file-level connection remains valid while a heading or block diagnostic is reported.
-- Repeated references between the same pair of files remain separate diagnostic occurrences; the graph also preserves edge contribution counts by reference kind.
+- Repeated references between the same pair of files remain individually recorded, and connection counts preserve the number contributed by each reference kind.
 
 The currently supported explicit connection sources are:
 
@@ -28,13 +28,13 @@ The currently supported explicit connection sources are:
 - explicit Canvas file nodes, background files, and resolvable internal links in text nodes;
 - statically identifiable explicit file references in Bases `filters`, `formulas`, custom `summaries`, and view `filters`; view names, `properties` display configuration, and ordinary string literals are not references.
 
-Results produced by dynamic Bases queries are not explicit references and do not create graph edges by default. Date adjacency between periodic notes does not create synthetic edges either.
+Results produced by dynamic Bases queries are not explicit references and do not count as file connections by default. Periodic notes are not treated as linked merely because their dates are adjacent.
 
 ## Broken links
 
-Broken-link results are reported per occurrence instead of only per target. Confirmed reasons currently include a missing target file, an invalid internal link, a missing heading, and a missing block. A link waiting for host metadata is not a confirmed error, and an unsupported subpath is not presented as a confirmed error.
+Broken-link results are reported for each individual reference instead of only per target. Confirmed reasons currently include a missing target file, an invalid internal link, a missing heading, and a missing block. A link waiting for host metadata is not a confirmed error, and an unsupported subpath is not presented as a confirmed error.
 
-Opening a result should open its source and, where the source type permits, navigate to a line, property, or Canvas node. When exact navigation is unavailable, the interface must honestly fall back to opening the source file and expose any available Canvas node ID and line/column; it must not silently imply that precise navigation succeeded.
+Opening a result should open its source and, where the source type permits, navigate to a line, property, or Canvas node. When exact navigation is unavailable, the interface opens the source file, exposes any available Canvas node ID or line/column, and does not claim that precise navigation succeeded.
 
 Ordinary result-hiding rules change diagnostic visibility only. They do not change valid file connections or erase the risk signal attached to an isolated result.
 
@@ -74,7 +74,7 @@ Link Integrity keeps three scopes strictly separate:
 
 Unselected candidate types and ordinary hide rules continue to contribute valid connections. Only the separate advanced “exclude graph contribution” rule changes the graph, and the interface must warn that it can create false isolated results.
 
-Isolated candidates use a central file-type registry: Obsidian files (Markdown, Bases, and Canvas), images, audio, video, fixed-layout files (PDF), and other attachments. Images, media, and attachments are subdivided into format families, with common extension aliases grouped together. Matching is case-insensitive. An unknown attachment extension enters candidate scope only when that extension is explicitly configured as custom; selecting the custom family with an empty extension list does not silently include every unknown file. Settings store the default candidate scope; sidebar filters are temporary query conditions.
+Isolated candidates use one shared file-type registry: Obsidian files (Markdown, Bases, and Canvas), images, audio, video, fixed-layout files (PDF), and other attachments. Images, media, and attachments are subdivided into format families, with common extension aliases grouped together. Matching is case-insensitive. An unknown attachment extension enters candidate scope only when that extension is explicitly configured as custom; selecting the custom family with an empty extension list does not silently include every unknown file. Settings store the default candidate scope; sidebar filters are temporary query conditions.
 
 ## Data and safety boundaries
 

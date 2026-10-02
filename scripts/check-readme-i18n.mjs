@@ -204,6 +204,46 @@ const config = {
   ],
 };
 
+const forbiddenPublicJargon = new Map([
+  ["README.md", [
+    ["occurrence", /\boccurrence\b/iu],
+    ["projection", /\bprojection\b/iu],
+    ["graph edge", /\bgraph edges?\b/iu],
+    ["baseline", /\bbaseline\b/iu],
+    ["subpath", /\bsubpath\b/iu],
+  ]],
+  ["docs/i18n/README.zh-CN.md", [
+    ["投影", /投影/u], ["图边", /图边/u], ["子路径", /子路径/u], ["occurrence", /\boccurrence\b/iu],
+  ]],
+  ["docs/i18n/README.zh-TW.md", [
+    ["投影", /投影/u], ["圖邊", /圖邊/u], ["子路徑", /子路徑/u], ["occurrence", /\boccurrence\b/iu],
+  ]],
+  ["docs/i18n/README.de.md", [
+    ["Graphkante", /Graphkanten?/iu], ["Unterpfad", /Unterpfad/iu],
+  ]],
+  ["docs/i18n/README.fr.md", [
+    ["arête", /arêtes?/iu], ["sous-chemin", /sous-chemin/iu], ["projection", /projection/iu],
+  ]],
+  ["docs/i18n/README.ru.md", [
+    ["рёбра графа", /р[её]бр(?:о|а) графа/iu], ["подпуть", /подпут/iu],
+  ]],
+  ["docs/i18n/README.pt-BR.md", [
+    ["aresta", /arestas?/iu], ["subcaminho", /subcaminho/iu], ["projeção", /projeç/iu],
+  ]],
+  ["docs/i18n/README.ja.md", [
+    ["グラフ辺", /グラフ辺/u], ["サブパス", /サブパス/u], ["投影", /投影/u],
+  ]],
+  ["docs/i18n/README.ko.md", [
+    ["그래프 간선", /그래프 간선/u], ["하위 경로", /하위 경로/u], ["프로젝션", /프로젝션/u],
+  ]],
+  ["docs/i18n/README.es.md", [
+    ["arista", /aristas?/iu], ["subtrayecto", /subtrayecto/iu], ["proyección", /proyecci[oó]n/iu],
+  ]],
+  ["docs/i18n/README.vi.md", [
+    ["cạnh đồ thị", /cạnh (?:giả|đồ thị)/iu], ["đường dẫn con", /đường dẫn con/iu], ["phép chiếu", /phép chiếu/iu],
+  ]],
+]);
+
 const ignoredDirectories = new Set([".git", "coverage", "dist", "node_modules", "release"]);
 const normalizePath = (filePath) => filePath.split(path.sep).join("/");
 
@@ -377,6 +417,11 @@ export function checkReadmeI18n(projectRoot = defaultProjectRoot) {
     }
     if (/Orphan files|孤儿文件/iu.test(source)) {
       errors.push(`${filePath} contains retired orphan-file terminology`);
+    }
+    for (const [label, pattern] of forbiddenPublicJargon.get(filePath) ?? []) {
+      if (pattern.test(source)) {
+        errors.push(`${filePath} contains internal public-facing jargon: ${label}`);
+      }
     }
     validateTargets(projectRoot, filePath, source, errors);
   }
