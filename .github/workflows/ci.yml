@@ -14,9 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  audit:
+    name: Audit locked dependencies
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -40,6 +41,31 @@ jobs:
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
+
+  verify:
+    name: Verify repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up exact Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          cache: npm
+          node-version: 24.19.0
+
+      - name: Install exact npm
+        shell: bash
+        run: |
+          npm install --global npm@11.17.0
+          test "$(npm --version)" = "11.17.0"
+
+      - name: Install locked dependencies
+        run: npm ci
 
       - name: Run the canonical local gate
         run: npm run check
