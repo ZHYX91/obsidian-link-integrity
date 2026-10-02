@@ -253,7 +253,7 @@ describe("custom settings sections", () => {
         samples: ["Generated/a.md"],
       }),
     }));
-    expect(container.textContent).toContain("false isolated-file results");
+    expect(container.textContent).toContain("connected files appear isolated");
     expect(container.textContent).toContain("Matches 3 items");
     expect(container.textContent).toContain("Generated/a.md");
     expect(container.querySelector(".is-graph-risk")).not.toBeNull();
