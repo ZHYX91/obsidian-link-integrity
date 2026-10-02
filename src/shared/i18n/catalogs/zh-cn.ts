@@ -131,7 +131,7 @@ export const ZH_CN_MESSAGES = {
   "sidebar.isolated.markedExpected": "已将 {path} 标记为预期孤立",
   "sidebar.isolated.removedExpected": "已取消 {path} 的预期孤立标记",
   "sidebar.fileTypes": "文件类型",
-  "sidebar.fileTypes.temporary": "临时筛选；不会改变设置或链接图。",
+  "sidebar.fileTypes.temporary": "临时筛选；不会改动已保存的设置或文件之间的连接关系。",
   "fileType.selectedCount": { other: "已选择 {selected}/{total}" },
   "fileType.customExtensions": "自定义扩展名",
   "fileType.customExtensions.description": "每行一个扩展名；匹配不区分大小写。",

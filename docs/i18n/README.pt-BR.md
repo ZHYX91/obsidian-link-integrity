@@ -21,7 +21,7 @@ Gerencie índice, regras de exclusão, tipos de arquivo e regras de isolamento e
 - Encontra links internos para arquivos, títulos e blocos ausentes em Markdown, incorporações, Frontmatter, Canvas e referências explícitas de arquivo em Bases.
 - Encontra arquivos sem conexão válida de entrada ou saída com outro arquivo existente no Vault. Links para o próprio arquivo e URLs externas não contam como conexões do Vault.
 - Avisa quando um arquivo isolado também contém links de saída quebrados, evitando que ele pareça um arquivo obviamente seguro para remover.
-- Notas periódicas, modelos, arquivos de arquivo e itens semelhantes podem ser marcados como Expected isolated. Isso muda apenas a classificação nos resultados, sem alterar os links reais.
+- Notas periódicas, modelos, arquivos arquivados e itens semelhantes podem ser marcados como Expected isolated. Isso muda apenas a classificação nos resultados, sem alterar os links reais.
 - Filtra arquivos isolados por arquivos do Obsidian, formatos de imagem, áudio, vídeo, PDF e extensões de anexos configuradas.
 - Cria um índice completo quando necessário e o mantém atualizado automaticamente conforme o Vault muda.
 - Abre cada problema na origem quando há navegação precisa disponível. A análise e a indexação permanecem locais.

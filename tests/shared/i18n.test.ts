@@ -74,6 +74,25 @@ describe("i18n", () => {
       .toBe("參照識別碼");
     expect(createTranslator("zh-TW", "en").t("ignore.scope.ignoreOccurrence"))
       .toBe("忽略這一處參照");
+    expect(createTranslator("pt-BR", "en").t("settings.ignore.title"))
+      .toBe("Regras de exclusão");
+  });
+
+  it.each([
+    ["en", /\bgraph\b/iu],
+    ["de", /Link-Graph/iu],
+    ["es", /grafo de enlaces/iu],
+    ["fr", /graphe de liens/iu],
+    ["ja", /リンクグラフ/u],
+    ["ko", /링크 그래프/u],
+    ["pt-BR", /grafo de links/iu],
+    ["ru", /граф ссылок/iu],
+    ["vi", /đồ thị liên kết/iu],
+    ["zh-CN", /链接图/u],
+    ["zh-TW", /連結圖/u],
+  ] as const)("keeps temporary-filter copy free of graph jargon in %s", (locale, pattern) => {
+    expect(createTranslator(locale, "en").t("sidebar.fileTypes.temporary"))
+      .not.toMatch(pattern);
   });
 
 });

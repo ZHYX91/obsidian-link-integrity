@@ -98,7 +98,7 @@ export const DE_MESSAGES = localizedCatalog({
   "sidebar.isolated.showExpected": "Erwartet isolierte Dateien anzeigen",
   "sidebar.isolated.noIncoming": "Dateien ohne eingehende Links",
   "sidebar.fileTypes": "Dateitypen",
-  "sidebar.fileTypes.temporary": "Temporärer Filter; Einstellungen und Link-Graph bleiben unverändert.",
+  "sidebar.fileTypes.temporary": "Temporärer Filter; gespeicherte Einstellungen und Dateiverbindungen bleiben unverändert.",
   "fileType.category.obsidian": "Obsidian-Dateien",
   "fileType.category.image": "Bilder",
   "fileType.category.audio": "Audio",

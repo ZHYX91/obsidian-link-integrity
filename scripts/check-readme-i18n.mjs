@@ -229,6 +229,7 @@ const forbiddenPublicJargon = new Map([
   ]],
   ["docs/i18n/README.pt-BR.md", [
     ["aresta", /arestas?/iu], ["subcaminho", /subcaminho/iu], ["projeção", /projeç/iu],
+    ["arquivos de arquivo", /arquivos de arquivo/iu],
   ]],
   ["docs/i18n/README.ja.md", [
     ["グラフ辺", /グラフ辺/u], ["サブパス", /サブパス/u], ["投影", /投影/u],
@@ -238,6 +239,7 @@ const forbiddenPublicJargon = new Map([
   ]],
   ["docs/i18n/README.es.md", [
     ["arista", /aristas?/iu], ["subtrayecto", /subtrayecto/iu], ["proyección", /proyecci[oó]n/iu],
+    ["archivos de archivo", /archivos de archivo/iu],
   ]],
   ["docs/i18n/README.vi.md", [
     ["cạnh đồ thị", /cạnh (?:giả|đồ thị)/iu], ["đường dẫn con", /đường dẫn con/iu], ["phép chiếu", /phép chiếu/iu],
