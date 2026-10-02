@@ -13,6 +13,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ### Changed
 
+- Rebase the production bundle budget on the reviewed 0.2.8 runtime size after the intentional YAML parser addition, retain about 25% growth room, and report remaining headroom explicitly.
 - Run dependency auditing independently from the canonical repository verification job so a newly published advisory does not hide test, coverage, benchmark, and bundle evidence.
 
 ## [0.2.8] - 2026-09-24
