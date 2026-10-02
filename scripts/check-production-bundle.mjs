@@ -47,6 +47,7 @@ if (import.meta.url === entryPoint) {
   const bundle = await checkProductionBundle();
   process.stdout.write(
     `Production bundle check passed; bundle=${bundle.actualBytes} ` +
-    `reference=${bundle.referenceBytes} budget=${bundle.maximumBytes}.\n`,
+    `reference=${bundle.referenceBytes} budget=${bundle.maximumBytes} ` +
+    `headroom=${bundle.headroomBytes} (${bundle.headroomPercent.toFixed(1)}%).\n`,
   );
 }
