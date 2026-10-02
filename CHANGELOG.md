@@ -7,7 +7,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
-## [0.2.9] - 2026-10-02
+## [0.2.9] - 2026-10-03
 
 ### Security
 
