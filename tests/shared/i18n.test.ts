@@ -61,4 +61,19 @@ describe("i18n", () => {
     expect(createTranslator("en", "en").t("settings.general.language.auto"))
       .toBe("Follow Obsidian");
   });
+  it("keeps advanced ignore controls user-facing in the primary locales", () => {
+    expect(createTranslator("en", "en").t("settings.ignore.matcher.occurrenceId"))
+      .toBe("Reference identifier");
+    expect(createTranslator("en", "en").t("ignore.scope.ignoreOccurrence"))
+      .toBe("Ignore this reference");
+    expect(createTranslator("zh-CN", "en").t("settings.ignore.matcher.occurrenceId"))
+      .toBe("引用标识");
+    expect(createTranslator("zh-CN", "en").t("ignore.scope.excludeGraph"))
+      .toBe("从连接关系中排除匹配链接（高级）");
+    expect(createTranslator("zh-TW", "en").t("settings.ignore.matcher.occurrenceId"))
+      .toBe("參照識別碼");
+    expect(createTranslator("zh-TW", "en").t("ignore.scope.ignoreOccurrence"))
+      .toBe("忽略這一處參照");
+  });
+
 });
