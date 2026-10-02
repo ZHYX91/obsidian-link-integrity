@@ -16,6 +16,11 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Rebase the production bundle budget on the reviewed 0.2.8 runtime size after the intentional YAML parser addition, retain about 25% growth room, and report remaining headroom explicitly.
 - Run dependency auditing independently from the canonical repository verification job so a newly published advisory does not hide test, coverage, benchmark, and bundle evidence.
 
+### Improved
+
+- Rewrite public README copy across all 11 languages and simplify user-facing ignore-rule terminology while preserving the same product behavior.
+- Polish the synchronized Chinese/English product, UX, architecture, and testing documents where internal implementation jargon was not necessary.
+
 ## [0.2.8] - 2026-09-24
 
 ### Fixed
@@ -30,9 +35,6 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Update the development dependency on js-yaml to the patched version and audit dependencies in CI.
 
 ### Improved
-
-- Rewrite public README copy across all 11 languages and simplify user-facing ignore-rule terminology while preserving the same product behavior.
-- Polish the synchronized Chinese/English product, UX, architecture, and testing documents where internal implementation jargon was not necessary.
 
 - Remove inactive declarative settings bridges while preserving the imperative tabbed settings surface.
 
