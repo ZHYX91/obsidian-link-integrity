@@ -35,9 +35,10 @@ describe("repository hygiene contract", () => {
   it("rejects a stale Unreleased comparison", async () => {
     const file = path.join(fixtureRoot, "CHANGELOG.md");
     const source = await readFile(file, "utf8");
-    await writeFile(file, source.replace("compare/0.2.8...HEAD", "compare/0.2.4...HEAD"));
+    const manifest = JSON.parse(await readFile(path.join(fixtureRoot, "manifest.json"), "utf8")) as { version: string };
+    await writeFile(file, source.replace(`compare/${manifest.version}...HEAD`, "compare/stale...HEAD"));
     expect(checkRepositoryHygiene(fixtureRoot)).toContain(
-      "CHANGELOG.md must compare Unreleased from 0.2.8",
+      `CHANGELOG.md must compare Unreleased from ${manifest.version}`,
     );
   });
 
