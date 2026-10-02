@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible Link Integrity defect
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Use a disposable or sanitized Vault when possible.
+        Do not include private note contents, personal Vault paths, credentials, or unrelated data.json values.
+
+  - type: input
+    id: version
+    attributes:
+      label: Link Integrity version
+      description: Version, tag, or commit where you reproduced the problem.
+      placeholder: "0.2.8"
+    validations:
+      required: true
+
+  - type: input
+    id: obsidian
+    attributes:
+      label: Obsidian version
+      placeholder: "1.13.x"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system and desktop/mobile environment.
+      placeholder: "Windows 11 desktop"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and why it appears incorrect.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest sanitized steps or disposable-Vault fixture that reproduces the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Optional. Remove private paths, note contents, credentials, and unrelated settings.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed private Vault paths, note contents, credentials, and personal information.
+          required: true
