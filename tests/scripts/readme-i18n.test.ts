@@ -74,6 +74,18 @@ describe("README marketplace link contract", () => {
       "docs/i18n/README.zh-CN.md contains a missing relative target: ../assets/missing-overview.png",
     );
   });
+  it("rejects internal implementation jargon in public README copy", async () => {
+    await replaceInReadme(
+      "README.md",
+      "keeps it up to date as the Vault changes",
+      "keeps the projection up to date as the Vault changes",
+    );
+
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      "README.md contains internal public-facing jargon: projection",
+    );
+  });
+
 });
 
 async function replaceInReadme(filePath: string, search: string, replacement: string) {
