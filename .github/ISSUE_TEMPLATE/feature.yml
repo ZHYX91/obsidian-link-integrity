@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a concrete Link Integrity workflow or product improvement
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Focus on the user problem and desired behavior. Early or exploratory ideas can also use the Ideas discussion category.
+        Do not include private Vault paths, note contents, credentials, or personal information.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow
+      description: What are you trying to do, and where does the current behavior fall short?
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the behavior or result you would like, without requiring a particular implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or alternatives
+      description: Optional sanitized examples, related workflows, or alternatives you considered.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request is about Link Integrity rather than external-link availability or unrelated Obsidian support.
+          required: true
+        - label: I removed private Vault paths, note contents, credentials, and personal information.
+          required: true
