@@ -86,6 +86,24 @@ describe("README marketplace link contract", () => {
     );
   });
 
+  it("rejects literal archive calques in Spanish and Brazilian Portuguese", async () => {
+    await replaceInReadme(
+      "docs/i18n/README.es.md",
+      "archivos archivados",
+      "archivos de archivo",
+    );
+    await replaceInReadme(
+      "docs/i18n/README.pt-BR.md",
+      "arquivos arquivados",
+      "arquivos de arquivo",
+    );
+
+    expect(checkReadmeI18n(fixtureRoot)).toEqual(expect.arrayContaining([
+      "docs/i18n/README.es.md contains internal public-facing jargon: archivos de archivo",
+      "docs/i18n/README.pt-BR.md contains internal public-facing jargon: arquivos de arquivo",
+    ]));
+  });
+
 });
 
 async function replaceInReadme(filePath: string, search: string, replacement: string) {

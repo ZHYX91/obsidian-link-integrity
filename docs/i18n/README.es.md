@@ -21,7 +21,7 @@ Gestiona el índice, las reglas de exclusión, los tipos de archivo y las reglas
 - Encuentra enlaces internos a archivos, encabezados y bloques que faltan en Markdown, incrustaciones, Frontmatter, Canvas y referencias explícitas de archivo en Bases.
 - Encuentra archivos sin ninguna conexión entrante o saliente válida con otro archivo existente del Vault. Los enlaces al propio archivo y las URL externas no cuentan como conexiones del Vault.
 - Avisa cuando un archivo aislado también contiene enlaces salientes rotos, para no confundirlo con un archivo que claramente pueda eliminarse.
-- Las notas periódicas, plantillas, archivos de archivo y elementos similares pueden marcarse como Expected isolated. Esto solo cambia su clasificación en los resultados; no altera sus enlaces reales.
+- Las notas periódicas, plantillas, archivos archivados y elementos similares pueden marcarse como Expected isolated. Esto solo cambia su clasificación en los resultados; no altera sus enlaces reales.
 - Filtra archivos aislados por archivos de Obsidian, formatos de imagen, audio, vídeo, PDF y extensiones de adjuntos configuradas.
 - Construye un índice completo cuando hace falta y lo mantiene actualizado automáticamente a medida que cambia el Vault.
 - Abre cada problema en su origen cuando hay navegación precisa disponible. El análisis y la indexación se realizan de forma local.

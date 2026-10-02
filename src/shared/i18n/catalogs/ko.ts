@@ -98,7 +98,7 @@ export const KO_MESSAGES = localizedCatalog({
   "sidebar.isolated.showExpected": "예상된 고립 파일 표시",
   "sidebar.isolated.noIncoming": "들어오는 링크가 없는 파일",
   "sidebar.fileTypes": "파일 형식",
-  "sidebar.fileTypes.temporary": "임시 필터이며 설정이나 링크 그래프를 변경하지 않습니다.",
+  "sidebar.fileTypes.temporary": "임시 필터입니다. 저장된 설정이나 파일 간 연결 관계는 변경하지 않습니다.",
   "fileType.category.obsidian": "Obsidian 파일",
   "fileType.category.image": "이미지",
   "fileType.category.audio": "오디오",

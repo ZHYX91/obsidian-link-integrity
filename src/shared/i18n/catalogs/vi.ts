@@ -98,7 +98,7 @@ export const VI_MESSAGES = localizedCatalog({
   "sidebar.isolated.showExpected": "Hiển thị tệp cô lập dự kiến",
   "sidebar.isolated.noIncoming": "Tệp không có liên kết đến",
   "sidebar.fileTypes": "Loại tệp",
-  "sidebar.fileTypes.temporary": "Bộ lọc tạm thời; không thay đổi cài đặt hoặc đồ thị liên kết.",
+  "sidebar.fileTypes.temporary": "Bộ lọc tạm thời; không thay đổi cài đặt đã lưu hay mối liên kết giữa các tệp.",
   "fileType.category.obsidian": "Tệp Obsidian",
   "fileType.category.image": "Hình ảnh",
   "fileType.category.audio": "Âm thanh",

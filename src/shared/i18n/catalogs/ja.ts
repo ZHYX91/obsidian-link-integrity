@@ -98,7 +98,7 @@ export const JA_MESSAGES = localizedCatalog({
   "sidebar.isolated.showExpected": "想定された孤立ファイルを表示",
   "sidebar.isolated.noIncoming": "被リンクのないファイル",
   "sidebar.fileTypes": "ファイル形式",
-  "sidebar.fileTypes.temporary": "一時フィルターです。設定やリンクグラフは変更しません。",
+  "sidebar.fileTypes.temporary": "一時的なフィルターです。保存済みの設定やファイル間のリンク関係は変更しません。",
   "fileType.category.obsidian": "Obsidian ファイル",
   "fileType.category.image": "画像",
   "fileType.category.audio": "音声",

@@ -98,7 +98,7 @@ export const RU_MESSAGES = localizedCatalog({
   "sidebar.isolated.showExpected": "Показывать ожидаемо изолированные файлы",
   "sidebar.isolated.noIncoming": "Файлы без входящих ссылок",
   "sidebar.fileTypes": "Типы файлов",
-  "sidebar.fileTypes.temporary": "Временный фильтр; настройки и граф ссылок не изменяются.",
+  "sidebar.fileTypes.temporary": "Временный фильтр: он не изменяет ни сохранённые настройки, ни связи между файлами.",
   "fileType.category.obsidian": "Файлы Obsidian",
   "fileType.category.image": "Изображения",
   "fileType.category.audio": "Аудио",

@@ -130,7 +130,7 @@ export const ZH_TW_MESSAGES = {
   "sidebar.isolated.markedExpected": "已將 {path} 標記為預期孤立",
   "sidebar.isolated.removedExpected": "已取消 {path} 的預期孤立標記",
   "sidebar.fileTypes": "檔案類型",
-  "sidebar.fileTypes.temporary": "暫時篩選；不會變更設定或連結圖。",
+  "sidebar.fileTypes.temporary": "暫時篩選；不會變更已儲存的設定或檔案之間的連結關係。",
   "fileType.selectedCount": "已選擇 {selected}/{total}",
   "fileType.customExtensions": "自訂副檔名",
   "fileType.customExtensions.description": "每行一個副檔名；比對不區分大小寫。",

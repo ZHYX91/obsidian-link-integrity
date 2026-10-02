@@ -148,7 +148,7 @@ export const EN_MESSAGES = {
   "sidebar.isolated.markedExpected": "Marked {path} as expected isolated",
   "sidebar.isolated.removedExpected": "Removed the expected-isolation mark from {path}",
   "sidebar.fileTypes": "File types",
-  "sidebar.fileTypes.temporary": "Temporary filter; it does not change settings or the link graph.",
+  "sidebar.fileTypes.temporary": "Temporary filter; it does not change saved settings or file connections.",
   "fileType.selectedCount": "{selected}/{total} selected",
   "fileType.customExtensions": "Custom extensions",
   "fileType.customExtensions.description": "Enter one extension per line. Matching is case-insensitive.",
