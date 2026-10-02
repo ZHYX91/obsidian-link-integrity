@@ -7,11 +7,16 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-10-02
+
 ### Security
 
 - Refresh locked `brace-expansion` transitive dependencies to patched 1.x, 2.x, and 5.x lines without forcing incompatible major versions.
 
 ### Changed
+
+- Update development dependencies and cover settings-control commit failures and future-schema protection.
+- Repair release-history links and add structured bug and feature request forms.
 
 - Rebase the production bundle budget on the reviewed 0.2.8 runtime size after the intentional YAML parser addition, retain about 25% growth room, and report remaining headroom explicitly.
 - Run dependency auditing independently from the canonical repository verification job so a newly published advisory does not hide test, coverage, benchmark, and bundle evidence.
@@ -165,7 +170,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...HEAD
+[0.2.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...0.2.9
 [0.2.8]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.7...0.2.8
 [0.2.7]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.6...0.2.7
 [0.2.6]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.5...0.2.6
