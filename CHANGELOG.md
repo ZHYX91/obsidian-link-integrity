@@ -31,6 +31,9 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ### Improved
 
+- Rewrite public README copy across all 11 languages and simplify user-facing ignore-rule terminology while preserving the same product behavior.
+- Polish the synchronized Chinese/English product, UX, architecture, and testing documents where internal implementation jargon was not necessary.
+
 - Remove inactive declarative settings bridges while preserving the imperative tabbed settings surface.
 
 ## [0.2.7] - 2026-09-20
