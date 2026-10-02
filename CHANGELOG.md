@@ -7,6 +7,14 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+### Security
+
+- Refresh locked `brace-expansion` transitive dependencies to patched 1.x, 2.x, and 5.x lines without forcing incompatible major versions.
+
+### Changed
+
+- Run dependency auditing independently from the canonical repository verification job so a newly published advisory does not hide test, coverage, benchmark, and bundle evidence.
+
 ## [0.2.8] - 2026-09-24
 
 ### Fixed
