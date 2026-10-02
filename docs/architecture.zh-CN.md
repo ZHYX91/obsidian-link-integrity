@@ -13,7 +13,7 @@ translation_status: source
 
 - `src/core/`：纯 TypeScript 文件分类、链接模型、图、范围和预期孤立规则，不导入 Obsidian；
 - `src/features/index/`：全量重建、原子发布、增量事件协调和生命周期控制；
-- `src/features/queries/`：无效链接、孤立文件、无入链和预期孤立投影；
+- `src/features/queries/`：计算无效链接、孤立文件、无入链和预期孤立结果；
 - `src/adapters/`：Vault、Metadata Cache、链接解析、Canvas、Bases 和导航等宿主边界；
 - `src/ui/`：侧栏、设置和无障碍交互；
 - `src/ui/sidebar/mount.ts`：拥有侧栏 DOM 生命周期，保留搜索与未变化的工具栏，按区域更新状态和结果；`render.ts` 只负责区域呈现，折叠选择保留在当前挂载实例中；
@@ -33,7 +33,7 @@ translation_status: source
 
 索引维护：
 
-- 当前 `FileRecord` registry；
+- 当前 `FileRecord` 文件登记表；
 - 按来源保存的完整快照；
 - 所有 occurrence，包括当前有效链接的 lookup-key 反向索引；
 - 按已解析目标路径的反向索引；
@@ -46,9 +46,9 @@ translation_status: source
 
 Obsidian 语义只在 adapter 中解析。当前 adapter 使用官方 `parseLinktext`、`MetadataCache.getFirstLinkpathDest` 和 `resolveSubpath`，而不是在 core 中复制路径、别名、标题或块规范化算法。
 
-adapter 为每个可作为显式来源的文件构建完整快照：Markdown 和 Frontmatter 使用 Metadata Cache 并在必要时从文本降级提取；Canvas 读取显式文件节点、背景文件和文本内部链接；Bases 先解析 YAML，只从 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 的公式标量提取可静态识别的显式引用。视图名称、`properties` 展示配置和公式内部普通字符串不会形成边，动态 Bases 查询结果也不会传入图模型；Bases YAML 无效时本批次 fail-closed。link() 的第一个参数必须是完整字符串字面量，拼接和其他动态表达式不形成边。只有解码后公式在 YAML 标量中保持原样时才记录精确位置，否则保留引用但不声称具有行列坐标；两种情况下都保留重复引用。无效 Canvas JSON 同样采用 fail-closed：当前批次不替换文件元数据或快照，已有 last-known-good 索引以过期状态继续可见，而不会把该来源错报为高置信孤立文件。
+adapter 为每个可作为显式来源的文件构建完整快照：Markdown 和 Frontmatter 使用 Metadata Cache 并在必要时从文本降级提取；Canvas 读取显式文件节点、背景文件和文本内部链接；Bases 先解析 YAML，只从 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 的公式标量提取可静态识别的显式引用。视图名称、`properties` 展示配置和公式内部普通字符串不会形成边，动态 Bases 查询结果也不会传入图模型；Bases YAML 无效时，本批次保持保守失败，不发布部分结果。link() 的第一个参数必须是完整字符串字面量，拼接和其他动态表达式不形成边。只有解码后公式在 YAML 标量中保持原样时才记录精确位置，否则保留引用但不声称具有行列坐标；两种情况下都保留重复引用。无效 Canvas JSON 采用同样策略：当前批次不替换文件元数据或快照，最近一次可信索引以过期状态继续可见，而不会把该来源错报为高置信孤立文件。
 
-Markdown 降级解析器在保留 UTF-16 源 offset 的同时屏蔽 fenced/indented code、inline code、Obsidian comment，以及支持 BOM 和 `---`/`...` 边界的 frontmatter 内 YAML comment；fenced code 使用逐行状态机处理 LF/CRLF、空块、相邻块、不同围栏字符与长度以及未闭合围栏，不通过换行归一化改变导航 offset。frontmatter value 和普通 Markdown 文本中的显式链接继续保留。Canvas text node 使用同一降级路径，因此启动期临时解析和 Canvas 诊断共用同一个 false-positive 边界。
+Markdown 降级解析器在保留 UTF-16 源 offset 的同时屏蔽 fenced/indented code、inline code、Obsidian comment，以及支持 BOM 和 `---`/`...` 边界的 frontmatter 内 YAML comment；fenced code 使用逐行状态机处理 LF/CRLF、空块、相邻块、不同围栏字符与长度以及未闭合围栏，不通过换行归一化改变导航 offset。frontmatter value 和普通 Markdown 文本中的显式链接继续保留。Canvas 文本节点使用同一降级路径，因此启动期临时解析和 Canvas 诊断具有一致的误报边界。
 
 Markdown 目的地址和标题边界只索引一次，包括匹配失败的情况；解析检查点通过共享调度器让出执行时间。Frontmatter 导航依据 YAML 语法节点的源码范围匹配完整属性路径；语法错误或路径歧义时不进行精确定位。
 
@@ -64,15 +64,15 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 候选、诊断和贡献范围分别应用于查询、可见性和图。普通筛选不触碰图。高级贡献排除由产品层注入独立的 `GraphContributionPolicy`：规则设置变化直接用已存储的文件 registry 与来源快照重新求值边和自链接，不重新读取或解析 Vault；普通来源快照替换只对该来源的旧、新 occurrence 求值并局部维护边。显式集合型排除仍由 `GraphContributionScope` 表达，产品层负责提示高级规则可能产生的风险。
 
-精确预期孤立路径与预期孤立规则都在查询层运行。它们只给已经孤立的候选分类，不写入 `LinkIndex` 边集合，因此不会产生日期邻接伪边。侧栏投影只生成结果和分类计数，规则命中统计仅由设置预览按需计算。精确路径在设置加载时规范化、去重；文件 rename 更新精确路径，文件夹 rename 按路径边界同步其后代精确路径、文件夹规则与周期笔记目录；缺失路径不会被静默删除。
+精确预期孤立路径与预期孤立规则都在查询层运行。它们只给已经孤立的候选分类，不写入 `LinkIndex` 边集合，因此不会产生日期邻接伪边。侧栏查询只生成结果和分类计数，规则命中统计仅由设置预览按需计算。精确路径在设置加载时规范化、去重；文件 rename 更新精确路径，文件夹 rename 按路径边界同步其后代精确路径、文件夹规则与周期笔记目录；缺失路径不会被静默删除。
 
 ## 事务化全量重建
 
-全量重建先从 adapter 取得当前文件 registry，再在独立 staging `LinkIndex` 中以有限并发构建来源快照。控制器同时按文件数上限和约 8 ms 主线程时间预算主动让步，并支持可注入的让步函数和节流进度回调，避免快速文件或单批解析工作长期占用渲染线程。
+全量重建先从 adapter 取得当前文件登记表，再在独立 staging `LinkIndex` 中以有限并发构建来源快照。控制器同时按文件数上限和约 8 ms 主线程时间预算主动让步，并支持可注入的让步函数和节流进度回调，避免快速文件或单批解析工作长期占用渲染线程。
 
 当启动扫描、侧栏或手动重建请求 baseline 时，Vault 的 create、modify、delete、rename 事件会在首次宿主级 Metadata Cache 解析完成边界之前注册，并进入有界合并缓冲。新一轮全量 staging 开始前已经积累的事件由即将读取当前 Vault 的 baseline 吸收，不再重复回放；只有 staging 开始后到达的事件才交给协调器在 staging 上重放，追赶到当前 Vault 状态后再原子发布。Metadata Cache 的 change/delete 监听则等到首次解析完成边界（或有界兜底等待）和全量重建结束后再挂载。有界等待超时只放行 baseline，不会把缓存误标为已解析；一次性宿主级 `resolved` 监听会继续保留，若信号稍后到达则合成一次全来源重验证纠正兜底结果。运行时刻意不订阅逐文件 `resolve(file)`：内容和命名空间事件已经会重验证变化来源及其引用者，而重放宿主启动期解析尾流只会重复全量扫描。
 
-只有 staging 完整成功后，`AtomicLinkIndexStore` 才一次性发布新索引。构建失败不会改变当前索引；已有索引继续作为 last-known-good，并由应用状态标记失败或可能过期。
+只有 staging 完整成功后，`AtomicLinkIndexStore` 才一次性发布新索引。构建失败不会改变当前索引；已有索引继续作为最近一次可信结果，并由应用状态标记失败或可能过期。
 
 `LinkIndexCoordinator` 在重建期间缓冲来源事件，在 staging 上重放并追赶当前 Vault 状态后再发布。已有 baseline 的重建失败时，剩余事件继续更新 last-known-good 并维持 stale 状态；首次 baseline 失败时则丢弃该批增量，不允许从局部事件制造索引，下一次重建重新读取完整 Vault。首次失败后、下一轮 staging 尚未开始前，插件层也不保留无界事件历史，因为新的完整 baseline 会直接读取当前 Vault 权威状态；staging 开始后的事件仍按原规则缓冲重放。同一生命周期的并发重建调用共享同一个 rebuild promise。每轮重建都有独立操作代次和取消信号；停止或重启会让旧 worker 不再领取新来源，并禁止旧 catch/finally、进度或发布触碰新生命周期。宿主读取本身不可抢占，因此取消边界是最多保留当前有限并发内已经在途的读取。
 
