@@ -95,4 +95,28 @@ describe("i18n", () => {
       .not.toMatch(pattern);
   });
 
+
+  it("keeps interpolation placeholders in parity with the source catalog", () => {
+    const collect = (value: unknown): string[] => {
+      const messages = typeof value === "string"
+        ? [value]
+        : value != null && typeof value === "object"
+          ? Object.values(value as Record<string, string>)
+          : [];
+      return [...new Set(messages.flatMap((message) =>
+        [...message.matchAll(/\{([A-Za-z][A-Za-z0-9]*)\}/g)]
+          .map((match) => match[1] ?? "")
+          .filter(Boolean),
+      ))].sort();
+    };
+    const source = MESSAGE_CATALOGS["zh-CN"];
+    for (const locale of SUPPORTED_LOCALES) {
+      const catalog = MESSAGE_CATALOGS[locale];
+      for (const key of Object.keys(source) as Array<keyof typeof source>) {
+        expect(collect(catalog[key]), `${locale}:${String(key)}`)
+          .toEqual(collect(source[key]));
+      }
+    }
+  });
+
 });
