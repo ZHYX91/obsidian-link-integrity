@@ -47,6 +47,40 @@ function parseDocument(source, relativePath, expectedFrontmatter) {
   return headings;
 }
 
+
+function structuralShape(body) {
+  const lists = [];
+  const fences = [];
+  const tables = [];
+  let activeFence = null;
+  for (const line of body.split("\n")) {
+    const fence = /^\s*(`{3,}|~{3,})(.*)$/u.exec(line);
+    if (fence != null) {
+      if (activeFence == null) {
+        activeFence = fence[1];
+        fences.push((fence[2] ?? "").trim());
+      } else if (
+        fence[1][0] === activeFence[0] &&
+        fence[1].length >= activeFence.length &&
+        (fence[2] ?? "").trim().length === 0
+      ) {
+        activeFence = null;
+      }
+      continue;
+    }
+    if (activeFence != null) continue;
+    const list = /^(\s*)(?:[-*+]|\d+[.)])\s+/u.exec(line);
+    if (list != null) {
+      lists.push(String(list[1].length) + ":" + (/^\s*\d/u.test(line) ? "ordered" : "bullet"));
+    }
+    if (/^\s*\|.*\|\s*$/u.test(line)) {
+      tables.push(line.split("|").length - 2);
+    }
+  }
+  if (activeFence != null) throw new Error("Stable document has an unclosed fenced code block");
+  return { fences, lists, tables };
+}
+
 export async function checkDocsI18n(projectRoot = process.cwd()) {
   for (const relativePath of LEGACY_DOCUMENTS) {
     if (existsSync(path.join(projectRoot, relativePath))) {
@@ -72,6 +106,12 @@ export async function checkDocsI18n(projectRoot = process.cwd()) {
     ]);
     if (JSON.stringify(sourceHeadings) !== JSON.stringify(translationHeadings)) {
       throw new Error(`${sourcePath} and ${translationPath} must have matching heading structures`);
+    }
+    const sourceBody = source.replace(/^---[\s\S]*?---\n\n/u, "");
+    const translationBody = translation.replace(/^---[\s\S]*?---\n\n/u, "");
+    if (JSON.stringify(structuralShape(sourceBody)) !== JSON.stringify(structuralShape(translationBody))) {
+      throw new Error(sourcePath + " and " + translationPath +
+        " must have matching list, fence, and table structures");
     }
   }
   return DOCUMENTS.length * 2;
