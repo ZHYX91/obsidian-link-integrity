@@ -220,7 +220,7 @@ export const VI_MESSAGES = localizedCatalog({
   "settings.general.language.description": "Chọn “Theo Obsidian” để sử dụng ngôn ngữ giao diện của Obsidian.",
   "settings.general.scanOnStartup.description": "Tạo chỉ mục liên kết đầy đủ khi không gian làm việc sẵn sàng. Khi tắt, việc lập chỉ mục và các trình lắng nghe chỉ bắt đầu lúc mở thanh bên hoặc xây dựng lại thủ công.",
   "settings.isolated.candidates.description": "Chỉ kiểm soát những tệp có thể được báo cáo. Các tệp không được chọn vẫn đóng góp kết nối hợp lệ.",
-  "settings.isolated.advancedMode.description": "Không có liên kết đến không có nghĩa là bị cô lập. Tùy chọn này chỉ hiển thị một bộ lọc bổ sung.",
+  "settings.isolated.advancedMode.description": "Không có liên kết đến không có nghĩa là cô lập: nếu B.md tồn tại và A.md chứa [[B]], A.md vẫn có kết nối dù không tệp nào dẫn đến nó. Tùy chọn này chỉ hiện bộ lọc bổ sung.",
   "settings.expected.glob": "Glob",
   "settings.expected.conditions": "Điều kiện loại tệp, thư mục và tên dùng AND; nhiều mẫu tên dùng OR.",
   "settings.expected.previewEmpty": "Hiện không có tệp nào khớp.",

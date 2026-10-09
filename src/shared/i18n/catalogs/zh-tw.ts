@@ -196,7 +196,7 @@ export const ZH_TW_MESSAGES = {
   "settings.isolated.defaultView": "預設檢視",
   "settings.isolated.defaultSort": "預設排序",
   "settings.isolated.advancedMode": "允許「無入鏈檔案」進階篩選",
-  "settings.isolated.advancedMode.description": "無入鏈不等於孤立；此選項只開放額外篩選。",
+  "settings.isolated.advancedMode.description": "無入鏈不等於孤立。例如 B.md 存在，A.md 寫了 [[B]]，即使沒有筆記連到 A.md，它仍有有效連線；此選項僅開放額外篩選。",
   "settings.isolated.showExpected": "預設顯示預期孤立檔案",
   "settings.expected.title": "預期孤立",
   "settings.expected.description": "規則只分類孤立檔案，不會隱藏或變更無效連結。",

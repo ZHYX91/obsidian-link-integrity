@@ -219,7 +219,7 @@ export const ES_MESSAGES = localizedCatalog({
   "settings.general.language.description": "Elige «Seguir Obsidian» para usar el idioma de la interfaz de Obsidian.",
   "settings.general.scanOnStartup.description": "Crea el índice completo cuando el espacio de trabajo está listo. Si se desactiva, el índice y los escuchadores no se inician hasta abrir la barra lateral o reconstruirlo manualmente.",
   "settings.isolated.candidates.description": "Solo controla qué archivos pueden mostrarse. Los archivos no seleccionados siguen aportando conexiones válidas.",
-  "settings.isolated.advancedMode.description": "No tener enlaces entrantes no significa estar aislado. Esta opción solo muestra un filtro adicional.",
+  "settings.isolated.advancedMode.description": "No tener enlaces entrantes no implica aislamiento: si existe B.md y A.md contiene [[B]], A.md sigue conectado aunque nadie enlace a A.md. Esta opción solo muestra un filtro adicional.",
   "settings.expected.glob": "Glob",
   "settings.expected.conditions": "El tipo de archivo, la carpeta y las condiciones de nombre usan Y; varios patrones de nombre usan O.",
   "settings.expected.previewEmpty": "Actualmente no coincide ningún archivo.",

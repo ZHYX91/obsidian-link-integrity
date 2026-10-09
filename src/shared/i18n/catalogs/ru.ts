@@ -219,7 +219,7 @@ export const RU_MESSAGES = localizedCatalog({
   "settings.general.language.description": "Выберите «Как в Obsidian», чтобы использовать язык интерфейса Obsidian.",
   "settings.general.scanOnStartup.description": "Создаёт полный индекс после готовности рабочего пространства. Если параметр выключен, индексирование и обработчики запускаются только при открытии боковой панели или ручном перестроении.",
   "settings.isolated.candidates.description": "Определяет только файлы, которые могут попасть в отчёт. Невыбранные файлы по-прежнему создают допустимые связи.",
-  "settings.isolated.advancedMode.description": "Отсутствие входящих ссылок не означает изоляцию. Этот параметр лишь показывает дополнительный фильтр.",
+  "settings.isolated.advancedMode.description": "Нет входящих ссылок — не значит изолирован: если B.md существует, а A.md содержит [[B]], A.md связан с другим файлом, даже если на него никто не ссылается. Эта настройка лишь добавляет фильтр.",
   "settings.expected.glob": "Glob",
   "settings.expected.conditions": "Условия типа файла, папки и имени объединяются через И; несколько шаблонов имени — через ИЛИ.",
   "settings.expected.previewEmpty": "Сейчас нет подходящих файлов.",

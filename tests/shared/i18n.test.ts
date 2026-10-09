@@ -46,6 +46,15 @@ describe("i18n", () => {
       .toBe("Scanning 3/10");
   });
 
+  it("illustrates outgoing links versus isolation in every settings locale", () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      const guide = createTranslator(locale, "en").t("settings.isolated.advancedMode.description");
+      expect(guide, locale).toContain("A.md");
+      expect(guide, locale).toContain("B.md");
+      expect(guide, locale).toContain("[[B]]");
+    }
+  });
+
   it("keeps an RTL foundation when automatic locale falls back to English", () => {
     const translator = createTranslator("auto", "ar-SA");
     expect(translator.locale).toBe("en");

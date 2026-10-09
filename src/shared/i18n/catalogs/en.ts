@@ -214,7 +214,7 @@ export const EN_MESSAGES = {
   "settings.isolated.defaultView": "Default view",
   "settings.isolated.defaultSort": "Default sort",
   "settings.isolated.advancedMode": "Allow the advanced “no incoming links” filter",
-  "settings.isolated.advancedMode.description": "No incoming links does not mean isolated. This option only exposes an additional filter.",
+  "settings.isolated.advancedMode.description": "No incoming links does not mean isolated. If B.md exists and A.md links to it with [[B]], A.md is connected even when nothing links to A.md. This option only exposes an extra filter.",
   "settings.isolated.showExpected": "Show expected isolated files by default",
   "settings.expected.title": "Expected isolation",
   "settings.expected.description": "Rules only classify isolated files. They never hide or change broken links.",
