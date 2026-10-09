@@ -7,6 +7,16 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-10-09
+
+### Improved
+
+- Explain isolated files, no-incoming-link filters, and expected isolation with concrete examples in the guides and localized settings help.
+
+### Security
+
+- Update development dependencies source-map-js, fast-uri, and Moment to patched versions while retaining the current lint tooling.
+
 ## [0.2.9] - 2026-10-03
 
 ### Security
@@ -170,7 +180,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.10...HEAD
+[0.2.10]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...0.2.10
 [0.2.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...0.2.9
 [0.2.8]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.7...0.2.8
 [0.2.7]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.6...0.2.7

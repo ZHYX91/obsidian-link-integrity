@@ -219,7 +219,7 @@ export const FR_MESSAGES = localizedCatalog({
   "settings.general.language.description": "Choisissez « Suivre Obsidian » pour utiliser la langue de l’interface d’Obsidian.",
   "settings.general.scanOnStartup.description": "Crée l’index complet lorsque l’espace de travail est prêt. Si cette option est désactivée, l’indexation et les écouteurs attendent l’ouverture de la barre latérale ou une reconstruction manuelle.",
   "settings.isolated.candidates.description": "Détermine uniquement les fichiers pouvant être signalés. Les fichiers non sélectionnés contribuent toujours aux connexions valides.",
-  "settings.isolated.advancedMode.description": "L’absence de liens entrants ne signifie pas qu’un fichier est isolé. Cette option affiche seulement un filtre supplémentaire.",
+  "settings.isolated.advancedMode.description": "Sans lien entrant ne signifie pas isolé : si B.md existe et que A.md contient [[B]], A.md reste connecté même si personne ne pointe vers A.md. Cette option ouvre seulement un filtre supplémentaire.",
   "settings.expected.glob": "Glob",
   "settings.expected.conditions": "Le type de fichier, le dossier et les conditions de nom utilisent ET ; plusieurs motifs de nom utilisent OU.",
   "settings.expected.previewEmpty": "Aucun fichier ne correspond actuellement.",

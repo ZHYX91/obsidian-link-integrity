@@ -49,6 +49,13 @@ For a manual installation, place `main.js`, `manifest.json`, and `styles.css` in
 
 ## Settings
 
+**What counts as isolated?** This is about *valid connections to existing Vault files*, not just backlinks:
+
+- **Isolated:** `A.md` has no valid link to another existing file and no other file links to it. Self-links and external URLs do not count as connections.
+- **No incoming links, but not isolated:** `B.md` exists and `A.md` links to it using `[[B]]`. Nothing links back to `A.md`, yet its outgoing link still connects it to `B.md`. The optional **No incoming links** filter will show cases like this; the default Isolated files view does not.
+- **Isolated with broken links:** `A.md` only contains `[[Missing]]`, the target does not exist, and no other file links to `A.md`. It has no *valid* connection, so it is still isolated, but the broken-link warning means it is **not** a safe automatic cleanup candidate.
+- **Expected isolated:** a standalone template or archive can be marked **Expected isolated**; it stays a real file, moves out of the main isolated count, and is never deleted or repaired by the plugin.
+
 - **General** controls language, startup scanning, default result views, and Build/Rebuild index actions. **Follow Obsidian** is the default language choice.
 - **Broken links** controls which problems are shown and lets you create named ignore rules with a match preview.
 - **Isolated files** controls the default file types, the optional no-incoming-links view, Expected isolated files, ignore rules, and expected-isolation rules.

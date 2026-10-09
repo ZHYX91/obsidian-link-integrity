@@ -220,7 +220,7 @@ export const KO_MESSAGES = localizedCatalog({
   "settings.general.language.description": "Obsidian의 인터페이스 언어를 사용하려면 ‘Obsidian 따르기’를 선택하세요.",
   "settings.general.scanOnStartup.description": "작업 공간이 준비되면 전체 링크 인덱스를 만듭니다. 끄면 사이드바를 열거나 수동으로 다시 빌드할 때까지 인덱싱과 리스너를 시작하지 않습니다.",
   "settings.isolated.candidates.description": "보고할 수 있는 파일만 제어합니다. 선택하지 않은 파일도 유효한 연결에는 계속 기여합니다.",
-  "settings.isolated.advancedMode.description": "들어오는 링크가 없다고 고립된 것은 아닙니다. 이 옵션은 추가 필터만 표시합니다.",
+  "settings.isolated.advancedMode.description": "들어오는 링크가 없어도 고립된 것은 아닙니다. B.md가 있고 A.md에 [[B]] 링크가 있다면 A.md를 가리키는 링크가 없어도 연결된 상태입니다. 이 옵션은 추가 필터만 표시합니다.",
   "settings.expected.glob": "Glob",
   "settings.expected.conditions": "파일 유형, 폴더, 이름 조건은 AND로, 여러 이름 패턴은 OR로 결합합니다.",
   "settings.expected.previewEmpty": "현재 일치하는 파일이 없습니다.",

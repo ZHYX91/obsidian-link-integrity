@@ -220,7 +220,7 @@ export const JA_MESSAGES = localizedCatalog({
   "settings.general.language.description": "「Obsidian に従う」を選ぶと、Obsidian のインターフェース言語を使用します。",
   "settings.general.scanOnStartup.description": "ワークスペースの準備後に完全なリンクインデックスを作成します。オフの場合、サイドバーを開くか手動で再構築するまでインデックス作成とリスナーを開始しません。",
   "settings.isolated.candidates.description": "報告対象となるファイルだけを制御します。未選択のファイルも有効な接続には引き続き寄与します。",
-  "settings.isolated.advancedMode.description": "入力リンクがないことは孤立を意味しません。このオプションは追加フィルターを表示するだけです。",
+  "settings.isolated.advancedMode.description": "入力リンクがないことは孤立を意味しません。B.md が存在し、A.md に [[B]] があれば、A.md への入力リンクがなくても接続されています。この設定は追加フィルターを表示するだけです。",
   "settings.expected.glob": "Glob",
   "settings.expected.conditions": "ファイル形式、フォルダー、名前条件は AND、複数の名前パターンは OR で評価されます。",
   "settings.expected.previewEmpty": "現在一致するファイルはありません。",

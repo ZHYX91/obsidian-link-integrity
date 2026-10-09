@@ -197,7 +197,7 @@ export const ZH_CN_MESSAGES = {
   "settings.isolated.defaultView": "默认视图",
   "settings.isolated.defaultSort": "默认排序",
   "settings.isolated.advancedMode": "允许“无入链文件”高级筛选",
-  "settings.isolated.advancedMode.description": "无入链不等于孤立；此选项仅开放额外筛选。",
+  "settings.isolated.advancedMode.description": "无入链不等于孤立。例如 B.md 存在，A.md 写了 [[B]]，即使没有笔记引用 A.md，它仍有有效连接；此选项仅开放额外筛选。",
   "settings.isolated.showExpected": "默认显示预期孤立文件",
   "settings.expected.title": "预期孤立",
   "settings.expected.description": "规则只对孤立文件分类，不会隐藏或更改无效链接。",
