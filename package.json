@@ -64,5 +64,10 @@
   },
   "dependencies": {
     "yaml": "2.9.1"
+  },
+  "overrides": {
+    "obsidian": {
+      "moment": "2.31.0"
+    }
   }
 }
