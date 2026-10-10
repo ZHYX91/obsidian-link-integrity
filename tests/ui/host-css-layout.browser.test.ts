@@ -12,11 +12,21 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 
+import { build } from "esbuild";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const PROJECT_ROOT = path.resolve(import.meta.dirname, "../..");
 const LAYOUT_RESULT_PATTERN = /<pre id="layout-results">([^<]+)<\/pre>/u;
+
+interface SidebarFocusMeasurements {
+  readonly focusedBefore: boolean;
+  readonly focusedAfter: boolean;
+  readonly mainRealmElement: boolean;
+  readonly ownerRealmElement: boolean;
+  readonly replaced: boolean;
+  readonly updatedLocation: boolean;
+}
 
 interface LayoutMeasurements {
   readonly dialog: { readonly scrollable: boolean; readonly footerVisibleAfterScroll: boolean };
@@ -64,6 +74,10 @@ interface LayoutMeasurements {
     readonly minHeight: number;
     readonly scrollWidth: number;
     readonly shadow: string;
+  };
+  readonly sidebarFocus: {
+    readonly main: SidebarFocusMeasurements;
+    readonly secondary: SidebarFocusMeasurements;
   };
   readonly summaryDisplay: string;
   readonly surfaces: {
@@ -169,6 +183,18 @@ describe("Obsidian host CSS layout contract", () => {
       measurements.rtl.paddingInlineEnd,
     );
   });
+
+  it("restores result focus after a location update in another window realm", () => {
+    expect(measurements.sidebarFocus.main.mainRealmElement).toBe(true);
+    expect(measurements.sidebarFocus.secondary.mainRealmElement).toBe(false);
+    for (const result of Object.values(measurements.sidebarFocus)) {
+      expect(result.ownerRealmElement).toBe(true);
+      expect(result.focusedBefore).toBe(true);
+      expect(result.replaced).toBe(true);
+      expect(result.updatedLocation).toBe(true);
+      expect(result.focusedAfter).toBe(true);
+    }
+  });
 });
 
 async function renderLayoutMeasurements(): Promise<LayoutMeasurements> {
@@ -180,11 +206,12 @@ async function renderLayoutMeasurements(): Promise<LayoutMeasurements> {
     );
   }
   const pluginCss = await readFile(path.join(PROJECT_ROOT, "styles.css"), "utf8");
+  const sidebarFocusProbe = await buildSidebarFocusProbe();
   const tempDirectory = await mkdtemp(path.join(os.tmpdir(), "link-integrity-layout-"));
   const htmlPath = path.join(tempDirectory, "layout.html");
   const profilePath = path.join(tempDirectory, "profile");
   try {
-    await writeFile(htmlPath, createLayoutDocument(pluginCss), "utf8");
+    await writeFile(htmlPath, createLayoutDocument(pluginCss, sidebarFocusProbe), "utf8");
     const { stdout } = await execFileAsync(chromePath, [
       "--headless=new",
       "--disable-dev-shm-usage",
@@ -239,7 +266,79 @@ async function findChromeExecutable(): Promise<string | null> {
   return null;
 }
 
-function createLayoutDocument(pluginCss: string): string {
+async function buildSidebarFocusProbe(): Promise<string> {
+  const result = await build({
+    bundle: true,
+    format: "iife",
+    logLevel: "silent",
+    stdin: {
+      contents: `
+import { mountSidebar } from "./src/ui/sidebar/mount";
+import { createSidebarViewModel } from "./src/ui/sidebar/view-model";
+import { createTranslator } from "./src/shared/i18n";
+const state = {
+  activeTab: "broken-links", search: "", brokenView: "list", brokenGrouping: "target",
+  brokenSort: "count", isolatedView: "list", isolatedSort: "path", isolatedMode: "isolated",
+  showExpectedIsolated: false, selectedFormatFamilyIds: new Set(["markdown"]),
+  brokenResultOffset: 0, isolatedResultOffset: 0, expandedBrokenFolderPaths: new Set(),
+};
+const translator = createTranslator("en", "en");
+function measureFocus(document) {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const options = (line) => {
+    const snapshot = {
+      status: { state: "ready", current: 1, total: 1, errorMessage: null },
+      brokenLinksKnown: true, isolatedFilesKnown: true,
+      isolatedFiles: [], noIncomingFiles: [],
+      brokenLinks: [{
+        id: "missing", sourcePath: "A.md", targetText: "Missing", resolvedTargetPath: null,
+        rawText: "[[Missing]]", context: "[[Missing]]", reason: "missing-file",
+        location: { line, column: 0, property: null, canvasNodeId: null },
+      }],
+    };
+    return {
+      model: createSidebarViewModel(snapshot, state), state, translator,
+      navigation: { openBrokenLink() {}, openFile() {}, rebuildIndex() {} },
+      fileTypeCategories: [], defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: false, onStateChange() {},
+    };
+  };
+  const mount = mountSidebar(container, options(0));
+  const oldButton = container.querySelector(".link-integrity-result-main");
+  oldButton.focus();
+  const focusedBefore = document.activeElement === oldButton;
+  const mainRealmElement = oldButton instanceof HTMLElement;
+  const ownerRealmElement = oldButton instanceof document.defaultView.HTMLElement;
+  mount.update(options(42));
+  const newButton = container.querySelector(".link-integrity-result-main");
+  const result = {
+    focusedBefore, mainRealmElement, ownerRealmElement,
+    focusedAfter: document.activeElement === newButton,
+    replaced: newButton !== oldButton,
+    updatedLocation: container.textContent.includes("L43"),
+  };
+  mount.dispose();
+  container.remove();
+  return result;
+}
+const main = measureFocus(document);
+const iframe = document.createElement("iframe");
+document.body.append(iframe);
+const secondary = measureFocus(iframe.contentDocument);
+iframe.remove();
+window.sidebarFocus = { main, secondary };
+`,
+      resolveDir: PROJECT_ROOT,
+      sourcefile: "sidebar-focus-probe.ts",
+      loader: "ts",
+    },
+    write: false,
+  });
+  return result.outputFiles[0]!.text;
+}
+
+function createLayoutDocument(pluginCss: string, sidebarFocusProbe: string): string {
   return `<!doctype html>
 <html>
 <head>
@@ -415,6 +514,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   </div>
 </section>
 <pre id="layout-results"></pre>
+<script>${sidebarFocusProbe}</script>
 <script>
   const resultMain = document.getElementById("result-main");
   const resultRow = document.getElementById("result-row");
@@ -438,6 +538,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const dialogPanel = document.getElementById("dialog-panel").getBoundingClientRect();
   const dialogActions = document.getElementById("dialog-actions").getBoundingClientRect();
   const measurements = {
+    sidebarFocus: window.sidebarFocus,
     dialog: {
       scrollable: dialogContent.clientHeight > 0 && dialogContent.scrollHeight > dialogContent.clientHeight,
       footerVisibleAfterScroll: dialogActions.top >= dialogPanel.top && dialogActions.bottom <= dialogPanel.bottom,
