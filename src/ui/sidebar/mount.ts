@@ -144,7 +144,7 @@ export function mountSidebar(
 }
 
 function resultFocusKey(activeElement: Element | null, results: HTMLElement): string | null {
-  if (!(activeElement instanceof HTMLElement) || !results.contains(activeElement)) return null;
+  if (activeElement === null || !results.contains(activeElement)) return null;
   return activeElement.closest<HTMLElement>("[data-focus-key]")?.dataset.focusKey ?? null;
 }
 
