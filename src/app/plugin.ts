@@ -1,5 +1,6 @@
 import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
 import { IgnorePreviewService } from "./ignore-preview-service";
+import { MentionRuntime } from "./mention-runtime";
 import {
   MarkdownView,
   Menu,
@@ -75,6 +76,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   private saveCoordinator!: SettingsSaveCoordinator<LinkIntegritySettings>;
   private coordinator!: LinkIndexCoordinator;
   private query!: SidebarQueryService;
+  private mentions!: MentionRuntime;
   private ribbonElement: HTMLElement | null = null;
   private openCommand: Command | null = null;
   private rebuildCommand: Command | null = null;
@@ -113,13 +115,19 @@ export default class LinkIntegrityPlugin extends Plugin {
       concurrency: 4,
       onProgress: (current, total) => this.query.setProgress(current, total),
     }, {
-      onChanges: (changes) => this.query.recordChanges(changes),
+      onChanges: (changes) => {
+        this.query.recordChanges(changes);
+        this.mentions?.indexChanged(changes);
+      },
     });
     this.updateGraphContributionPolicy();
     this.query = new SidebarQueryService(
       () => this.coordinator.index,
       () => this.settings,
     );
+    this.mentions = new MentionRuntime(this.app, () => this.coordinator.index, () => this.ensureIndex(),
+      () => this.settings, (error) => this.reportError(error));
+    this.mentions.register(this);
 
     const navigation: SidebarNavigationPort = {
       openBrokenLink: (result) => this.openBrokenLink(result),
@@ -150,7 +158,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       this.layoutReady = true;
       const sidebarAlreadyOpen = this.app.workspace
         .getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE).length > 0;
-      if (!this.unloaded && (this.settings.general.scanOnStartup || sidebarAlreadyOpen)) {
+      if (!this.unloaded && (this.settings.general.scanOnStartup || sidebarAlreadyOpen || this.settings.general.mentionDisplayMode !== "off")) {
         void this.ensureIndex().catch((error: unknown) => this.reportError(error));
       }
     });
@@ -174,6 +182,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.pendingSourceEvents = [];
     this.notificationPending = false;
     this.coordinator?.stop();
+    this.mentions?.close();
     this.coordinatorStarted = false;
     void this.saveCoordinator?.close().catch((error: unknown) => this.reportError(error));
   }
@@ -225,6 +234,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (impact === "regraph") this.updateGraphContributionPolicy();
     this.refreshEntrypoints();
     this.query.notify();
+    this.mentions.settingsChanged();
     const shouldStartOnDemandRuntime = !scanOnStartupWasEnabled &&
       this.settings.general.scanOnStartup && this.layoutReady;
     if (shouldStartOnDemandRuntime && !this.baselineAvailable) {
@@ -276,6 +286,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       const rebuild = this.coordinator.rebuild();
       await rebuild;
       this.baselineAvailable = true;
+      this.mentions.indexChanged();
       this.flushPendingSourceEvents();
       this.query.setStatus(
         { state: "ready", current: 0, total: 0, errorMessage: null },
@@ -630,6 +641,9 @@ export default class LinkIntegrityPlugin extends Plugin {
   private showIsolatedFileActions(result: IsolatedFileResult, anchor: HTMLElement): void {
     const translator = createTranslator(this.settings.general.locale, getLanguage());
     const menu = new Menu().setParentElement(anchor);
+    menu.addItem((item) => item.setTitle(translator.t("mentions.reverse")).onClick(() => {
+      void this.mentions.reverse(result.path, anchor.ownerDocument).catch((error: unknown) => this.reportError(error));
+    }));
     const explicitlyExpected = this.settings.isolatedFiles.expectedFilePaths.includes(result.path);
     if (explicitlyExpected) {
       menu.addItem((item) => item

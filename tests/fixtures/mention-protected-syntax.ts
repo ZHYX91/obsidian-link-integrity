@@ -1,0 +1,35 @@
+/** Shared negative input: the writer must also reject an explicitly supplied range. */
+export const protectedMentionSyntax = [
+  ["list continuation fence", "- item\n    ~~~\n    白云山\n    ~~~"],
+  ["quoted list continuation fence", "> - item\n>     ~~~\n>     白云山\n>     ~~~"],
+  ["ordered list continuation fence", "1. item\n    ~~~\n    白云山\n    ~~~"],
+  ["nested list continuation fence", "- item\n  - nested\n      ~~~\n      白云山\n      ~~~"],
+  ["list containing a quote fence", "- > ~~~\n  > 白云山\n  > ~~~"],
+  ["list containing a quote and nested list fence", "- > - ~~~\n  >   白云山\n  >   ~~~"],
+  ["tab continuation fence", "- item\n\t~~~\n\t白云山\n\t~~~"],
+  ["list marker inside a fence", "- ~~~\n  - ~~~\n  白云山\n  ~~~"],
+  ["too much tab indentation for a fence closer", "- ~~~\n\t\t~~~\n\t白云山\n  ~~~"],
+  ["unclosed list continuation fence", "- item\n    ~~~\n    白云山"],
+  ["indented code in a list", "- item\n\n      白云山"],
+  ["indented list-like code", "    - 白云山"],
+  ["list continuation raw HTML", "- item\n    <pre>\n    白云山\n    </pre>"],
+  ["nested ordered list raw HTML", "1. item\n   2. nested\n      <pre>\n\n      白云山\n      </pre>"],
+  ["quoted list raw HTML", "> - item\n>     <pre>\n>\n>     白云山\n>     </pre>"],
+  ["pre block containing a blank line", "<pre>\n\n白云山\n</pre>"],
+  ["script block containing a blank line", "<script>\n\n白云山\n</script>"],
+  ["style block containing a blank line", "<style>\n\n白云山\n</style>"],
+  ["textarea block containing a blank line", "<textarea>\n\n白云山\n</textarea>"],
+  ["similarly named raw closing tag", "<pre>\n</prefix>\n白云山\n</pre>"],
+  ["similarly named case-insensitive raw closing tag", "<SCRIPT>\n</scripture>\n白云山\n</SCRIPT>"],
+  ["raw HTML attribute resembling a closer", '<pre data-x="</pre>">\n白云山\n</pre>'],
+  ["raw HTML attribute resembling self-closing markup", '<pre data-x="fake />">\n白云山\n</pre>'],
+  ["multiline raw HTML attribute resembling a closer", '<pre\n data-x="\n</pre>\n">\n白云山\n</pre>'],
+] as const;
+
+export const ordinaryListMentionSyntax = [
+  "- item\n    白云山",
+  "- item\n  - nested\n      白云山",
+  "> - item\n>     白云山",
+  "- > item\n  >   白云山",
+  "- item\n\t白云山",
+] as const;

@@ -81,6 +81,65 @@
         "Both business tabs and result navigation remain usable",
         "The source file remains expanded after matching search, clearing search and rebuilding the index"
       ]
+    },
+    {
+      "id": "potential-mentions",
+      "title": "Potential mention discovery, body hints and exact single-link editing",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "First verify the untouched base fixture still reports five broken and four default isolated files",
+        "Explicitly run the acceptance-provider Create potential mention fixtures command; open Mentions Acceptance/Source.md",
+        "Use current-note and cursor queries with hints Off; then test Current paragraph and Whole note in editing and reading views",
+        "Choose 白云山 same-range targets, 山 contained range and 山南路 crossing range; navigate a target separately from creating a link",
+        "Explicitly create one selected link and use immediate Undo; make a later edit and verify conservative Notice Undo refusal",
+        "Run reverse lookup for an isolated mention target, cancel a partial scan, and verify stale/read-failure results are never reported as zero",
+        "Open CRLF Source.md, navigate from reading/reverse results, create a selected link, then exercise rename/delete, IME, split/popout, touch, keyboard and unload cleanup"
+      ],
+      "expected": [
+        "Suggestions preserve every range and same-name target while leaving graph and isolation results unchanged until explicit link creation",
+        "Off adds no automatic whole-Vault body scan; paragraph selection follows cursor or focused/clicked/touched reading block and viewport fallback",
+        "Properties, existing links, code, comments, HTML, math, URLs and tags remain protected",
+        "All candidates remain available through paged selection even when viewport decoration is capped",
+        "Writing proves current source/editor binding, exact offsets, current target/name and official generated-link resolution; only one ordinary non-embedded link is inserted",
+        "Reading mapping failures retain query/navigation; newline conversion is exact, reverse results expose progress/cancellation/completeness, and all runtime hooks detach"
+      ]
+    },
+    {
+      "id": "potential-mentions-fakelink",
+      "title": "Potential mention coexistence with FakeLink in a separate environment",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "First verify the untouched base fixture still reports five broken and four default isolated files",
+        "Explicitly run the acceptance-provider Create potential mention fixtures command; open Mentions Acceptance/Source.md",
+        "Use current-note and cursor queries with hints Off; then test Current paragraph and Whole note in editing and reading views",
+        "Choose 白云山 same-range targets, 山 contained range and 山南路 crossing range; navigate a target separately from creating a link",
+        "Explicitly create one selected link and use immediate Undo; make a later edit and verify conservative Notice Undo refusal",
+        "Run reverse lookup for an isolated mention target, cancel a partial scan, and verify stale/read-failure results are never reported as zero",
+        "Open CRLF Source.md, navigate from reading/reverse results, create a selected link, then exercise rename/delete, IME, split/popout, touch, keyboard and unload cleanup",
+        "Repeat with FakeLink enabled; inspect replacement widgets and interactive content ownership without assuming identical visuals"
+      ],
+      "expected": [
+        "Suggestions preserve every range and same-name target while leaving graph and isolation results unchanged until explicit link creation",
+        "Off adds no automatic whole-Vault body scan; paragraph selection follows cursor or focused/clicked/touched reading block and viewport fallback",
+        "Properties, existing links, code, comments, HTML, math, URLs and tags remain protected",
+        "All candidates remain available through paged selection even when viewport decoration is capped",
+        "Writing proves current source/editor binding, exact offsets, current target/name and official generated-link resolution; only one ordinary non-embedded link is inserted",
+        "Reading mapping failures retain query/navigation; newline conversion is exact, reverse results expose progress/cancellation/completeness, and all runtime hooks detach"
+      ]
     }
   ]
 }

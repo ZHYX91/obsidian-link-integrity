@@ -1092,3 +1092,33 @@
     flex: 1 1 auto;
   }
 }
+.link-integrity-mention-hint {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--text-muted);
+  cursor: pointer;
+}
+
+.link-integrity-mention-hint.is-overlapping {
+  background-image: repeating-linear-gradient(to right, var(--text-muted) 0 2px, transparent 2px 5px);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: left calc(100% - 1px);
+}
+
+.link-integrity-mention-picker {
+  color: var(--text-normal);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-l);
+  width: min(680px, 90vw);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 20px;
+}
+
+.link-integrity-mention-picker::backdrop { background: rgb(0 0 0 / 30%); }
+.link-integrity-mention-picker button { margin: 4px; white-space: normal; }
+.link-integrity-mention-picker-results { display: flex; flex-direction: column; gap: 6px; }

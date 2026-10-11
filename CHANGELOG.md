@@ -7,6 +7,14 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-11
+
+- Add local potential mentions for Markdown titles and aliases, with same-name, contained and crossing candidates retained.
+- Add opt-in dashed body hints in editing and reading views, current-note/cursor queries and explicit reverse lookup with progress and cancellation.
+- Create one selected real link through the official Obsidian generator after exact editor/source/target revalidation, with conservative immediate Undo.
+- Keep potential mentions separate from graph connections and isolation diagnostics; protect existing links, properties, code, comments, HTML, math, URLs and tags.
+- Preserve result focus when the sidebar opens in a separate Obsidian window.
+
 ## [0.2.10] - 2026-10-09
 
 ### Improved
@@ -180,7 +188,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.10...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.3.0...HEAD
 [0.2.10]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...0.2.10
 [0.2.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...0.2.9
 [0.2.8]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.7...0.2.8
@@ -194,3 +202,4 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 [0.2.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.1
 [0.1.0]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.0
+[0.3.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.10...0.3.0

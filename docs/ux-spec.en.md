@@ -142,3 +142,15 @@ Scan errors and settings-save errors are separate states and are presented indep
 - Result menus, checkboxes, and disclosure controls have readable labels.
 
 When full host acceptance is selected, use a real desktop host and, for `isDesktopOnly: false`, the current Android emulator. Host acceptance remains optional for authorized publication. Android physical devices and iOS are out of scope; historical physical-device evidence is supplemental only and never a release gate. Automated DOM tests cannot substitute for desktop-host or Android-emulator conclusions.
+
+## Potential mention interaction
+
+General settings offer Off, Current paragraph and Whole note. Off is the default. The two sidebar business tabs and three imperative settings tabs remain unchanged. Commands query the current note, candidates touching the cursor, or sources mentioning the current note; isolated-file actions also offer reverse lookup.
+
+Fine dashed hints express suggestions. Sweep fragments use at most two visual tracks and retain all original ranges, including contained and crossing matches. Clicking an eligible hint opens a range chooser, then a target chooser showing the full target path and title/alias reason. Both levels page 50 items; all candidates remain reachable even when a dense viewport exceeds the 1,000-fragment decoration budget. Navigation to a target and Create link are distinct actions. Native dialog focus, Escape, arrow-key movement and owner-window lifecycle apply.
+
+Editing hints follow the cursor paragraph or visible portions of the whole document and pause during IME composition. Reading paragraph mode follows the most recently focused, clicked or touched eligible block; otherwise it uses the viewport-center eligible block. Hover does not change the paragraph. Reading decoration only wraps uniquely mapped, exact source text and skips links, code and interactive/generated content. Unreliable mapping falls back to the list and navigation; rendered text is never used as Markdown source.
+
+A reading or reverse range initially offers source navigation. After opening an editor and validating the complete source and coordinate domain, Create link is enabled. The final action still revalidates the live editor/file binding and exact source. A safe immediate Undo appears in a Notice. If later editing prevents this inverse transaction, the Notice explains that editor Undo should be used.
+
+Reverse lookup shows checked/total sources, mention count and Scanning, Complete, Cancelled, Stale or Failed. Partial rows are usable for navigation and exact revalidation, but an incomplete scan never announces no mentions. Closing cancels the scan. Alias metadata pending is visible. Third-party link plugins may overlap visually; Link Integrity protects interactive content and does not suppress global host events or depend on private third-party DOM classes.

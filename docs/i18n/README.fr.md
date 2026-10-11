@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
-Link Integrity est un module Obsidian local et en lecture seule qui aide à repérer les Broken links et les Isolated files.
+Link Integrity est un module Obsidian local pour les liens invalides, les fichiers isolés et les mentions potentielles. Les diagnostics sont en lecture seule par défaut ; vous pouvez créer explicitement un lien vérifié.
 
 ## Captures d’écran
 
@@ -18,6 +18,7 @@ Gérez l’index, les règles d’exclusion, les types de fichiers et les règle
 
 ## Fonctionnalités
 
+- Repère les mentions potentielles des titres et alias Markdown, en conservant les candidats homonymes, inclus et croisés. Les suggestions ne comptent jamais comme connexions du graphe.
 - Repère les liens internes vers des fichiers, titres ou blocs manquants dans Markdown, les incorporations, le Frontmatter, Canvas et les références de fichiers explicites de Bases.
 - Repère les fichiers qui n’ont aucune connexion entrante ou sortante valide avec un autre fichier existant du Vault. Les liens vers soi-même et les URL externes ne comptent pas comme connexions du Vault.
 - Signale lorsqu’un fichier isolé contient aussi des liens sortants invalides, afin d’éviter de le prendre pour un fichier manifestement supprimable.
@@ -47,6 +48,8 @@ Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css
 3. Sélectionnez un résultat pour ouvrir sa source. Les filtres de fichiers isolés ne changent que la vue courante, pas vos valeurs par défaut enregistrées.
 4. L’analyse au démarrage est désactivée par défaut. L’ouverture de la barre latérale construit l’index lorsque nécessaire ; vous pouvez aussi utiliser **Construire l’index** ou **Reconstruire l’index** dans Général. Après la première construction réussie, les changements du Vault mettent les résultats à jour automatiquement.
 
+Les commandes interrogent la note actuelle, le curseur ou les sources qui la mentionnent ; le menu des fichiers isolés propose aussi cette recherche. Général offre Désactivé (défaut), Paragraphe actuel et Note entière, avec des pointillés dans l’éditeur et en lecture. Choisissez la plage source et la cible puis créez explicitement le lien. En lecture ou en recherche inverse, ouvrez d’abord la source et validez la plage. La progression, l’annulation et les résultats partiels/périmés restent visibles ; une recherche incomplète ne signifie jamais zéro mention. Après une autre modification, utilisez l’annulation de l’éditeur.
+
 ## Paramètres
 
 - **Général** : langue, analyse au démarrage, vues par défaut et commandes de construction/reconstruction de l’index. La langue par défaut est **Suivre Obsidian**.
@@ -58,14 +61,14 @@ Les paramètres et règles utilisateur sont stockés dans `data.json`. L’index
 
 ## Limitations
 
-- Link Integrity ne supprime aucun fichier, ne réécrit aucun lien et ne décide pas automatiquement de ce qui doit être supprimé.
+- Link Integrity ne supprime pas de fichiers et ne réécrit pas automatiquement les liens. Un lien individuel exige une sélection explicite et une vérification exacte de l’éditeur, de la source et de la cible. Une syntaxe protégée ou ambiguë peut masquer les pointillés ; la liste paginée conserve tous les candidats.
 - Les URL externes sont volontairement hors périmètre et ne sont jamais interrogées sur le réseau.
 - Les résultats dynamiques de Bases ne comptent pas comme connexions directes entre fichiers ; seules les références explicites comptent.
 - Les règles d’isolation attendue modifient seulement le classement des fichiers déjà isolés. Elles ne masquent pas les liens invalides et ne suppriment pas les connexions réelles.
 
 ## Confidentialité et sécurité
 
-L’indexation et l’évaluation des règles s’exécutent entièrement en local. Link Integrity ne téléverse pas le contenu du Vault, ne demande aucun compte et ne modifie pas les notes. Les chemins et exemples de diagnostic restent dans la session Obsidian tant que vous ne choisissez pas de les partager.
+L’indexation et la recherche restent locales, sans envoi de contenu ni compte. Les notes changent uniquement par votre action explicite et validée sur un lien. Les suggestions restent en mémoire.
 
 ## Développement
 
