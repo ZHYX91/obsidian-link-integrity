@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
-Link Integrity là plugin Obsidian cục bộ cho liên kết hỏng, tệp cô lập và đề cập tiềm năng. Chẩn đoán mặc định chỉ đọc; bạn có thể chủ động tạo một liên kết đã được xác minh.
+Link Integrity là plugin Obsidian cục bộ, chỉ đọc cho liên kết hỏng và tệp cô lập.
 
 ## Ảnh chụp màn hình
 
@@ -18,7 +18,7 @@ Quản lý chỉ mục, quy tắc bỏ qua, loại tệp và quy tắc cô lập
 
 ## Tính năng
 
-- Tìm đề cập đến tiêu đề và bí danh Markdown, giữ toàn bộ ứng viên trùng tên, chứa nhau và giao nhau. Gợi ý không bao giờ được tính là kết nối đồ thị.
+- Có thể đánh dấu tệp, tiêu đề và khối được xác nhận là thiếu bằng gạch chân lượn sóng màu cảnh báo.
 - Tìm các liên kết nội bộ trỏ tới tệp, tiêu đề hoặc khối không tồn tại trong Markdown, nội dung nhúng, Frontmatter, Canvas và các tham chiếu tệp được ghi rõ trong Bases.
 - Tìm tệp không có liên kết vào hoặc ra hợp lệ với bất kỳ tệp hiện có nào khác trong Vault. Liên kết tới chính tệp đó và URL bên ngoài không được tính là kết nối trong Vault.
 - Cảnh báo riêng khi một tệp cô lập vẫn có liên kết ra bị hỏng, để tránh hiểu nhầm rằng tệp đó rõ ràng có thể xóa.
@@ -48,7 +48,7 @@ Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css`
 3. Chọn một kết quả để mở tệp nguồn. Bộ lọc tệp cô lập chỉ thay đổi chế độ xem hiện tại, không thay đổi giá trị mặc định đã lưu.
 4. Quét khi khởi động mặc định bị tắt. Khi mở thanh bên, chỉ mục sẽ được tạo khi cần; bạn cũng có thể dùng **Tạo chỉ mục** hoặc **Tạo lại chỉ mục** trong phần Chung. Sau lần tạo đầu tiên thành công, thay đổi trong Vault sẽ tự động cập nhật kết quả.
 
-Lệnh truy vấn ghi chú hiện tại, vị trí con trỏ hoặc nguồn đề cập; menu tệp cô lập cũng có tra cứu ngược. Cài đặt Chung có Tắt (mặc định), Đoạn hiện tại và Toàn ghi chú, với gạch đứt mảnh trong chế độ sửa và đọc. Chọn phạm vi nguồn và đích rồi chủ động tạo liên kết. Kết quả đọc/tra ngược phải mở nguồn và xác minh phạm vi trước. Tiến độ, hủy và kết quả một phần/cũ được hiển thị; quét chưa xong không có nghĩa là không có đề cập. Sau sửa đổi tiếp theo, hãy dùng Hoàn tác của trình soạn thảo.
+Dấu trong nội dung mặc định tắt ở Broken links. Bật cho chỉnh sửa và đọc. Điều hướng gốc được giữ nguyên; lệnh chẩn đoán hiển thị lý do bằng bàn phím hoặc cảm ứng. Phạm vi chưa lưu, đang chờ hoặc mơ hồ không được đánh dấu. Văn bản ảo FakeLink không phải liên kết tường minh hay kết nối đồ thị.
 
 ## Cài đặt
 
@@ -61,14 +61,14 @@ Cài đặt và quy tắc của người dùng được lưu trong `data.json`. 
 
 ## Giới hạn
 
-- Link Integrity không xóa tệp hoặc tự động viết lại liên kết. Một liên kết cần lựa chọn rõ ràng và kiểm tra chính xác trình soạn thảo, nguồn và đích. Cú pháp được bảo vệ hoặc hiển thị mơ hồ có thể ẩn gợi ý; danh sách phân trang giữ tất cả ứng viên.
+- Link Integrity không xóa tệp hay viết lại liên kết. Nội dung không chắc chắn được bỏ qua; xem thanh bên để có chẩn đoán khác.
 - URL bên ngoài được cố ý loại khỏi phạm vi kiểm tra và không bao giờ được yêu cầu qua mạng.
 - Kết quả động của Bases không được tính là kết nối trực tiếp giữa các tệp; chỉ các tham chiếu tệp được ghi rõ mới được tính.
 - Quy tắc cô lập dự kiến chỉ thay đổi cách phân loại những tệp vốn đã cô lập. Chúng không ẩn liên kết hỏng và không loại bỏ kết nối thật giữa các tệp.
 
 ## Quyền riêng tư và bảo mật
 
-Lập chỉ mục và so khớp chạy cục bộ, không tải nội dung lên hoặc yêu cầu tài khoản. Ghi chú chỉ thay đổi qua hành động tạo một liên kết rõ ràng và đã xác minh của bạn. Gợi ý chỉ nằm trong bộ nhớ.
+Lập chỉ mục chạy cục bộ. Plugin không tải Vault lên, không yêu cầu tài khoản và không đổi nội dung. Chỉ mục dẫn xuất nằm trong bộ nhớ.
 
 ## Phát triển
 

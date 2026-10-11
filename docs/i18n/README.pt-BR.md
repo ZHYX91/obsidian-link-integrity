@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
-Link Integrity é um plugin local do Obsidian para links inválidos, arquivos isolados e menções potenciais. O diagnóstico é somente leitura por padrão; você pode criar explicitamente um link verificado.
+Link Integrity é um plugin local e somente leitura do Obsidian para links quebrados e arquivos isolados.
 
 ## Capturas de tela
 
@@ -18,7 +18,7 @@ Gerencie índice, regras de exclusão, tipos de arquivo e regras de isolamento e
 
 ## Recursos
 
-- Encontra menções de títulos e aliases Markdown, preservando candidatos homônimos, contidos e cruzados. Sugestões nunca contam como conexões do grafo.
+- Marca opcionalmente arquivos, títulos e blocos ausentes confirmados com ondas de cor de alerta no texto.
 - Encontra links internos para arquivos, títulos e blocos ausentes em Markdown, incorporações, Frontmatter, Canvas e referências explícitas de arquivo em Bases.
 - Encontra arquivos sem conexão válida de entrada ou saída com outro arquivo existente no Vault. Links para o próprio arquivo e URLs externas não contam como conexões do Vault.
 - Avisa quando um arquivo isolado também contém links de saída quebrados, evitando que ele pareça um arquivo obviamente seguro para remover.
@@ -48,7 +48,7 @@ Na instalação manual, coloque `main.js`, `manifest.json` e `styles.css` em `Va
 3. Selecione um resultado para abrir a origem. Os filtros de arquivos isolados alteram apenas a visualização atual, sem mudar os padrões salvos.
 4. A varredura na inicialização vem desativada. Ao abrir a barra lateral, o índice é criado quando necessário; também é possível usar **Criar índice** ou **Reconstruir índice** em Geral. Depois da primeira criação bem-sucedida, mudanças no Vault atualizam os resultados automaticamente.
 
-Os comandos consultam a nota atual, o cursor ou fontes que a mencionam; o menu de arquivos isolados também oferece busca inversa. Geral oferece Desativado (padrão), Parágrafo atual e Nota inteira, com tracejado na edição e leitura. Escolha o intervalo da fonte e o destino e crie explicitamente o link. Na leitura ou busca inversa, primeiro abra a fonte e valide o intervalo. A busca mostra progresso, cancelamento e resultados parciais/desatualizados; uma busca incompleta nunca significa zero menções. Após outras edições, use Desfazer do editor.
+As marcas ficam desativadas por padrão em Broken links. Ative-as na edição e leitura. A navegação nativa permanece; o comando de diagnóstico mostra motivos por teclado ou toque. Intervalos não salvos, pendentes ou ambíguos não são marcados. O texto virtual do FakeLink não é link explícito nem conexão do grafo.
 
 ## Configurações
 
@@ -61,14 +61,14 @@ Configurações e regras do usuário ficam em `data.json`. O índice de links ca
 
 ## Limitações
 
-- Link Integrity não exclui arquivos nem reescreve links automaticamente. Um link individual exige seleção explícita e validação exata do editor, fonte e destino. Sintaxe protegida ou ambígua pode ocultar dicas; a lista paginada mantém todos os candidatos.
+- Link Integrity não exclui arquivos nem reescreve links. Texto incerto ou ambíguo não é marcado; consulte a barra lateral para outros diagnósticos.
 - URLs externas ficam fora do escopo e nunca são consultadas pela rede.
 - Resultados dinâmicos de Bases não contam como conexões diretas entre arquivos; apenas referências explícitas contam.
 - Regras de isolamento esperado alteram apenas a classificação de arquivos já isolados. Elas não ocultam links quebrados nem removem conexões reais.
 
 ## Privacidade e segurança
 
-Indexação e correspondência são locais, sem envio de conteúdo ou conta. As notas mudam somente com sua ação explícita e validada para um link. Sugestões ficam na memória.
+A indexação é local. Link Integrity não envia o Vault, não exige conta nem altera texto. O índice derivado fica na memória.
 
 ## Desenvolvimento
 

@@ -1,5 +1,5 @@
-/** Shared negative input: the writer must also reject an explicitly supplied range. */
-export const protectedMentionSyntax = [
+/** Protected Markdown inputs for current body-link proof. */
+export const protectedBodySyntax = [
   ["list continuation fence", "- item\n    ~~~\n    白云山\n    ~~~"],
   ["quoted list continuation fence", "> - item\n>     ~~~\n>     白云山\n>     ~~~"],
   ["ordered list continuation fence", "1. item\n    ~~~\n    白云山\n    ~~~"],
@@ -34,7 +34,7 @@ export const protectedMentionSyntax = [
   ["quoted list raw child attribute resembling a closer", '> - <pre>\n>   <span title="</pre>">\n>   白云山\n>   </pre>'],
 ] as const;
 
-export const ordinaryListMentionSyntax = [
+export const ordinaryListBodySyntax = [
   "- item\n    白云山",
   "- item\n  - nested\n      白云山",
   "> - item\n>     白云山",

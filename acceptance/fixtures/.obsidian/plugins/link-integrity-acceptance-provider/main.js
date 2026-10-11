@@ -1,37 +1,46 @@
 const { Plugin, Notice } = require("obsidian");
-
+const PREFIX = "Body Hints Acceptance";
+const TARGET = "---\naliases: [BodyHintTarget]\n---\n# Existing heading\n\nKnown block ^known-block\n";
+const REPAIRED_TARGET = TARGET + "\n# Missing heading\n\nRepaired block ^missing-block\n";
+const MISSING = "# Created missing file\n";
+const SOURCE = "# Body link hints\n\n[[Body Hints Acceptance/Missing|Missing file]]\n\n[[Body Hints Acceptance/Target#Missing heading|Missing heading]]\n\n[[Body Hints Acceptance/Target#^missing-block|Missing block]]\n\n[[Body Hints Acceptance/Target#Existing heading|Same label]] and [[Body Hints Acceptance/Missing|Same label]].\n\nBody Hints Acceptance/Target#^missing-block and [[Body Hints Acceptance/Target#^missing-block|Same label]].\n\n[[Body Hints Acceptance/Target#^known-block|Valid block]]\n\n[Native reference][existing]\n\n[existing]: <Body Hints Acceptance/Target#Existing heading>\n\n![[Body Hints Acceptance/Target]]\n\n`[[Protected ghost]]`\n%% [[Protected ghost]] %%\n";
+const VIRTUAL = "# Virtual text only\n\nBodyHintTarget\n\nBody Hints Acceptance/Target#^missing-block\n";
 module.exports = class extends Plugin {
   onload() {
-    this.addCommand({
-      id: "create-potential-mention-fixtures",
-      name: "Create potential mention fixtures in this disposable acceptance Vault",
-      callback: () => this.createFixtures().catch((error) => new Notice(String(error))),
-    });
+    for (const [id, name, action] of [
+      ["create-body-hint-fixtures", "Create body-hint fixtures in this disposable acceptance Vault", () => this.createFixtures()],
+      ["repair-body-hint-fixtures", "Repair body-hint fixtures in this disposable acceptance Vault", () => this.repair()],
+      ["restore-body-hint-fixtures", "Restore broken body-hint fixtures in this disposable acceptance Vault", () => this.restore()],
+    ]) this.addCommand({ id, name, callback: () => action().catch((error) => new Notice(String(error))) });
   }
-
-  async createFixtures() {
-    const vault = this.app.vault;
-    if (vault.getFileByPath("Standalone.md") === null || vault.getFileByPath("Broken-only.md") === null) {
+  guard() {
+    if (this.app.vault.getFileByPath("Standalone.md") === null || this.app.vault.getFileByPath("Broken-only.md") === null) {
       throw new Error("The product's disposable acceptance fixture is required.");
     }
-    const prefix = "Mentions Acceptance";
-    const files = {
-      "Places/白云山.md": "# 白云山\n",
-      "Travel/广州.md": "---\naliases:\n  - 白云山\n  - Cloud Mountain\n---\n# 广州\n",
-      "山.md": "# 山\n",
-      "Streets/山南路.md": "# 山南路\n",
-      "AI.md": "# AI\n",
-      "Source.md": "---\naliases: [白云山]\n---\n# Mention source\n\n白云山。白云山南路。🌤️ 白云山。ai AI MAIN。\n\nSecond paragraph: Cloud Mountain and 白云山。\n\n`白云山` [[Mentions Acceptance/Source|白云山]]\n%% 白云山 %% <!-- 白云山 -->\n$白云山$ https://example.test/白云山 #白云山\n\n| Place |\n| --- |\n| 白云山 |\n\ntext <span\n title=\"白云山\">end</span> 白云山\n\n- ```\n  白云山\n",
-      "CRLF Source.md": "# CRLF source\r\n\r\n🌤️ 白云山南路\r\n\r\n白云山\r\n",
-    };
-    for (const path of Object.keys(files)) {
-      if (vault.getAbstractFileByPath(`${prefix}/${path}`) !== null) throw new Error("Mention fixtures already exist; use a fresh disposable Vault.");
-    }
-    for (const folder of [prefix, `${prefix}/Places`, `${prefix}/Travel`, `${prefix}/Streets`]) {
-      if (vault.getAbstractFileByPath(folder) === null) await vault.createFolder(folder);
-    }
-    for (const [path, source] of Object.entries(files)) await vault.create(`${prefix}/${path}`, source);
-    new Notice("Potential mention fixtures created. Base fixture counts apply only before this explicit setup.");
-    await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${prefix}/Source.md`));
+  }
+  async assertFile(name, text) {
+    const file = this.app.vault.getFileByPath(`${PREFIX}/${name}`);
+    if (file === null || await this.app.vault.cachedRead(file) !== text) throw new Error(`Unexpected fixture bytes: ${name}`);
+    return file;
+  }
+  async createFixtures() {
+    this.guard(); const vault = this.app.vault;
+    if (vault.getAbstractFileByPath(PREFIX) !== null) throw new Error("Body fixtures already exist; use a fresh disposable Vault.");
+    await vault.createFolder(PREFIX);
+    for (const [name, text] of [["Target.md", TARGET], ["Source.md", SOURCE], ["Virtual-only.md", VIRTUAL]]) await vault.create(`${PREFIX}/${name}`, text);
+    new Notice("Body fixtures created. Expect ten broken and five isolated files after indexing.");
+    await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${PREFIX}/Source.md`));
+  }
+  async verifyCommon() { this.guard(); await this.assertFile("Source.md", SOURCE); await this.assertFile("Virtual-only.md", VIRTUAL); }
+  async repair() {
+    await this.verifyCommon(); const vault = this.app.vault; const target = await this.assertFile("Target.md", TARGET);
+    if (vault.getAbstractFileByPath(`${PREFIX}/Missing.md`) !== null) throw new Error("Missing fixture already exists.");
+    await vault.create(`${PREFIX}/Missing.md`, MISSING); await vault.modify(target, REPAIRED_TARGET);
+    new Notice("Body fixtures repaired. Expect five broken and five isolated files after indexing.");
+  }
+  async restore() {
+    await this.verifyCommon(); const target = await this.assertFile("Target.md", REPAIRED_TARGET); const missing = await this.assertFile("Missing.md", MISSING);
+    await this.app.vault.modify(target, TARGET); await this.app.vault.delete(missing);
+    new Notice("Broken body fixtures restored. Expect ten broken and five isolated files after indexing.");
   }
 };

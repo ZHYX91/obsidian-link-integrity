@@ -26,10 +26,10 @@ export interface GeneralSettings {
   readonly locale: PluginLocale;
   readonly scanOnStartup: boolean;
   readonly defaultSidebarTab: SidebarTabId;
-  readonly mentionDisplayMode: "off" | "paragraph" | "document";
 }
 
 export interface BrokenLinkSettings {
+  readonly bodyHints: boolean;
   readonly diagnostics: {
     readonly missingFiles: boolean;
     readonly missingHeadings: boolean;
@@ -95,11 +95,11 @@ export type SettingsControlKey =
   | "general.locale"
   | "general.scanOnStartup"
   | "general.defaultSidebarTab"
-  | "general.mentionDisplayMode"
   | "brokenLinks.diagnostics.missingFiles"
   | "brokenLinks.diagnostics.missingHeadings"
   | "brokenLinks.diagnostics.missingBlocks"
   | "brokenLinks.diagnostics.invalidLinks"
+  | "brokenLinks.bodyHints"
   | "brokenLinks.defaultView"
   | "brokenLinks.defaultGrouping"
   | "brokenLinks.defaultSort"
@@ -117,9 +117,9 @@ export function createDefaultSettings(): LinkIntegritySettings {
       locale: "auto",
       scanOnStartup: false,
       defaultSidebarTab: "broken-links",
-      mentionDisplayMode: "off",
     },
     brokenLinks: {
+      bodyHints: false,
       diagnostics: {
         missingFiles: true,
         missingHeadings: true,
@@ -194,10 +194,9 @@ export function normalizeSettings(value: unknown): LinkIntegritySettings {
       defaultSidebarTab: isSidebarTabId(general.defaultSidebarTab)
         ? general.defaultSidebarTab
         : defaults.general.defaultSidebarTab,
-      mentionDisplayMode: general.mentionDisplayMode === "paragraph" || general.mentionDisplayMode === "document"
-        ? general.mentionDisplayMode : "off",
     },
     brokenLinks: {
+      bodyHints: booleanOr(broken.bodyHints, false),
       diagnostics: {
         missingFiles: booleanOr(
           diagnostics.missingFiles,
@@ -318,13 +317,13 @@ function setControlValue(
   value: unknown,
 ): void {
   switch (key) {
-    case "general.mentionDisplayMode":
-      assertValue(value === "off" || value === "paragraph" || value === "document", key);
-      settings.general.mentionDisplayMode = value;
-      return;
     case "general.locale":
       assertValue(isPluginLocale(value), key);
       settings.general.locale = value;
+      return;
+    case "brokenLinks.bodyHints":
+      assertValue(typeof value === "boolean", key);
+      settings.brokenLinks.bodyHints = value;
       return;
     case "general.scanOnStartup":
       assertValue(typeof value === "boolean", key);

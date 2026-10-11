@@ -1,16 +1,15 @@
-import type { MentionRange } from "../../core/potential-mention-model";
+export interface BodyRange { readonly from: number; readonly to: number; }
 import { WorkScheduler } from "../../scheduling/work-scheduler";
-import { extractMarkdownExplicitReferencesAsync } from "./explicit-link-parser";
 
-/** Conservative source protection, independent of the explicit-link diagnostic parser. */
-export async function extractMarkdownMentionExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly MentionRange[]> {
-  const ranges: MentionRange[] = [];
+/** Conservative current-source syntax guard; complete explicit links remain eligible. */
+export async function extractMarkdownNonLinkExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly BodyRange[]> {
+  const ranges: BodyRange[] = [];
   const lines = [...source.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/gu)].filter((line) => line[0].length > 0);
   let properties = source.replace(/^\uFEFF/u, "").startsWith("---") && lines[0]?.[0].trim().replace(/^\uFEFF/u, "") === "---";
-  let fence: { character: string; length: number; from: number; containers: readonly MentionContainer[] } | null = null;
-  let html: { name: string; from: number; containers: readonly MentionContainer[]; openingQuote: string | null; openingComplete: boolean;
+  let fence: { character: string; length: number; from: number; containers: readonly BodyContainer[] } | null = null;
+  let html: { name: string; from: number; containers: readonly BodyContainer[]; openingQuote: string | null; openingComplete: boolean;
     bodyState: HtmlBodyState } | null = null;
-  let containers: readonly MentionContainer[] = [];
+  let containers: readonly BodyContainer[] = [];
   let indented = false;
   let previousBlank = true;
   for (let index = 0; index < lines.length; index += 1) {
@@ -19,10 +18,10 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
     const from = line.index;
     const to = from + line[0].length;
     const text = line[0].replace(/[\r\n]+$/u, "");
-    const active: { containers: readonly MentionContainer[] } | null = fence ?? html;
+    const active: { containers: readonly BodyContainer[] } | null = fence ?? html;
     // Inside an established block, '- ~~~' is content, never a new container or a fence closer.
-    const normalized: MentionContainerLine | null = active === null ? normalizeMentionContainerLine(text, containers) : null;
-    const blockContent = active === null ? null : stripKnownMentionContainers(expandTabs(text), active.containers).text;
+    const normalized: BodyContainerLine | null = active === null ? normalizeBodyContainerLine(text, containers) : null;
+    const blockContent = active === null ? null : stripKnownBodyContainers(expandTabs(text), active.containers).text;
     const content: string = normalized?.text ?? blockContent ?? text;
     if (normalized !== null) containers = normalized.containers;
     if (properties) {
@@ -73,18 +72,35 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
   for (const pattern of [
     /%%[\s\S]*?(?:%%|$)/gu,
     /<!--[\s\S]*?(?:-->|$)/gu,
-    /!?\[[^\]\r\n]*\](?:\[[^\]\r\n]*\])?/gu,
     /^[ \t]{0,3}\[[^\]\r\n]+\]:[^\r\n]*/gmu,
     /\\\[[\s\S]*?(?:\\\]|$)/gu,
-    /[a-z][a-z0-9+.-]*:\/\/[^\s<>]+|mailto:[^\s<>]+|\bwww\.[^\s<>]+|[\w.+-]+@[\w.-]+\.[\p{L}]{2,}/giu,
     /(?:^|[\s(])#[\p{L}\p{N}_/-]+/gmu,
-    /!?\[[^\]\r\n]*(?=\r|\n|$)/gu,
-    /!?\[[^\]\r\n]*\]\([^\r\n)]*(?=\r|\n|$)/gu,
   ]) {
     for (const match of source.matchAll(pattern)) {
       ranges.push({ from: match.index, to: match.index + match[0].length });
       const pause = scheduler.checkpoint();
       if (pause !== null) await pause;
+    }
+  }
+  await appendBodyUrlExclusions(source, ranges, scheduler);
+  // An incomplete label/destination reaches the line end. Index the last closing delimiter
+  // once per line, instead of retrying a failed suffix search at every opening bracket.
+  for (const line of lines) {
+    const content = line[0].replace(/[\r\n]+$/u, "");
+    const lastBracket = content.lastIndexOf("]"); const lastParenthesis = content.lastIndexOf(")");
+    let opening = -1;
+    for (let index = 0; index < content.length; index += 1) {
+      const character = content[index];
+      if (character === "[" && opening < 0) opening = content[index - 1] === "!" ? index - 1 : index;
+      if (character === "]") {
+        if (opening >= 0 && content[index + 1] === "(" && lastParenthesis < index + 2) {
+          ranges.push({ from: line.index + opening, to: line.index + content.length }); break;
+        }
+        opening = -1;
+      } else if (index > lastBracket && opening >= 0) {
+        ranges.push({ from: line.index + opening, to: line.index + content.length }); break;
+      }
+      const pause = scheduler.checkpoint(); if (pause !== null) await pause;
     }
   }
   // Dollar delimiters use backslash parity; escaped closers do not terminate math.
@@ -134,9 +150,11 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
     ranges.push({ from: opening.index, to });
     tagEnd = to;
   }
+  const lastWikiClosing = source.lastIndexOf("]]");
   for (const opening of source.matchAll(/!?\[\[/gu)) {
-    const end = source.indexOf("]]", opening.index + opening[0].length);
-    ranges.push({ from: opening.index, to: end < 0 ? source.length : end + 2 });
+    if (lastWikiClosing < opening.index + opening[0].length) {
+      ranges.push({ from: opening.index, to: source.length }); break;
+    }
   }
   // Pair equal backtick runs in one pass, avoiding a separate scan per opening delimiter.
   const runs = [...source.matchAll(/`+/gu)];
@@ -162,13 +180,89 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
     const pause = scheduler.checkpoint();
     if (pause !== null) await pause;
   }
-  for (const reference of await extractMarkdownExplicitReferencesAsync(source, scheduler)) {
-    ranges.push({ from: reference.startOffset, to: reference.endOffset });
-  }
   return ranges;
 }
 
 const RAW_HTML_TEXT_TAGS = new Set(["pre", "script", "style", "textarea"]);
+
+/** Bounded tokens and delimiter indexes preserve leftmost, non-overlapping URL/email matches. */
+async function appendBodyUrlExclusions(source: string, ranges: BodyRange[], scheduler: WorkScheduler): Promise<void> {
+  for (const token of source.matchAll(/[^\s<>]+/gu)) {
+    const end = token.index + token[0].length;
+    const schemes: { from: number; to: number }[] = [];
+    const emails: { from: number; to: number; end: number }[] = [];
+    let fixedUrl = false;
+    let schemeLetter = -1; let localStart = -1;
+    for (let index = token.index; index < end; index += 1) {
+      const character = source[index]!;
+      if (character === ":" && schemeLetter >= 0 && source[index + 1] === "/" && source[index + 2] === "/" && index + 3 < end) schemes.push({ from: schemeLetter, to: index });
+      if ((character === "m" || character === "M") && asciiLiteralAt(source, index, "mailto:") && index + 7 < end) fixedUrl = true;
+      if ((character === "w" || character === "W") && !bodyWord(source[index - 1] ?? "") && asciiLiteralAt(source, index, "www.") && index + 4 < end) fixedUrl = true;
+      if (character === "@" && localStart >= 0) {
+        const emailEnd = await bodyEmailEnd(source, index + 1, end, scheduler);
+        if (emailEnd !== null) emails.push({ from: localStart, to: index, end: emailEnd });
+      }
+      if (bodyWord(character) && character !== "_" || character === "+" || character === "." || character === "-") {
+        if (schemeLetter < 0 && bodyLetter(character)) schemeLetter = index;
+      } else schemeLetter = -1;
+      if (bodyWord(character) || character === "." || character === "+" || character === "-") {
+        if (localStart < 0) localStart = index;
+      } else localStart = -1;
+      const pause = scheduler.checkpoint(); if (pause !== null) await pause;
+    }
+    if (schemes.length === 0 && emails.length === 0 && !fixedUrl) continue;
+    let schemeIndex = 0; let emailIndex = 0;
+    for (let index = token.index; index < end; index += 1) {
+      while (schemes[schemeIndex] !== undefined && schemes[schemeIndex]!.to <= index) schemeIndex += 1;
+      while (emails[emailIndex] !== undefined && emails[emailIndex]!.to <= index) emailIndex += 1;
+      const scheme = schemes[schemeIndex]; const email = emails[emailIndex]; const character = source[index]!;
+      if (scheme !== undefined && scheme.from <= index && bodyLetter(character) ||
+        (character === "m" || character === "M") && asciiLiteralAt(source, index, "mailto:") && index + 7 < end ||
+        (character === "w" || character === "W") && !bodyWord(source[index - 1] ?? "") && asciiLiteralAt(source, index, "www.") && index + 4 < end) {
+        ranges.push({ from: index, to: end }); break;
+      }
+      if (email !== undefined && email.from <= index) { ranges.push({ from: index, to: email.end }); index = email.end - 1; }
+      const pause = scheduler.checkpoint(); if (pause !== null) await pause;
+    }
+  }
+}
+
+function bodyWord(character: string): boolean {
+  const code = character.charCodeAt(0);
+  return code >= 48 && code <= 57 || code >= 65 && code <= 90 || code >= 97 && code <= 122 ||
+    character === "_" || character === "\u017f" || character === "\u212a";
+}
+function bodyLetter(character: string): boolean {
+  const code = character.charCodeAt(0);
+  return code >= 65 && code <= 90 || code >= 97 && code <= 122 || character === "\u017f" || character === "\u212a";
+}
+function asciiLiteralAt(source: string, from: number, literal: string): boolean {
+  for (let index = 0; index < literal.length; index += 1) {
+    const expected = literal.charCodeAt(index); const actual = source.charCodeAt(from + index);
+    if ((expected >= 97 && expected <= 122 ? actual | 32 : actual) !== expected) return false;
+  }
+  return true;
+}
+
+async function bodyEmailEnd(source: string, from: number, end: number, scheduler: WorkScheduler): Promise<number | null> {
+  let dot = -1; let letters = 0; let result: number | null = null; let index = from;
+  for (; index < end; index += 1) {
+    const character = source[index]!;
+    if (!bodyWord(character) && character !== "." && character !== "-") break;
+    if (character === ".") { dot = index > from ? index : -1; letters = 0; }
+    else if (dot >= 0 && bodyLetter(character)) { letters += 1; if (letters >= 2) result = index + 1; }
+    else { dot = -1; letters = 0; }
+    const pause = scheduler.checkpoint(); if (pause !== null) await pause;
+  }
+  // The final TLD may include Unicode letters even though the domain grammar is ASCII word text.
+  while (dot >= 0 && index < end) {
+    const character = String.fromCodePoint(source.codePointAt(index)!);
+    if (!/\p{L}/u.test(character)) break;
+    letters += 1; index += character.length; if (letters >= 2) result = index;
+    const pause = scheduler.checkpoint(); if (pause !== null) await pause;
+  }
+  return result;
+}
 
 interface HtmlBodyState { tag: boolean; quote: string | null; comment: boolean; }
 
@@ -208,30 +302,31 @@ function htmlOpeningEnd(text: string, initialQuote: string | null): { end: numbe
   return { end: undefined, quote };
 }
 
-type MentionContainer = "quote" | number;
+type BodyContainer = "quote" | number;
 
-interface MentionContainerLine {
+interface BodyContainerLine {
   readonly text: string;
-  readonly containers: readonly MentionContainer[];
+  readonly containers: readonly BodyContainer[];
 }
 
 function expandTabs(line: string): string {
-  let column = 0;
-  return line.replace(/[^\t]*\t/gu, (part) => {
-    column += part.length - 1;
+  let column = 0; let previous = 0;
+  return line.replace(/\t/gu, (_tab, index: number) => {
+    column += index - previous;
     const spaces = 4 - column % 4;
     column += spaces;
-    return part.slice(0, -1) + " ".repeat(spaces);
+    previous = index + 1;
+    return " ".repeat(spaces);
   });
 }
 
-function stripKnownMentionContainers(line: string, containers: readonly MentionContainer[]): {
+function stripKnownBodyContainers(line: string, containers: readonly BodyContainer[]): {
   text: string | null;
   remainder: string;
-  consumed: readonly MentionContainer[];
+  consumed: readonly BodyContainer[];
 } {
   let text = line;
-  const consumed: MentionContainer[] = [];
+  const consumed: BodyContainer[] = [];
   for (const container of containers) {
     const prefix = container === "quote" ? /^ {0,3}> ?/u.exec(text)?.[0] :
       text.startsWith(" ".repeat(container)) ? " ".repeat(container) : undefined;
@@ -242,8 +337,8 @@ function stripKnownMentionContainers(line: string, containers: readonly MentionC
   return { text, remainder: text, consumed };
 }
 
-function normalizeMentionContainerLine(line: string, previous: readonly MentionContainer[]): MentionContainerLine {
-  const stripped = stripKnownMentionContainers(expandTabs(line), previous);
+function normalizeBodyContainerLine(line: string, previous: readonly BodyContainer[]): BodyContainerLine {
+  const stripped = stripKnownBodyContainers(expandTabs(line), previous);
   let text = stripped.remainder;
   const containers = [...stripped.consumed];
   // New containers are recognized only outside protected blocks. Their continuation indentation
@@ -261,12 +356,3 @@ function normalizeMentionContainerLine(line: string, previous: readonly MentionC
   return { text, containers: text.trim().length === 0 && containers.length === stripped.consumed.length ? previous : containers };
 }
 
-/** Shared source-container interpretation for mention protection and table-cell writing. */
-export function normalizeMentionContainerLines(source: string): readonly MentionContainerLine[] {
-  let containers: readonly MentionContainer[] = [];
-  return source.split(/\r\n|\r|\n/u).map((line) => {
-    const normalized = normalizeMentionContainerLine(line, containers);
-    containers = normalized.containers;
-    return normalized;
-  });
-}

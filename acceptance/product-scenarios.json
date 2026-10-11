@@ -83,8 +83,8 @@
       ]
     },
     {
-      "id": "potential-mentions",
-      "title": "Potential mention discovery, body hints and exact single-link editing",
+      "id": "body-link-hints",
+      "title": "Confirmed broken body links and safe diagnostic navigation",
       "surfaces": [
         "desktop",
         "android-emulator"
@@ -94,26 +94,25 @@
         "android-emulator": []
       },
       "steps": [
-        "First verify the untouched base fixture still reports five broken and four default isolated files",
-        "Explicitly run the acceptance-provider Create potential mention fixtures command; open Mentions Acceptance/Source.md",
-        "Use current-note and cursor queries with hints Off; then test Current paragraph and Whole note in editing and reading views",
-        "Choose 白云山 same-range targets, 山 contained range and 山南路 crossing range; navigate a target separately from creating a link",
-        "Explicitly create one selected link and use immediate Undo; make a later edit and verify conservative Notice Undo refusal",
-        "Run reverse lookup for an isolated mention target, cancel a partial scan, and verify stale/read-failure results are never reported as zero",
-        "Open CRLF Source.md, navigate from reading/reverse results, create a selected link, then exercise rename/delete, IME, split/popout, touch, keyboard and unload cleanup"
+        "Observe the untouched base fixture: five broken diagnostics and four default isolated files",
+        "Confirm brokenLinks.bodyHints defaults Off, including absent fields and legacy mentionDisplayMode values; confirm no potential mention commands or isolated reverse action",
+        "Explicitly run create-body-hint-fixtures in this disposable Vault; open Body Hints Acceptance/Source.md and confirm ten broken diagnostics and five isolated files",
+        "Enable body hints; inspect confirmed missing-file, missing-heading and missing-block wave underlines in editing and reading; inspect valid, code, comment, reference-style and embed negative cases",
+        "Inspect reasons by hover/focus and Diagnose broken links in the current note on keyboard/touch; follow native links without intercepted navigation",
+        "Run repair-body-hint-fixtures and wait for source/target metadata: five broken and five isolated; run restore-body-hint-fixtures: ten broken and five isolated",
+        "Test source edits, target updates/rename, CRLF coordinates, Off, reload and unload cleanup; preserve native href/text and Markdown bytes"
       ],
       "expected": [
-        "Suggestions preserve every range and same-name target while leaving graph and isolation results unchanged until explicit link creation",
-        "Off adds no automatic whole-Vault body scan; paragraph selection follows cursor or focused/clicked/touched reading block and viewport fallback",
-        "Properties, existing links, code, comments, HTML, math, URLs and tags remain protected",
-        "All candidates remain available through paged selection even when viewport decoration is capped",
-        "Writing proves current source/editor binding, exact offsets, current target/name and official generated-link resolution; only one ordinary non-embedded link is inserted",
-        "Reading mapping failures retain query/navigation; newline conversion is exact, reverse results expose progress/cancellation/completeness, and all runtime hooks detach"
+        "Only current syntax-proven indexed explicit references with confirmed missing file, heading or block status are marked; invalid/pending/unsupported metadata is never painted as broken",
+        "Body diagnostics share sidebar diagnostic toggles and ignore visibility; valid heading/block links keep their existing file-level graph edges",
+        "No potential matcher, query, picker, create/undo command, inline hints or reverse lookup remains; old settings are ignored without enabling body hints",
+        "Reading requires unique explicit-source and rendered-anchor destination mapping; repeated/third-party ambiguous anchors are skipped and the read-only diagnostic command remains available",
+        "Off clears all owned annotations without automatic body reads; fixture preparation is separate from product acceptance"
       ]
     },
     {
-      "id": "potential-mentions-fakelink",
-      "title": "Potential mention coexistence with FakeLink in a separate environment",
+      "id": "body-link-hints-fakelink",
+      "title": "Confirmed broken body hints with FakeLink in an independent environment",
       "surfaces": [
         "desktop",
         "android-emulator"
@@ -123,22 +122,23 @@
         "android-emulator": []
       },
       "steps": [
-        "First verify the untouched base fixture still reports five broken and four default isolated files",
-        "Explicitly run the acceptance-provider Create potential mention fixtures command; open Mentions Acceptance/Source.md",
-        "Use current-note and cursor queries with hints Off; then test Current paragraph and Whole note in editing and reading views",
-        "Choose 白云山 same-range targets, 山 contained range and 山南路 crossing range; navigate a target separately from creating a link",
-        "Explicitly create one selected link and use immediate Undo; make a later edit and verify conservative Notice Undo refusal",
-        "Run reverse lookup for an isolated mention target, cancel a partial scan, and verify stale/read-failure results are never reported as zero",
-        "Open CRLF Source.md, navigate from reading/reverse results, create a selected link, then exercise rename/delete, IME, split/popout, touch, keyboard and unload cleanup",
-        "Repeat with FakeLink enabled; inspect replacement widgets and interactive content ownership without assuming identical visuals"
+        "Observe the untouched base fixture: five broken diagnostics and four default isolated files",
+        "Confirm brokenLinks.bodyHints defaults Off, including absent fields and legacy mentionDisplayMode values; confirm no potential mention commands or isolated reverse action",
+        "Explicitly run create-body-hint-fixtures in this disposable Vault; open Body Hints Acceptance/Source.md and confirm ten broken diagnostics and five isolated files",
+        "Enable body hints; inspect confirmed missing-file, missing-heading and missing-block wave underlines in editing and reading; inspect valid, code, comment, reference-style and embed negative cases",
+        "Inspect reasons by hover/focus and Diagnose broken links in the current note on keyboard/touch; follow native links without intercepted navigation",
+        "Run repair-body-hint-fixtures and wait for source/target metadata: five broken and five isolated; run restore-body-hint-fixtures: ten broken and five isolated",
+        "Test source edits, target updates/rename, CRLF coordinates, Off, reload and unload cleanup; preserve native href/text and Markdown bytes",
+        "Repeat with FakeLink 1.24.13 in both enable orders, hover preview On/Off, and disable each plugin independently; inspect the plain Target#^missing-block plus real same-destination reference paragraph"
       ],
       "expected": [
-        "Suggestions preserve every range and same-name target while leaving graph and isolation results unchanged until explicit link creation",
-        "Off adds no automatic whole-Vault body scan; paragraph selection follows cursor or focused/clicked/touched reading block and viewport fallback",
-        "Properties, existing links, code, comments, HTML, math, URLs and tags remain protected",
-        "All candidates remain available through paged selection even when viewport decoration is capped",
-        "Writing proves current source/editor binding, exact offsets, current target/name and official generated-link resolution; only one ordinary non-embedded link is inserted",
-        "Reading mapping failures retain query/navigation; newline conversion is exact, reverse results expose progress/cancellation/completeness, and all runtime hooks detach"
+        "Only current syntax-proven indexed explicit references with confirmed missing file, heading or block status are marked; invalid/pending/unsupported metadata is never painted as broken",
+        "Body diagnostics share sidebar diagnostic toggles and ignore visibility; valid heading/block links keep their existing file-level graph edges",
+        "No potential matcher, query, picker, create/undo command, inline hints or reverse lookup remains; old settings are ignored without enabling body hints",
+        "Reading requires unique explicit-source and rendered-anchor destination mapping; repeated/third-party ambiguous anchors are skipped and the read-only diagnostic command remains available",
+        "Off clears all owned annotations without automatic body reads; fixture preparation is separate from product acceptance",
+        "Virtual title/alias/header text does not become a LinkIndex occurrence, broken diagnostic or graph edge; extra same-destination FakeLink anchors cause reading mapping to skip the entire ambiguous group",
+        "Native clicks, context menus and FakeLink actions retain ownership; third-party conversion to a real link updates through normal source/metadata indexing"
       ]
     }
   ]

@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
-Link Integrity est un module Obsidian local pour les liens invalides, les fichiers isolés et les mentions potentielles. Les diagnostics sont en lecture seule par défaut ; vous pouvez créer explicitement un lien vérifié.
+Link Integrity est un module Obsidian local en lecture seule pour les liens cassés et les fichiers isolés.
 
 ## Captures d’écran
 
@@ -18,7 +18,7 @@ Gérez l’index, les règles d’exclusion, les types de fichiers et les règle
 
 ## Fonctionnalités
 
-- Repère les mentions potentielles des titres et alias Markdown, en conservant les candidats homonymes, inclus et croisés. Les suggestions ne comptent jamais comme connexions du graphe.
+- Marque en option les fichiers, titres et blocs absents confirmés par des vagues de couleur d’avertissement dans le texte.
 - Repère les liens internes vers des fichiers, titres ou blocs manquants dans Markdown, les incorporations, le Frontmatter, Canvas et les références de fichiers explicites de Bases.
 - Repère les fichiers qui n’ont aucune connexion entrante ou sortante valide avec un autre fichier existant du Vault. Les liens vers soi-même et les URL externes ne comptent pas comme connexions du Vault.
 - Signale lorsqu’un fichier isolé contient aussi des liens sortants invalides, afin d’éviter de le prendre pour un fichier manifestement supprimable.
@@ -48,7 +48,7 @@ Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css
 3. Sélectionnez un résultat pour ouvrir sa source. Les filtres de fichiers isolés ne changent que la vue courante, pas vos valeurs par défaut enregistrées.
 4. L’analyse au démarrage est désactivée par défaut. L’ouverture de la barre latérale construit l’index lorsque nécessaire ; vous pouvez aussi utiliser **Construire l’index** ou **Reconstruire l’index** dans Général. Après la première construction réussie, les changements du Vault mettent les résultats à jour automatiquement.
 
-Les commandes interrogent la note actuelle, le curseur ou les sources qui la mentionnent ; le menu des fichiers isolés propose aussi cette recherche. Général offre Désactivé (défaut), Paragraphe actuel et Note entière, avec des pointillés dans l’éditeur et en lecture. Choisissez la plage source et la cible puis créez explicitement le lien. En lecture ou en recherche inverse, ouvrez d’abord la source et validez la plage. La progression, l’annulation et les résultats partiels/périmés restent visibles ; une recherche incomplète ne signifie jamais zéro mention. Après une autre modification, utilisez l’annulation de l’éditeur.
+Les marques sont désactivées par défaut dans Broken links. Activez-les pour l’édition et la lecture. La navigation native est conservée ; la commande de diagnostic affiche les raisons au clavier ou au toucher. Les plages non enregistrées, en attente ou ambiguës ne sont pas marquées. Le texte virtuel de FakeLink ne devient ni lien explicite ni connexion du graphe.
 
 ## Paramètres
 
@@ -61,14 +61,14 @@ Les paramètres et règles utilisateur sont stockés dans `data.json`. L’index
 
 ## Limitations
 
-- Link Integrity ne supprime pas de fichiers et ne réécrit pas automatiquement les liens. Un lien individuel exige une sélection explicite et une vérification exacte de l’éditeur, de la source et de la cible. Une syntaxe protégée ou ambiguë peut masquer les pointillés ; la liste paginée conserve tous les candidats.
+- Link Integrity ne supprime aucun fichier et ne réécrit aucun lien. Le texte incertain ou ambigu reste non marqué ; consultez le panneau latéral pour les autres diagnostics.
 - Les URL externes sont volontairement hors périmètre et ne sont jamais interrogées sur le réseau.
 - Les résultats dynamiques de Bases ne comptent pas comme connexions directes entre fichiers ; seules les références explicites comptent.
 - Les règles d’isolation attendue modifient seulement le classement des fichiers déjà isolés. Elles ne masquent pas les liens invalides et ne suppriment pas les connexions réelles.
 
 ## Confidentialité et sécurité
 
-L’indexation et la recherche restent locales, sans envoi de contenu ni compte. Les notes changent uniquement par votre action explicite et validée sur un lien. Les suggestions restent en mémoire.
+L’indexation est locale. Link Integrity ne téléverse pas le Vault, ne demande pas de compte et ne change pas le texte. L’index dérivé reste en mémoire.
 
 ## Développement
 

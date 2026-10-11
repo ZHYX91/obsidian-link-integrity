@@ -1,6 +1,6 @@
 import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
 import { IgnorePreviewService } from "./ignore-preview-service";
-import { MentionRuntime } from "./mention-runtime";
+import { BodyLinkRuntime } from "./body-link-runtime";
 import {
   MarkdownView,
   Menu,
@@ -76,7 +76,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   private saveCoordinator!: SettingsSaveCoordinator<LinkIntegritySettings>;
   private coordinator!: LinkIndexCoordinator;
   private query!: SidebarQueryService;
-  private mentions!: MentionRuntime;
+  private bodyLinks!: BodyLinkRuntime;
   private ribbonElement: HTMLElement | null = null;
   private openCommand: Command | null = null;
   private rebuildCommand: Command | null = null;
@@ -117,7 +117,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     }, {
       onChanges: (changes) => {
         this.query.recordChanges(changes);
-        this.mentions?.indexChanged(changes);
+        this.bodyLinks?.invalidate();
       },
     });
     this.updateGraphContributionPolicy();
@@ -125,9 +125,11 @@ export default class LinkIntegrityPlugin extends Plugin {
       () => this.coordinator.index,
       () => this.settings,
     );
-    this.mentions = new MentionRuntime(this.app, () => this.coordinator.index, () => this.ensureIndex(),
-      () => this.settings, (error) => this.reportError(error));
-    this.mentions.register(this);
+    this.bodyLinks = new BodyLinkRuntime(this.app, () => this.coordinator.index, () => this.ensureIndex(),
+      () => this.settings, () => !this.unloaded && this.baselineAvailable && this.query.getSnapshot().status.state === "ready" &&
+        this.pendingSourceEvents.length === 0 && !this.notificationPending,
+      (error) => this.reportError(error));
+    this.bodyLinks.register(this);
 
     const navigation: SidebarNavigationPort = {
       openBrokenLink: (result) => this.openBrokenLink(result),
@@ -158,7 +160,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       this.layoutReady = true;
       const sidebarAlreadyOpen = this.app.workspace
         .getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE).length > 0;
-      if (!this.unloaded && (this.settings.general.scanOnStartup || sidebarAlreadyOpen || this.settings.general.mentionDisplayMode !== "off")) {
+      if (!this.unloaded && (this.settings.general.scanOnStartup || this.settings.brokenLinks.bodyHints || sidebarAlreadyOpen)) {
         void this.ensureIndex().catch((error: unknown) => this.reportError(error));
       }
     });
@@ -182,7 +184,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.pendingSourceEvents = [];
     this.notificationPending = false;
     this.coordinator?.stop();
-    this.mentions?.close();
+    this.bodyLinks?.close();
     this.coordinatorStarted = false;
     void this.saveCoordinator?.close().catch((error: unknown) => this.reportError(error));
   }
@@ -234,7 +236,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (impact === "regraph") this.updateGraphContributionPolicy();
     this.refreshEntrypoints();
     this.query.notify();
-    this.mentions.settingsChanged();
+    this.bodyLinks.invalidate();
     const shouldStartOnDemandRuntime = !scanOnStartupWasEnabled &&
       this.settings.general.scanOnStartup && this.layoutReady;
     if (shouldStartOnDemandRuntime && !this.baselineAvailable) {
@@ -275,6 +277,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private async performRebuild(): Promise<void> {
+    this.bodyLinks?.invalidate();
     this.startRuntime();
     if (!this.runtimeStarted) return;
     this.query.setStatus({ state: "scanning", current: 0, total: 0, errorMessage: null });
@@ -286,12 +289,13 @@ export default class LinkIntegrityPlugin extends Plugin {
       const rebuild = this.coordinator.rebuild();
       await rebuild;
       this.baselineAvailable = true;
-      this.mentions.indexChanged();
+      this.bodyLinks.invalidate();
       this.flushPendingSourceEvents();
       this.query.setStatus(
         { state: "ready", current: 0, total: 0, errorMessage: null },
         true,
       );
+      this.bodyLinks.invalidate();
     } catch (error) {
       if (error instanceof RebuildCancelledError) return;
       if (this.coordinator.state === "stale") {
@@ -328,19 +332,23 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private registerVaultEvents(): void {
     this.registerEvent(this.app.vault.on("create", (file) => {
-      if (file instanceof TFile) this.enqueue({ type: "create", path: file.path });
+      if (file instanceof TFile) { this.bodyLinks.sourceChanged(file.path, false); this.enqueue({ type: "create", path: file.path }); }
     }));
     this.registerEvent(this.app.vault.on("modify", (file) => {
-      if (file instanceof TFile) this.enqueue({ type: "modify", path: file.path });
+      if (file instanceof TFile) { this.bodyLinks.sourceChanged(file.path, false); this.enqueue({ type: "modify", path: file.path }); }
     }));
     this.registerEvent(this.app.vault.on("delete", (file) => {
-      if (file instanceof TFile) this.enqueue({ type: "delete", path: file.path });
+      if (file instanceof TFile) { this.bodyLinks.sourceChanged(file.path, false); this.enqueue({ type: "delete", path: file.path }); }
     }));
   }
 
   private registerVaultRenameEvent(): void {
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
       if (file instanceof TFile) {
+        if (this.runtimeStarted) {
+          this.bodyLinks.sourceChanged(oldPath, false);
+          this.bodyLinks.sourceChanged(file.path, false);
+        } else this.bodyLinks.invalidate();
         this.renameExpectedFilePath(oldPath, file.path);
         this.enqueue({ type: "rename", oldPath, path: file.path });
       } else if (file instanceof TFolder) {
@@ -357,6 +365,14 @@ export default class LinkIntegrityPlugin extends Plugin {
     }));
     this.registerEvent(this.app.metadataCache.on("deleted", (file) => {
       this.enqueueMetadata({ type: "delete", path: file.path });
+    }));
+    // Resolution maps can settle after changed, or after rename without a new cache object.
+    // Refresh only the derived body proof; the existing incremental events own graph updates.
+    this.registerEvent(this.app.metadataCache.on("resolve", (file) => {
+      if (!this.unloaded) this.bodyLinks.sourceChanged(file.path, true);
+    }));
+    this.registerEvent(this.app.metadataCache.on("resolved", () => {
+      if (!this.unloaded) this.bodyLinks.sourceChanged(null, true);
     }));
   }
 
@@ -399,6 +415,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     const needsCorrection = this.initialMetadataState === "fallback";
     if (!needsCorrection && this.initialMetadataState !== "waiting") return;
     this.initialMetadataState = "resolved";
+    this.bodyLinks?.sourceChanged(null, true);
     this.detachInitialMetadataListener();
     if (this.initialMetadataTimeout !== null) {
       window.clearTimeout(this.initialMetadataTimeout);
@@ -432,10 +449,12 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private enqueueMetadata(event: SourceEvent): void {
+    this.bodyLinks?.sourceChanged(event.path, true);
     this.enqueue(event);
   }
 
   private enqueue(event: SourceEvent): void {
+    this.bodyLinks?.invalidate();
     if (!this.runtimeStarted || this.unloaded) return;
     // Without a complete baseline, a future rebuild reads authoritative current Vault state.
     // Retaining arbitrary history after a failed first build only grows memory and cannot
@@ -479,6 +498,7 @@ export default class LinkIntegrityPlugin extends Plugin {
         }
         this.notificationPending = false;
         this.query.notifyResults();
+        this.bodyLinks.invalidate();
       })
       .catch((error: unknown) => {
         this.notificationPending = false;
@@ -641,9 +661,6 @@ export default class LinkIntegrityPlugin extends Plugin {
   private showIsolatedFileActions(result: IsolatedFileResult, anchor: HTMLElement): void {
     const translator = createTranslator(this.settings.general.locale, getLanguage());
     const menu = new Menu().setParentElement(anchor);
-    menu.addItem((item) => item.setTitle(translator.t("mentions.reverse")).onClick(() => {
-      void this.mentions.reverse(result.path, anchor.ownerDocument).catch((error: unknown) => this.reportError(error));
-    }));
     const explicitlyExpected = this.settings.isolatedFiles.expectedFilePaths.includes(result.path);
     if (explicitlyExpected) {
       menu.addItem((item) => item
