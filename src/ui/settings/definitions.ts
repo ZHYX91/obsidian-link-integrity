@@ -79,6 +79,11 @@ export function getSettingsPageDefinitions(
             t("settings.general.scanOnStartup"),
             t("settings.general.scanOnStartup.description"),
           ),
+          dropdown("general.mentionDisplayMode", t("mentions.mode"), t("mentions.modeDescription"), [
+            { value: "off", label: t("mentions.off") },
+            { value: "paragraph", label: t("mentions.paragraph") },
+            { value: "document", label: t("mentions.document") },
+          ]),
           dropdown("general.defaultSidebarTab", t("settings.general.defaultTab"), undefined, [
             { value: "broken-links", label: t("sidebar.tab.broken") },
             { value: "isolated-files", label: t("sidebar.tab.isolated") },

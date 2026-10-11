@@ -1,0 +1,9 @@
+{
+  "id": "link-integrity-acceptance-provider",
+  "name": "Link Integrity acceptance provider",
+  "version": "1.0.0",
+  "minAppVersion": "1.12.7",
+  "description": "Explicit mention fixtures for disposable acceptance Vaults only.",
+  "author": "ZhengYX",
+  "isDesktopOnly": false
+}

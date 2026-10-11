@@ -2,7 +2,7 @@
 
 [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.de.md) · [Français](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.fr.md) · [Русский](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ru.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.pt-BR.md) · [日本語](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ko.md) · [Español](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.es.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.vi.md)
 
-Link Integrity is a local, read-only Obsidian plugin that helps you find Broken links and Isolated files.
+Link Integrity is a local Obsidian plugin for Broken links, Isolated files and potential mentions. Diagnostics are read-only by default; you can explicitly create one verified link.
 
 ## Screenshots
 
@@ -18,6 +18,7 @@ Configure indexing, ignore rules, file types, and expected-isolation rules in Ob
 
 ## Features
 
+- Finds potential mentions of Markdown titles and aliases while retaining same-name, contained and crossing candidates. Suggestions never count as graph connections.
 - Finds internal links to missing files, headings, and blocks in Markdown, embeds, frontmatter, Canvas, and explicit Bases file references.
 - Finds files that have no working incoming or outgoing connection to another existing file in the Vault. Self-links and external URLs do not count as Vault connections.
 - Warns when an isolated file also contains broken outgoing links, so it is not mistaken for a file that is obviously safe to clean up.
@@ -47,6 +48,8 @@ For a manual installation, place `main.js`, `manifest.json`, and `styles.css` in
 3. Select a result to open its source. Use the isolated-file filters to narrow the current view without changing your saved defaults.
 4. Startup scanning is off by default. Opening the sidebar builds the index when needed; you can also use **Build index** or **Rebuild index** in General settings. After the first successful build, changes in the Vault update the results automatically.
 
+Use the potential-mention commands for the current note, cursor or reverse lookup; isolated-file menus also offer reverse lookup. General settings offer Off (default), Current paragraph and Whole note dashed hints in editing and reading views. Choose a full source range and target, then explicitly Create link. Reading/reverse results first require Open source and validate range. Reverse scans show progress, cancellation and partial/stale results; an incomplete scan never means zero mentions. Immediate Undo refuses after later edits; use editor Undo then.
+
 ## Settings
 
 **What counts as isolated?** This is about *valid connections to existing Vault files*, not just backlinks:
@@ -65,14 +68,14 @@ Settings and user-defined rules are stored in `data.json`. The calculated link i
 
 ## Limitations
 
-- Link Integrity does not delete files, rewrite links, or decide automatically which files should be removed.
+- Link Integrity never deletes files or rewrites links automatically. Creating a single link requires an explicit selection and exact editor/source/target revalidation. Protected or ambiguously rendered syntax may suppress hints; the paged list keeps all candidates accessible.
 - External URLs are intentionally out of scope and are never requested over the network.
 - Dynamic Bases query results do not count as direct file connections; only explicit file references do.
 - Expected-isolation rules only change how already-isolated files are classified. They do not hide broken links or remove real file connections.
 
 ## Privacy and security
 
-All indexing and rule evaluation runs locally. Link Integrity does not upload Vault content, require an account, or modify notes. Diagnostic paths and samples stay inside the running Obsidian session unless you choose to share them.
+All indexing and matching runs locally. Link Integrity does not upload Vault content or require an account. Notes change only through your explicit, validated single-link action. Derived suggestions remain in memory.
 
 ## Development
 

@@ -115,3 +115,15 @@ create、delete 和 rename 会重新取得文件 registry，并比较新旧 look
 自动测试已经覆盖核心图不变量、快照替换、regraph 与干净物化结果的规范化差分等价、同步 reducer batch 预验证、同名目标重验证、随机事件差分、late Metadata Cache 纠偏、last-known-good、事件重放、worker 取消、操作代次隔离和查询语义。专项 10k/50k benchmark 还约束普通单来源更新只求值该来源的旧、新 occurrence。实际解析准确性最终仍依赖运行中的 Obsidian API 和真实文件缓存。
 
 当前没有派生图持久化、外部 URL 网络检查、自动删除或批量修复。架构测试不能证明所需的 Obsidian 1.12.7/当前 1.13.x 桌面宿主矩阵、实时事件路径或 Android 模拟器行为；桌面宿主始终需要独立验收，`isDesktopOnly: false` 的候选还需要当前 Android 模拟器证据。Android 真机和 iOS 不在验收范围内；历史真机证据仅作补充，不构成发布门槛。
+
+## 独立潜在提及层
+
+`src/core/potential-mention-matcher.ts` 的纯多模式匹配器分片构建 Aho-Corasick 词典，共享同名目标数组，保留重叠 UTF-16 范围，并应用字素/词边界。Aliases 永不进入真实 resolver lookup keys。Sweep 展示片段与完整来源匹配分离。
+
+`src/features/mentions/` 通过 port 读取权威 LinkIndex 注册表，不修改它。词典与来源分别维护失效 generation。当前文档请求由调用者独立取消，分屏视图不能互相取代。活动来源匹配共享有界缓存，最多四份文档和两百万 UTF-16 单元。反查快照只保留 SHA-256 版本与精确范围，不为每个命中文件复制完整正文。反查完成检查来源/词典 generation、来源集合身份、取消、读取成功与 alias 元数据完整性。
+
+Obsidian port 读取官方标题/aliases，用专用扫描器保护正文语法，并在可用时读取已打开编辑器快照。适配器事件在请求提及后才启动。Alias 元数据变更或 resolved 事件使词典失效；文字事件使来源工作失效；命名空间发布更新目标成员。派生提及与版本 hash 不持久化。
+
+CM6 集成以 mark 装饰可见片段；阅读 child 装饰唯一映射的视口文字并保护通用交互节点。每个 child 拥有取消、订阅与所属窗口清理。应用层负责分页选择及编辑器绑定。阅读/反查导航先证明完整来源快照与精确换行转换，再提供写入动作。
+
+写入器使用官方 `FileManager.generateMarkdownLink`，验证生成引用确实解析到所选目标，处理表格 pipe 转义，并执行单次明确的编辑器事务。异步屏蔽检查前后均复验实时 current-file 回调，避免相同文字的编辑器切换写错文件。保守逆向事务拒绝后续编辑；不引入 Vault.process 或独立文件级撤销栈。

@@ -10,7 +10,7 @@ This document defines the current product behavior of Link Integrity. It describ
 
 ## Product position
 
-Link Integrity is a fully local, read-only Obsidian Vault diagnostic plugin. It provides two main views: Broken links and Isolated files. The plugin helps users find relationships that need review, but it does not delete files, bulk-rewrite links, check external URLs, or present a diagnostic result as permission to clean up automatically.
+Link Integrity is a fully local Obsidian Vault diagnostic plugin, read-only by default. It provides two main views: Broken links and Isolated files. The plugin helps users find relationships that need review, but it does not delete files, bulk-rewrite links, check external URLs, or present a diagnostic result as permission to clean up automatically.
 
 ## Valid Vault connections
 
@@ -81,3 +81,15 @@ Isolated candidates use one shared file-type registry: Obsidian files (Markdown,
 All scanning, indexing, and rule matching runs locally. The plugin persists settings, ignore rules, and interface preferences only; it does not persist the derived link graph. An authoritative index is rebuilt from the Vault after restart.
 
 The plugin is diagnostic and non-destructive. Automatic deletion, bulk repair, network checks of external URLs, and inference of explicit connections from dynamic query results are not current behaviors.
+
+## Potential mentions and explicit link creation
+
+Potential mentions are local suggestions from current Markdown note titles and official aliases. The source note excludes itself. They never become link occurrences, graph edges, backlinks or evidence that a file is connected; graph diagnostics continue to use explicit resolved references only.
+
+Matching preserves every contained or crossing range and every target for an ambiguous name. Offsets are exact UTF-16 source offsets. ASCII letter matching ignores case; Latin or numeric name edges require Unicode word boundaries, while CJK names can match substrings. Grapheme boundaries are preserved; complex case folding and Unicode normalization equivalence are out of scope.
+
+The default body hint mode is Off. Current note, cursor and explicit reverse queries remain available. Enabling Current paragraph or Whole note adds fine dashed hints in editing and reading views. Scans use the indexed Markdown registry and cached title/alias metadata; disabling hints causes no additional full-Vault body scan. Reverse lookup is an explicit cancellable scan with progress and retained partial results. Only an unchanged dictionary, source set and observed versions with complete alias metadata can produce Complete; cancellation, stale data and read failures cannot mean zero mentions.
+
+Frontmatter, existing links and embeds, reference definitions, code, comments, HTML tags/raw blocks, math, URLs and hashtags are protected. The body scanner is conservative rather than a complete Markdown parser; uncertain or incomplete syntax can suppress suggestions. A rendered span without unique source mapping remains available through the query and source navigation.
+
+Creating a real link requires an explicit choice of one source range and one target. The action revalidates the bound editor, complete source version, range, current target and name, protected syntax and official generated-link resolver result before one editor transaction. Reading/reverse results must first open and validate a source editor, including an exact CRLF/CR-to-LF coordinate conversion where required. No bulk rewriting or direct file write occurs. Immediate Notice Undo is an exact inverse transaction; after later edits or editor rebinding it refuses and directs users to editor Undo.

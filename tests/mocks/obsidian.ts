@@ -1,3 +1,16 @@
+import { StateField } from "@codemirror/state";
+
+export const editorInfoField = StateField.define<unknown>({ create: () => undefined, update: (value) => value });
+
+export class MarkdownRenderChild {
+  constructor(readonly containerEl: HTMLElement) {}
+  onload(): void {}
+  onunload(): void {}
+  registerDomEvent(element: HTMLElement, name: string, callback: EventListener, options?: AddEventListenerOptions): void {
+    element.addEventListener(name, callback, options);
+  }
+}
+
 export class Plugin {
   app: unknown;
 
@@ -19,6 +32,9 @@ export class Plugin {
     return eventRef;
   }
   registerView(): void {}
+  register(): void {}
+  registerEditorExtension(): void {}
+  registerMarkdownPostProcessor(): void {}
   saveData(): Promise<void> {
     return Promise.resolve();
   }
@@ -152,6 +168,12 @@ export function parseLinktext(linktext: string): { path: string; subpath: string
 
 export function resolveSubpath(): null {
   return null;
+}
+
+export function parseFrontMatterAliases(frontmatter: Record<string, unknown> | null): string[] | null {
+  const value = frontmatter?.aliases ?? frontmatter?.alias;
+  if (typeof value === "string") return value.split(",").map((alias) => alias.trim());
+  return Array.isArray(value) ? value.filter((alias): alias is string => typeof alias === "string") : null;
 }
 
 export function setIcon(): void {}

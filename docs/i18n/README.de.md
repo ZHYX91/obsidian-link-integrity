@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
-Link Integrity ist ein lokales Obsidian-Diagnose-Plugin, das nur liest und dabei Broken links und Isolated files findet.
+Link Integrity ist ein lokales Obsidian-Plugin für defekte Links, isolierte Dateien und mögliche Erwähnungen. Diagnosen sind standardmäßig schreibgeschützt; einzelne geprüfte Links können ausdrücklich erstellt werden.
 
 ## Screenshots
 
@@ -18,6 +18,7 @@ Index, Ignorierregeln, Dateitypen und Regeln für erwartete Isolation werden in 
 
 ## Funktionen
 
+- Findet mögliche Erwähnungen von Markdown-Titeln und Aliasnamen und erhält gleichnamige, enthaltene und überlappende Kandidaten. Vorschläge zählen nie als Graphverbindungen.
 - Findet interne Verweise auf fehlende Dateien, Überschriften und Blöcke in Markdown, Einbettungen, Frontmatter, Canvas und ausdrücklich angegebenen Bases-Dateiverweisen.
 - Findet Dateien ohne gültige eingehende oder ausgehende Verbindung zu einer anderen vorhandenen Vault-Datei. Selbstlinks und externe URLs zählen nicht als Vault-Verbindungen.
 - Weist darauf hin, wenn eine isolierte Datei zusätzlich defekte ausgehende Links enthält, damit sie nicht vorschnell als offensichtlich entbehrlich gilt.
@@ -47,6 +48,8 @@ Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` na
 3. Einen Eintrag auswählen, um seine Quelle zu öffnen. Filter für isolierte Dateien ändern nur die aktuelle Ansicht und nicht die gespeicherten Standardwerte.
 4. Der Startscan ist standardmäßig aus. Beim Öffnen der Seitenleiste wird der Index bei Bedarf erstellt; alternativ stehen **Index erstellen** und **Index neu erstellen** in den allgemeinen Einstellungen bereit. Nach dem ersten erfolgreichen Aufbau werden Änderungen im Vault automatisch übernommen.
 
+Befehle prüfen die aktuelle Notiz, die Cursorposition oder erwähnende Quellen; das Menü isolierter Dateien bietet ebenfalls die Rückwärtssuche. Allgemein bietet Aus (Standard), Aktueller Absatz und Gesamte Notiz mit gestrichelten Hinweisen im Editor und in der Leseansicht. Wählen Sie Quellbereich und Ziel und erstellen Sie ausdrücklich einen Link. Lese- und Rückwärtsergebnisse müssen zuerst die Quelle öffnen und den Bereich prüfen. Die Suche zeigt Fortschritt, Abbruch und unvollständige/veraltete Ergebnisse; unvollständig bedeutet niemals null Treffer. Nach weiteren Änderungen verwenden Sie das Rückgängigmachen des Editors.
+
 ## Einstellungen
 
 - **Allgemein**: Sprache, Startscan, Standardansichten und Aktionen zum Erstellen oder Neuerstellen des Index. Standard ist **Obsidian folgen**.
@@ -58,14 +61,14 @@ Einstellungen und benutzerdefinierte Regeln stehen in `data.json`. Der berechnet
 
 ## Einschränkungen
 
-- Link Integrity löscht keine Dateien, schreibt keine Links um und entscheidet nicht automatisch, welche Dateien entfernt werden sollten.
+- Link Integrity löscht keine Dateien und schreibt Links nicht automatisch um. Ein einzelner Link erfordert eine ausdrückliche Auswahl und genaue Prüfung von Editor, Quelle und Ziel. Geschützte oder mehrdeutige Darstellung kann Hinweise unterdrücken; die paginierte Liste erhält alle Kandidaten.
 - Externe URLs sind bewusst nicht Teil der Prüfung und werden nicht über das Netzwerk abgefragt.
 - Dynamische Bases-Abfragen zählen nicht als direkte Dateiverbindungen; nur ausdrücklich angegebene Dateiverweise zählen.
 - Regeln für erwartete Isolation ändern nur die Einordnung bereits isolierter Dateien. Sie verbergen keine defekten Links und entfernen keine echten Dateiverbindungen.
 
 ## Datenschutz und Sicherheit
 
-Alle Index- und Regelprüfungen laufen lokal. Link Integrity lädt keine Vault-Inhalte hoch, benötigt kein Konto und verändert keine Notizen. Diagnosepfade und Beispiele bleiben in der laufenden Obsidian-Sitzung, sofern Sie sie nicht selbst teilen.
+Indexierung und Abgleich erfolgen lokal, ohne Upload oder Konto. Notizen ändern sich nur durch Ihre ausdrückliche, geprüfte Einzelaktion. Abgeleitete Vorschläge bleiben im Arbeitsspeicher.
 
 ## Entwicklung
 

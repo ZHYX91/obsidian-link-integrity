@@ -16,3 +16,9 @@ With the packaged `link-integrity` candidate enabled and the startup scan comple
 Fixture setup is not product evidence. Candidate identity, host lifecycle, product observations, screenshots, and navigation checks must be recorded as separate claims by the environment performing the run.
 
 The review regression also exercises CRLF/empty/adjacent Canvas fences, Bases dynamic arguments and display names, and YAML-decoded position fallback. The seeded `Bounded regex` rule matches no fixture filename; previewing it exercises the bounded matcher through the settings UI without changing the default isolation counts.
+
+## Potential mention scenarios
+
+The `potential-mentions` and `potential-mentions-fakelink` scenarios use the same base fixture without automatically adding notes. The self-contained `link-integrity-acceptance-provider` registers an explicit **Create potential mention fixtures in this disposable acceptance Vault** command. Run it only in the identified disposable Vault after observing the initial five broken/four isolated counts. It creates seven notes under `Mentions Acceptance/`, refuses to overwrite existing files, and never targets an ordinary Vault. New counts after this command depend on the added notes and any explicit link edits.
+
+The second scenario requires a separate FakeLink environment supplied by the host operator; the product fixture does not bundle third-party runtime code. Test clean behavior and coexistence separately. Record the exact candidate and host, incomplete checks and failures; setup alone proves no product behavior.
