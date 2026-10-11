@@ -70,7 +70,7 @@ export class MentionRuntime {
       label: (text) => `${this.translator().t("mentions.title")}: ${text}`,
       onDispose: (dispose) => this.readingDisposers.delete(dispose),
       });
-      this.readingDisposers.add(dispose);
+      if (dispose !== null) this.readingDisposers.add(dispose);
     });
     for (const cursor of [false, true]) {
       const key = cursor ? "mentions.atCursor" : "mentions.current";
