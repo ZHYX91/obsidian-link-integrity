@@ -54,4 +54,14 @@ describe("body syntax protection", () => {
     }
   });
 
+  it.each([
+    '<pre>\n<span title="</pre>">hidden</span>\n</pre>\n\n白云山',
+    "<pre>\n<!--\n</pre>\n-->\nhidden\n</pre>\n\n白云山",
+    '<script>\nconst literal = "</script>";\n\n白云山',
+  ])("retains normal prose after a real raw HTML closer: %s", async (source) => {
+    const matcher = new PotentialMentionMatcher([{ text: "白云山", targetPath: "Target.md", kind: "alias" }]);
+    expect(matcher.match(source, { excludedRanges: await extractMarkdownMentionExclusions(source) }).map((match) => match.from))
+      .toEqual([source.indexOf("白云山")]);
+  });
+
 });

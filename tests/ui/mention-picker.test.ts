@@ -86,4 +86,67 @@ describe("mention picker", () => {
     expect(document.querySelectorAll(".link-integrity-mention-picker-results button")).toHaveLength(1);
     picker.close();
   });
+
+  it("rebinds a selected range to fresh targets and rejects a queued action from removed DOM", async () => {
+    const create = vi.fn(async () => undefined);
+    const picker = openMentionPicker(document, createTranslator("en", "en"), {
+      navigate: async () => undefined, openTarget: async () => undefined, create, canCreate: () => true, close: () => undefined,
+    });
+    const match = { from: 0, to: 3, text: "白云山", targets: ["A.md", "B.md"].map((path) => ({ path, nameKinds: ["alias" as const] })) };
+    const source = { sourcePath: "Source.md", documentRevision: "revision", matches: [match] };
+    picker.update([source], "Scanning");
+    document.querySelector<HTMLButtonElement>(".link-integrity-mention-picker-results button")!.click();
+    await Promise.resolve(); await Promise.resolve();
+    const buttons = () => [...document.querySelectorAll<HTMLButtonElement>("button")].filter((button) => button.textContent === "Create link");
+    buttons()[1]!.focus();
+    buttons()[1]!.click();
+    const latestMatch = { ...match, targets: match.targets.slice(0, 1) };
+    const latestSource = { ...source, matches: [latestMatch] };
+    picker.update([latestSource], "Fresh targets");
+    await Promise.resolve(); await Promise.resolve();
+    expect(document.activeElement?.textContent).toBe("Cancel");
+    expect(document.body.textContent).not.toContain("B.md");
+    expect(create).not.toHaveBeenCalled();
+    expect(buttons()).toHaveLength(1);
+    buttons()[0]!.click();
+    await vi.waitFor(() => expect(create).toHaveBeenCalledWith(latestSource, latestMatch, "A.md"));
+  });
+
+  it("returns to range selection when replacement data cannot prove the selected range", async () => {
+    const picker = openMentionPicker(document, createTranslator("en", "en"), {
+      navigate: async () => undefined, openTarget: async () => undefined, create: async () => undefined, canCreate: () => true, close: () => undefined,
+    });
+    const source = { sourcePath: "Source.md", documentRevision: "revision", matches: [
+      { from: 0, to: 3, text: "白云山", targets: [{ path: "B.md", nameKinds: ["alias" as const] }] },
+    ] };
+    picker.update([source], "Complete", true);
+    document.querySelector<HTMLButtonElement>(".link-integrity-mention-picker-results button")!.click();
+    await Promise.resolve(); await Promise.resolve();
+    [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Create link")!.focus();
+    picker.update([{ ...source, matches: [] }], "Updated", true);
+    expect(document.activeElement?.textContent).toBe("Cancel");
+    expect(document.body.textContent).not.toContain("B.md");
+    picker.close();
+  });
+
+  it("retains a selected later range only for the same lazy source provider", async () => {
+    const match = (from: number) => ({ from, to: from + 1, text: "山", targets: [{ path: "Later.md", nameKinds: ["alias" as const] }] });
+    const source = { sourcePath: "Source.md", documentRevision: "revision", matches: Array.from({ length: 50 }, (_, index) => match(index)),
+      matchCount: 51, loadMatches: vi.fn(async (offset: number) => [match(offset)]) };
+    const picker = openMentionPicker(document, createTranslator("en", "en"), {
+      navigate: async () => undefined, openTarget: async () => undefined, create: async () => undefined, canCreate: () => true, close: () => undefined,
+    });
+    picker.update([source], "Complete", true);
+    [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Next")!.click();
+    await vi.waitFor(() => expect(document.querySelectorAll(".link-integrity-mention-picker-results button")).toHaveLength(1));
+    document.querySelector<HTMLButtonElement>(".link-integrity-mention-picker-results button")!.click();
+    await Promise.resolve(); await Promise.resolve();
+    picker.update([source], "Progress");
+    expect(document.body.textContent).toContain("Later.md");
+    [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Create link")!.focus();
+    picker.update([{ ...source, loadMatches: vi.fn(async () => []) }], "Replaced provider");
+    expect(document.activeElement?.textContent).toBe("Cancel");
+    expect(document.body.textContent).not.toContain("Later.md");
+    picker.close();
+  });
 });

@@ -123,6 +123,17 @@ describe("explicit single-mention editor transactions", () => {
   });
 
   it.each([
+    '<pre>\n<span title="</pre>">hidden</span>\n</pre>\n\n白云山',
+    "<pre>\n<!--\n</pre>\n-->\nhidden\n</pre>\n\n白云山",
+    '<script>\nconst literal = "</script>";\n\n白云山',
+  ])("writes normal prose after a real raw HTML closer: %s", async (content) => {
+    const test = setup(content);
+    await test.create();
+    expect(test.editor.getValue()).toBe(content.replace("白云山", "[[Places/广州|白云山]]"));
+    expect(test.editor.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
     "| Location |\n| -- |\n| 白云山 |",
     "> | Location |\n> | --- |\n> | 白云山 |",
     "- item\n\n  | Location |\n  | -- |\n  | 白云山 |",

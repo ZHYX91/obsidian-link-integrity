@@ -15,9 +15,9 @@ export interface MentionReadingOptions {
 }
 
 /** Rendering is advisory. Source navigation and writing are verified independently by the editor adapter. */
-export function decorateMentionReading(element: HTMLElement, context: MarkdownPostProcessorContext, options: MentionReadingOptions): () => void {
+export function decorateMentionReading(element: HTMLElement, context: MarkdownPostProcessorContext, options: MentionReadingOptions): (() => void) | null {
   const section = context.getSectionInfo(element);
-  if (section === null) return () => undefined;
+  if (section === null) return null;
   const child = new class extends MarkdownRenderChild {
     private abort: AbortController | null = null;
     private coordinator: MentionReadingRoot | null = null;

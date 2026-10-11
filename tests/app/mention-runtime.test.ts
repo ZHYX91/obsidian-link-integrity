@@ -181,4 +181,16 @@ describe("mention host composition", () => {
     expect(element.querySelector(".link-integrity-mention-hint")).toBeNull();
     children[1]!.onunload();
   });
+
+  it("does not retain disposers or create children for unavailable reading sections", () => {
+    const test = setup();
+    const addChild = vi.fn();
+    const context = { sourcePath: "Source.md", getSectionInfo: () => null, addChild } as unknown as MarkdownPostProcessorContext;
+    const postprocess = test.reading.mock.calls[0]![0];
+    for (let index = 0; index < 500; index += 1) postprocess(document.createElement("div"), context);
+    expect(addChild).not.toHaveBeenCalled();
+    expect((test.runtime as unknown as { readingDisposers: Set<() => void> }).readingDisposers.size).toBe(0);
+    expect(test.app.vault.cachedRead).not.toHaveBeenCalled();
+    test.runtime.close();
+  });
 });

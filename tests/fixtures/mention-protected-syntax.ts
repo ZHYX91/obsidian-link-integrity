@@ -24,6 +24,14 @@ export const protectedMentionSyntax = [
   ["raw HTML attribute resembling a closer", '<pre data-x="</pre>">\n白云山\n</pre>'],
   ["raw HTML attribute resembling self-closing markup", '<pre data-x="fake />">\n白云山\n</pre>'],
   ["multiline raw HTML attribute resembling a closer", '<pre\n data-x="\n</pre>\n">\n白云山\n</pre>'],
+  ["raw HTML child attribute resembling a closer", '<pre>\n<span title="</pre>">\n白云山\n</pre>'],
+  ["raw HTML same-line child attribute resembling a closer", '<pre><span title="</pre>">\n白云山\n</pre>'],
+  ["raw HTML child single-quoted attribute resembling a closer", "<pre>\n<span title='</pre>'>\n白云山\n</pre>"],
+  ["raw HTML multiline child attribute resembling a closer", '<pre>\n<span title="\n</pre>\n">\n白云山\n</pre>'],
+  ["raw HTML comment resembling a closer", "<pre>\n<!-- </pre> -->\n白云山\n</pre>"],
+  ["raw HTML multiline comment resembling a closer", "<pre>\n<!--\n</pre>\n-->\n白云山\n</pre>"],
+  ["raw HTML unclosed comment resembling a closer", "<pre>\n<!-- </pre>\n白云山\n</pre>"],
+  ["quoted list raw child attribute resembling a closer", '> - <pre>\n>   <span title="</pre>">\n>   白云山\n>   </pre>'],
 ] as const;
 
 export const ordinaryListMentionSyntax = [

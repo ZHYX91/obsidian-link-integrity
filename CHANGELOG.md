@@ -7,7 +7,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-10-11
+## [0.3.0] - 2026-10-12
 
 - Add local potential mentions for Markdown titles and aliases, with same-name, contained and crossing candidates retained.
 - Add opt-in dashed body hints in editing and reading views, current-note/cursor queries and explicit reverse lookup with progress and cancellation.

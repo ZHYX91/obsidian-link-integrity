@@ -45,7 +45,8 @@ export function openMentionPicker(document: Document, translator: Translator, ac
     element.disabled = disabled;
     element.dataset.mentionAction = key;
     element.addEventListener("click", () => {
-      Promise.resolve().then(() => { if (!closed && !element.disabled) return action(); }).catch(() => { status = translator.t("mentions.changed"); render(); });
+      Promise.resolve().then(() => { if (!closed && !element.disabled && dialog.contains(element)) return action(); })
+        .catch(() => { status = translator.t("mentions.changed"); render(); });
     });
     return element;
   };
@@ -122,6 +123,7 @@ export function openMentionPicker(document: Document, translator: Translator, ac
         button("ranges:next", translator.t("common.next"), () => { page += 1; render(); }, (page + 1) * 50 >= total));
     } else {
       const { source, match } = selected;
+      targetPage = Math.min(targetPage, Math.max(0, Math.ceil(match.targets.length / 50) - 1));
       const range = document.createElement("p");
       range.textContent = `${source.sourcePath} · ${translator.t("mentions.range", { text: match.text, line: match.context?.line ?? "?" })} · ${match.context?.excerpt ?? ""}`;
       const key = rangeKey(source, match);
@@ -153,8 +155,15 @@ export function openMentionPicker(document: Document, translator: Translator, ac
   render();
   dialog.showModal();
   return { close, update: (next, nextStatus, done = false) => {
-    if (selected !== null && !next.some((source) => source.sourcePath === selected?.source.sourcePath &&
-      source.documentRevision === selected.source.documentRevision)) selected = null;
+    if (selected !== null) {
+      const current = selected;
+      const source = next.find((source) => source.sourcePath === current.source.sourcePath && source.documentRevision === current.source.documentRevision);
+      const match = source?.matches.find((match) => match.from === current.match.from && match.to === current.match.to && match.text === current.match.text);
+      if (source !== undefined && match !== undefined) selected = match.targets.length > 0 ? { source, match } : null;
+      // An unchanged lazy provider owns the same proven page. A replacement without the exact range
+      // cannot inherit old actions; return to range selection instead of guessing or retaining targets.
+      else if (source === undefined || source !== current.source || source.loadMatches === undefined) selected = null;
+    }
     sources = next; status = nextStatus; complete = done; render();
   } };
 }

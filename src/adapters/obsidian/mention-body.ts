@@ -8,7 +8,8 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
   const lines = [...source.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/gu)].filter((line) => line[0].length > 0);
   let properties = source.replace(/^\uFEFF/u, "").startsWith("---") && lines[0]?.[0].trim().replace(/^\uFEFF/u, "") === "---";
   let fence: { character: string; length: number; from: number; containers: readonly MentionContainer[] } | null = null;
-  let html: { name: string; from: number; containers: readonly MentionContainer[]; openingQuote: string | null; openingComplete: boolean } | null = null;
+  let html: { name: string; from: number; containers: readonly MentionContainer[]; openingQuote: string | null; openingComplete: boolean;
+    bodyState: HtmlBodyState } | null = null;
   let containers: readonly MentionContainer[] = [];
   let indented = false;
   let previousBlank = true;
@@ -41,7 +42,7 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
         html.openingComplete = opening.end !== undefined;
         body = opening.end === undefined ? "" : content.slice(opening.end);
       }
-      if (html.openingComplete && (new RegExp(`</${html.name}\\s*>`, "iu").test(body) ||
+      if (html.openingComplete && (await htmlBodyHasClosing(body, html.name, html.bodyState, scheduler) ||
         (!RAW_HTML_TEXT_TAGS.has(html.name) && content.trim().length === 0))) {
         ranges.push({ from: html.from, to });
         html = null;
@@ -53,10 +54,11 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
       if (opening !== undefined) fence = { character: opening[0] ?? "`", length: opening.length, from, ...container };
       else if (htmlName !== undefined) {
         const tag = htmlOpeningEnd(content, null);
-        if (tag.end !== undefined && (new RegExp(`</${htmlName}\\s*>`, "iu").test(content.slice(tag.end)) ||
+        const bodyState: HtmlBodyState = { tag: false, quote: null, comment: false };
+        if (tag.end !== undefined && (await htmlBodyHasClosing(content.slice(tag.end), htmlName, bodyState, scheduler) ||
           (!RAW_HTML_TEXT_TAGS.has(htmlName) && (/\/\s*>$/u.test(content.slice(0, tag.end)) ||
             ["br", "hr", "img", "input", "meta", "link"].includes(htmlName))))) ranges.push({ from, to });
-        else html = { name: htmlName, from, ...container, openingQuote: tag.quote, openingComplete: tag.end !== undefined };
+        else html = { name: htmlName, from, ...container, openingQuote: tag.quote, openingComplete: tag.end !== undefined, bodyState };
       } else if (/^(?: {4,}| {0,3}\t)/u.test(content) && (indented || previousBlank)) {
         ranges.push({ from, to });
         indented = true;
@@ -167,6 +169,33 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
 }
 
 const RAW_HTML_TEXT_TAGS = new Set(["pre", "script", "style", "textarea"]);
+
+interface HtmlBodyState { tag: boolean; quote: string | null; comment: boolean; }
+
+/** A conservative write guard, deliberately stricter than CommonMark's line-based HTML end condition. */
+async function htmlBodyHasClosing(text: string, name: string, state: HtmlBodyState, scheduler: WorkScheduler): Promise<boolean> {
+  const closing = new RegExp(`</${name}\\s*>`, "iyu");
+  const tag = /<(?=\/?[A-Za-z]|!|\?)/uy;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (state.comment) {
+      if (text.startsWith("-->", index)) { state.comment = false; index += 2; }
+    } else if (state.tag) {
+      if (state.quote !== null) { if (character === state.quote) state.quote = null; }
+      else if (character === '"' || character === "'") state.quote = character;
+      else if (character === ">") state.tag = false;
+    } else if (text.startsWith("<!--", index)) { state.comment = true; index += 3; }
+    else if (character === "<") {
+      closing.lastIndex = index;
+      if (closing.test(text)) return true;
+      tag.lastIndex = index;
+      state.tag = tag.test(text);
+    }
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+  }
+  return false;
+}
 
 function htmlOpeningEnd(text: string, initialQuote: string | null): { end: number | undefined; quote: string | null } {
   let quote = initialQuote;
