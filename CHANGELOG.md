@@ -5,14 +5,15 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
-## [0.3.0]
+## [Unreleased]
+
+## [0.3.0] - 2026-10-11
 
 - Add local potential mentions for Markdown titles and aliases, with same-name, contained and crossing candidates retained.
 - Add opt-in dashed body hints in editing and reading views, current-note/cursor queries and explicit reverse lookup with progress and cancellation.
 - Create one selected real link through the official Obsidian generator after exact editor/source/target revalidation, with conservative immediate Undo.
 - Keep potential mentions separate from graph connections and isolation diagnostics; protect existing links, properties, code, comments, HTML, math, URLs and tags.
-
-## [Unreleased]
+- Preserve result focus when the sidebar opens in a separate Obsidian window.
 
 ## [0.2.10] - 2026-10-09
 

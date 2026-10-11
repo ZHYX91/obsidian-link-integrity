@@ -49,10 +49,13 @@ function setup(raw = "白云山") {
 }
 
 async function click(label: string): Promise<void> {
-  const button = [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === label);
-  expect(button).toBeDefined();
+  let button: HTMLButtonElement | undefined;
+  await vi.waitFor(() => {
+    button = [...document.querySelectorAll<HTMLButtonElement>("button")].find((candidate) => candidate.textContent === label);
+    expect(button).toBeDefined();
+    expect(button!.disabled).toBe(false);
+  });
   button!.click();
-  await new Promise((resolve) => window.setTimeout(resolve, 5));
 }
 
 describe("mention host composition", () => {
@@ -71,7 +74,7 @@ describe("mention host composition", () => {
     document.querySelector<HTMLButtonElement>(".link-integrity-mention-picker-results button")!.click();
     await new Promise((resolve) => window.setTimeout(resolve, 5));
     await click("Create link");
-    expect(test.editor.getValue()).toBe("[[白云山]]");
+    await vi.waitFor(() => expect(test.editor.getValue()).toBe("[[白云山]]"));
     expect(test.index.toCanonicalState().edges).toEqual([]);
     expect(test.report).not.toHaveBeenCalled();
     expect(test.register).toHaveBeenCalledOnce();
@@ -93,7 +96,7 @@ describe("mention host composition", () => {
     expect(create.disabled).toBe(true);
     await click("Open source and validate range");
     await click("Create link");
-    expect(test.editor.getValue()).toBe("🌤️\n[[白云山]]");
+    await vi.waitFor(() => expect(test.editor.getValue()).toBe("🌤️\n[[白云山]]"));
     expect(test.editor.setSelection).toHaveBeenCalledWith({ line: 0, ch: 4 }, { line: 0, ch: 7 });
     test.runtime.close();
   });

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { App, Editor, EditorTransaction, TFile } from "obsidian";
 
 import { MentionWriteError, ObsidianPotentialMentionWriter } from "../../src/adapters/obsidian/potential-mention-writer";
+import { ordinaryListMentionSyntax, protectedMentionSyntax } from "../fixtures/mention-protected-syntax";
 
 function setup(content = "白云山 and 白云山", generated = "[[Places/广州|白云山]]") {
   let text = content;
@@ -105,5 +106,57 @@ describe("explicit single-mention editor transactions", () => {
     const cr = setup("| Location |\r| --- |\r| 白云山 |");
     await cr.create();
     expect(cr.editor.getValue()).toContain("[[Places/广州\\|白云山]]");
+  });
+
+  it.each(protectedMentionSyntax)("rejects an explicitly supplied protected range in %s", async (_label, content) => {
+    const test = setup(content);
+    await expect(test.create()).rejects.toMatchObject({ reason: "range-unavailable" });
+    expect(test.editor.getValue()).toBe(content);
+    expect(test.editor.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(ordinaryListMentionSyntax)("writes ordinary list prose: %s", async (content) => {
+    const test = setup(content);
+    await test.create();
+    expect(test.editor.transaction).toHaveBeenCalledTimes(1);
+    expect(test.editor.getValue()).toBe(content.replace("白云山", "[[Places/广州|白云山]]"));
+  });
+
+  it.each([
+    "| Location |\n| -- |\n| 白云山 |",
+    "> | Location |\n> | --- |\n> | 白云山 |",
+    "- item\n\n  | Location |\n  | -- |\n  | 白云山 |",
+    "- > | Location |\n  > | -- |\n  > | 白云山 |",
+    "- > - | Location |\n  >   | -- |\n  >   | 白云山 |",
+    "| 白云山 | Other |\n| :-- | --: |\n| A | B |",
+  ])("preserves the table cell separators in %s", async (content) => {
+    const test = setup(content);
+    const receipt = await test.create();
+    expect(test.editor.getValue()).toBe(content.replace("白云山", "[[Places/广州\\|白云山]]"));
+    expect(test.editor.transaction).toHaveBeenCalledTimes(1);
+    receipt.undo();
+    expect(test.editor.getValue()).toBe(content);
+  });
+
+  it.each([
+    "> | Location |\n> | --- |\n| 白云山 |",
+    "- | Location |\n  | --- |\n| 白云山 |",
+    "| Location | Other |\n| --- |\n| 白云山 |",
+  ])("does not escape alias pipes in non-table prose: %s", async (content) => {
+    const test = setup(content);
+    await test.create();
+    expect(test.editor.getValue()).toBe(content.replace("白云山", "[[Places/广州|白云山]]"));
+  });
+
+  it("rejects a candidate spanning a table separator without changing the document", async () => {
+    const content = "| Location | Other |\n| -- | -- |\n| 白云山 | Other |";
+    const text = "白云山 | Other";
+    const test = setup(content, "[[Places/广州|白云山 | Other]]");
+    test.match.text = text;
+    test.match.to = test.match.from + text.length;
+    test.metadata.getFileCache.mockReturnValue({ frontmatter: { aliases: [text] } });
+    await expect(test.create()).rejects.toMatchObject({ reason: "range-unavailable" });
+    expect(test.editor.getValue()).toBe(content);
+    expect(test.editor.transaction).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractMarkdownMentionExclusions } from "../../src/adapters/obsidian/mention-body";
 import { PotentialMentionMatcher } from "../../src/core/potential-mention-matcher";
+import { ordinaryListMentionSyntax, protectedMentionSyntax } from "../fixtures/mention-protected-syntax";
 
 describe("body syntax protection", () => {
   it("protects syntax independently of the explicit-link parser", async () => {
@@ -33,6 +34,24 @@ describe("body syntax protection", () => {
     }
     const source = "\\$山";
     expect(matcher.match(source, { excludedRanges: await extractMarkdownMentionExclusions(source) })).toHaveLength(1);
+  });
+
+  it.each(protectedMentionSyntax)("protects %s including container continuations", async (_label, source) => {
+    const matcher = new PotentialMentionMatcher([{ text: "白云山", targetPath: "Target.md", kind: "alias" }]);
+    expect(matcher.match(source, { excludedRanges: await extractMarkdownMentionExclusions(source) })).toEqual([]);
+  });
+
+  it.each(ordinaryListMentionSyntax)("retains ordinary list prose: %s", async (source) => {
+    const matcher = new PotentialMentionMatcher([{ text: "白云山", targetPath: "Target.md", kind: "alias" }]);
+    expect(matcher.match(source, { excludedRanges: await extractMarkdownMentionExclusions(source) })).toHaveLength(1);
+  });
+
+  it("ends protected blocks at their real closer without hiding following prose", async () => {
+    const matcher = new PotentialMentionMatcher([{ text: "白云山", targetPath: "Target.md", kind: "alias" }]);
+    for (const source of ["- ~~~\n  - ~~~\n  hidden\n  ~~~\n\n白云山", "<pre>\n\nhidden\n</pre>\n\n白云山"]) {
+      expect(matcher.match(source, { excludedRanges: await extractMarkdownMentionExclusions(source) }).map((match) => match.from))
+        .toEqual([source.indexOf("白云山")]);
+    }
   });
 
 });

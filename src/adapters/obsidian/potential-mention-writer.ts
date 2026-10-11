@@ -4,7 +4,7 @@ import type { PotentialMentionMatch } from "../../core/potential-mention-model";
 import { normalizeMentionText } from "../../core/potential-mention-matcher";
 import type { PotentialMentionSource } from "../../features/mentions/potential-mention-service";
 import { extractMarkdownExplicitReferences, extractMarkdownExplicitReferencesAsync } from "./explicit-link-parser";
-import { extractMarkdownMentionExclusions } from "./mention-body";
+import { extractMarkdownMentionExclusions, normalizeMentionContainerLines } from "./mention-body";
 
 export type MentionWriteFailure = "source-changed" | "target-changed" | "range-unavailable" | "undo-unavailable";
 
@@ -69,6 +69,9 @@ export class ObsidianPotentialMentionWriter {
     const table = isTableCell(sourceText, match.from);
     const linkText = table ? escapeTablePipes(generated) : generated;
     const after = sourceText.slice(0, match.from) + linkText + sourceText.slice(match.to);
+    if (table && linePipeCount(sourceText, match.from) !== linePipeCount(after, match.from)) {
+      throw new MentionWriteError("range-unavailable");
+    }
     // A table reader unescapes cell pipes before interpreting links. Check that semantic text
     // in its complete source context, so an escaped opener or accidental embed cannot be written.
     const contextAfter = table ? sourceText.slice(0, match.from) + generated + sourceText.slice(match.to) : after;
@@ -105,19 +108,39 @@ export class ObsidianPotentialMentionWriter {
 }
 
 function isTableCell(source: string, offset: number): boolean {
-  const lines = source.split(/\r\n|\r|\n/u);
+  const lines = normalizeMentionContainerLines(source);
   const lineIndex = source.slice(0, offset).split(/\r\n|\r|\n/u).length - 1;
-  if (!lines[lineIndex]?.includes("|")) return false;
+  const selected = lines[lineIndex];
+  if (selected === undefined || !selected.text.includes("|")) return false;
+  const container = selected.containers.join(",");
+  const sameContainer = (index: number): boolean => lines[index]?.containers.join(",") === container;
   for (let index = lineIndex + 1; index >= 1; index -= 1) {
     const line = lines[index];
     if (line === undefined) continue;
-    const cells = line.trim().replace(/^\||\|$/gu, "").split("|");
-    if (line.includes("|") && cells.every((cell) => /^[ \t]*:?-{3,}:?[ \t]*$/u.test(cell))) {
-      return index === lineIndex + 1 || lines.slice(index + 1, lineIndex + 1).every((row) => row.includes("|"));
+    const cells = tableCells(line.text);
+    const header = lines[index - 1];
+    if (sameContainer(index) && sameContainer(index - 1) && line.text.includes("|") && header?.text.includes("|") === true &&
+      cells.length === tableCells(header.text).length &&
+      cells.every((cell) => /^[ \t]*:?-{2,}:?[ \t]*$/u.test(cell))) {
+      return index === lineIndex + 1 || lines.slice(index + 1, lineIndex + 1)
+        .every((row) => row.containers.join(",") === container && row.text.includes("|"));
     }
-    if (index <= lineIndex && (line.trim().length === 0 || !line.includes("|"))) return false;
+    if (index <= lineIndex && (!sameContainer(index) || line.text.trim().length === 0 || !line.text.includes("|"))) return false;
   }
   return false;
+}
+
+function tableCells(line: string): readonly string[] {
+  const cells = line.trim().split(/(?<!\\)(?:\\\\)*\|/u);
+  if (cells[0] === "") cells.shift();
+  if (cells.at(-1) === "") cells.pop();
+  return cells;
+}
+
+function linePipeCount(source: string, offset: number): number {
+  const line = (source.slice(0, offset).split(/\r\n|\r|\n/u).at(-1) ?? "") +
+    (source.slice(offset).split(/\r\n|\r|\n/u)[0] ?? "");
+  return [...line.matchAll(/(?<!\\)(?:\\\\)*\|/gu)].length;
 }
 
 function escapeTablePipes(source: string): string {
