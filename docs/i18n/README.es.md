@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
 
-Link Integrity es un complemento local de Obsidian para enlaces rotos, archivos aislados y menciones potenciales. El diagnóstico es de solo lectura por defecto; puedes crear explícitamente un enlace verificado.
+Link Integrity es un complemento local de Obsidian de solo lectura para enlaces rotos y archivos aislados.
 
 ## Capturas de pantalla
 
@@ -18,7 +18,7 @@ Gestiona el índice, las reglas de exclusión, los tipos de archivo y las reglas
 
 ## Funciones
 
-- Encuentra menciones de títulos y alias Markdown y conserva candidatos homónimos, contenidos y cruzados. Las sugerencias nunca cuentan como conexiones del grafo.
+- Marca opcionalmente archivos, encabezados y bloques ausentes confirmados con ondas de color de advertencia en el texto.
 - Encuentra enlaces internos a archivos, encabezados y bloques que faltan en Markdown, incrustaciones, Frontmatter, Canvas y referencias explícitas de archivo en Bases.
 - Encuentra archivos sin ninguna conexión entrante o saliente válida con otro archivo existente del Vault. Los enlaces al propio archivo y las URL externas no cuentan como conexiones del Vault.
 - Avisa cuando un archivo aislado también contiene enlaces salientes rotos, para no confundirlo con un archivo que claramente pueda eliminarse.
@@ -48,7 +48,7 @@ Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` e
 3. Selecciona un resultado para abrir su origen. Los filtros de archivos aislados solo cambian la vista actual y no modifican los valores predeterminados guardados.
 4. El análisis al iniciar está desactivado de forma predeterminada. Al abrir la barra lateral, el índice se crea cuando es necesario; también puedes usar **Crear índice** o **Reconstruir índice** en General. Después de la primera creación correcta, los cambios del Vault actualizan los resultados automáticamente.
 
-Los comandos consultan la nota actual, el cursor o las fuentes que la mencionan; el menú de archivos aislados también ofrece búsqueda inversa. General ofrece Desactivado (predeterminado), Párrafo actual y Nota completa con líneas discontinuas en edición y lectura. Elige el intervalo y destino y crea explícitamente el enlace. En lectura o búsqueda inversa, abre primero la fuente y valida el intervalo. Se muestran progreso, cancelación y resultados parciales/obsoletos; una búsqueda incompleta nunca significa cero menciones. Tras otras ediciones, usa Deshacer del editor.
+Las marcas están desactivadas por defecto en Broken links. Actívelas para edición y lectura. Se conserva la navegación nativa; el comando de diagnóstico muestra motivos por teclado o toque. Los rangos sin guardar, pendientes o ambiguos no se marcan. El texto virtual de FakeLink no es un enlace explícito ni una conexión del grafo.
 
 ## Ajustes
 
@@ -61,14 +61,14 @@ Los ajustes y las reglas del usuario se guardan en `data.json`. El índice de en
 
 ## Limitaciones
 
-- Link Integrity no elimina archivos ni reescribe enlaces automáticamente. Un enlace individual requiere una selección explícita y validación exacta del editor, origen y destino. La sintaxis protegida o ambigua puede ocultar pistas; la lista paginada conserva todos los candidatos.
+- Link Integrity no elimina archivos ni reescribe enlaces. El texto incierto o ambiguo queda sin marcar; consulte la barra lateral para otros diagnósticos.
 - Las URL externas están fuera de alcance y nunca se consultan por la red.
 - Los resultados dinámicos de Bases no cuentan como conexiones directas entre archivos; solo cuentan las referencias explícitas.
 - Las reglas de aislamiento esperado solo cambian la clasificación de archivos que ya están aislados. No ocultan enlaces rotos ni eliminan conexiones reales.
 
 ## Privacidad y seguridad
 
-La indexación y la búsqueda son locales, sin subir contenido ni exigir una cuenta. Las notas solo cambian mediante tu acción explícita y validada sobre un enlace. Las sugerencias permanecen en memoria.
+La indexación es local. Link Integrity no sube contenido del Vault, no requiere cuenta ni cambia texto. El índice derivado permanece en memoria.
 
 ## Desarrollo
 

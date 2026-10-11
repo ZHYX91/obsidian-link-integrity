@@ -1,3 +1,4 @@
+import { isBrokenDiagnosticVisible } from "./broken-link-visibility";
 import { classifyFileExtension, createPeriodicExpectedIsolationRules, type LinkIndex, type IndexChanges } from "../core";
 import {
   createIsolatedFileProjection,
@@ -7,7 +8,7 @@ import {
   type IsolatedFileResult as CoreIsolatedFileResult,
 } from "../features/queries";
 import type { LinkIntegritySettings } from "../shared/settings";
-import { createOccurrenceIgnoreContext, IgnoreService } from "../shared/ignore-rules";
+import { IgnoreService } from "../shared/ignore-rules";
 import { WorkScheduler } from "../scheduling/work-scheduler";
 import { sortSteps } from "../scheduling/sort-steps";
 import type {
@@ -113,7 +114,7 @@ export class SidebarQueryService implements SidebarQueryPort {
           for (const path of batch) {
             for (const occurrence of index.getSourceSnapshot(path)?.occurrences ?? []) {
               const diagnostic = diagnoseOccurrence(occurrence);
-              if (diagnostic !== null && this.diagnosticVisible(diagnostic, index, settings, ignore)) {
+              if (diagnostic !== null && isBrokenDiagnosticVisible(diagnostic, index, settings, ignore)) {
                 broken.push(toBrokenResult(diagnostic));
               }
               const pause = scheduler.checkpoint();
@@ -178,19 +179,8 @@ export class SidebarQueryService implements SidebarQueryPort {
     const settings = this.getSettings();
     const ignoreService = new IgnoreService(settings.ignoreRules);
     return queryBrokenLinks(index, paths === null ? {} : { sourcePaths: paths })
-      .filter((diagnostic) => this.diagnosticVisible(diagnostic, index, settings, ignoreService))
+      .filter((diagnostic) => isBrokenDiagnosticVisible(diagnostic, index, settings, ignoreService))
       .map(toBrokenResult);
-  }
-
-  private diagnosticVisible(
-    diagnostic: BrokenLinkDiagnostic, index: LinkIndex, settings: LinkIntegritySettings, ignore: IgnoreService,
-  ): boolean {
-    const sourceFile = index.getFile(diagnostic.sourcePath);
-    return diagnosticEnabled(diagnostic, settings) && (settings.brokenLinks.showIgnored ||
-      !ignore.shouldHideBrokenResult(createOccurrenceIgnoreContext(
-        diagnostic.occurrence,
-        sourceFile?.extension ?? null,
-      )));
   }
 
   private computeIsolatedFiles(paths: ReadonlySet<string> | null = null): {
@@ -380,22 +370,6 @@ async function scheduledSteps<T>(
     step = steps.next();
   }
   return isCurrent() ? step.value : null;
-}
-
-function diagnosticEnabled(
-  diagnostic: BrokenLinkDiagnostic,
-  settings: LinkIntegritySettings,
-): boolean {
-  switch (diagnostic.reason) {
-    case "missing-file":
-      return settings.brokenLinks.diagnostics.missingFiles;
-    case "missing-heading":
-      return settings.brokenLinks.diagnostics.missingHeadings;
-    case "missing-block":
-      return settings.brokenLinks.diagnostics.missingBlocks;
-    case "invalid":
-      return settings.brokenLinks.diagnostics.invalidLinks;
-  }
 }
 
 function toBrokenResult(diagnostic: BrokenLinkDiagnostic): BrokenLinkResult {

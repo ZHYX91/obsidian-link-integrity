@@ -11,6 +11,13 @@ import {
 } from "../../src/shared/settings";
 
 describe("settings", () => {
+  it("drops the retired potential body setting without enabling automatic discovery", () => {
+    const loaded = loadSettings({ schemaVersion: SETTINGS_SCHEMA_VERSION, general: { mentionDisplayMode: "document" } });
+    expect(loaded.settings.general).not.toHaveProperty("mentionDisplayMode");
+    expect(loaded.settings.brokenLinks.bodyHints).toBe(false);
+    expect(loadSettings({ brokenLinks: { bodyHints: "document" } }).settings.brokenLinks.bodyHints).toBe(false);
+    expect(loaded.settings.general.scanOnStartup).toBe(false);
+  });
   it("creates deep independent defaults with every built-in candidate family", () => {
     const left = createDefaultSettings();
     const right = createDefaultSettings();

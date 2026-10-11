@@ -79,11 +79,6 @@ export function getSettingsPageDefinitions(
             t("settings.general.scanOnStartup"),
             t("settings.general.scanOnStartup.description"),
           ),
-          dropdown("general.mentionDisplayMode", t("mentions.mode"), t("mentions.modeDescription"), [
-            { value: "off", label: t("mentions.off") },
-            { value: "paragraph", label: t("mentions.paragraph") },
-            { value: "document", label: t("mentions.document") },
-          ]),
           dropdown("general.defaultSidebarTab", t("settings.general.defaultTab"), undefined, [
             { value: "broken-links", label: t("sidebar.tab.broken") },
             { value: "isolated-files", label: t("sidebar.tab.isolated") },
@@ -104,6 +99,7 @@ export function getSettingsPageDefinitions(
         {
           heading: t("settings.broken.diagnostics"),
           items: [
+            toggle("brokenLinks.bodyHints", t("body.setting"), t("body.settingDescription")),
             toggle("brokenLinks.diagnostics.missingFiles", t("settings.broken.missingFiles")),
             toggle("brokenLinks.diagnostics.missingHeadings", t("settings.broken.missingHeadings")),
             toggle("brokenLinks.diagnostics.missingBlocks", t("settings.broken.missingBlocks")),

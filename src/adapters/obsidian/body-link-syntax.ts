@@ -1,16 +1,15 @@
-import type { MentionRange } from "../../core/potential-mention-model";
+export interface BodyRange { readonly from: number; readonly to: number; }
 import { WorkScheduler } from "../../scheduling/work-scheduler";
-import { extractMarkdownExplicitReferencesAsync } from "./explicit-link-parser";
 
-/** Conservative source protection, independent of the explicit-link diagnostic parser. */
-export async function extractMarkdownMentionExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly MentionRange[]> {
-  const ranges: MentionRange[] = [];
+/** Conservative current-source syntax guard; complete explicit links remain eligible. */
+export async function extractMarkdownNonLinkExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly BodyRange[]> {
+  const ranges: BodyRange[] = [];
   const lines = [...source.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/gu)].filter((line) => line[0].length > 0);
   let properties = source.replace(/^\uFEFF/u, "").startsWith("---") && lines[0]?.[0].trim().replace(/^\uFEFF/u, "") === "---";
-  let fence: { character: string; length: number; from: number; containers: readonly MentionContainer[] } | null = null;
-  let html: { name: string; from: number; containers: readonly MentionContainer[]; openingQuote: string | null; openingComplete: boolean;
+  let fence: { character: string; length: number; from: number; containers: readonly BodyContainer[] } | null = null;
+  let html: { name: string; from: number; containers: readonly BodyContainer[]; openingQuote: string | null; openingComplete: boolean;
     bodyState: HtmlBodyState } | null = null;
-  let containers: readonly MentionContainer[] = [];
+  let containers: readonly BodyContainer[] = [];
   let indented = false;
   let previousBlank = true;
   for (let index = 0; index < lines.length; index += 1) {
@@ -19,10 +18,10 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
     const from = line.index;
     const to = from + line[0].length;
     const text = line[0].replace(/[\r\n]+$/u, "");
-    const active: { containers: readonly MentionContainer[] } | null = fence ?? html;
+    const active: { containers: readonly BodyContainer[] } | null = fence ?? html;
     // Inside an established block, '- ~~~' is content, never a new container or a fence closer.
-    const normalized: MentionContainerLine | null = active === null ? normalizeMentionContainerLine(text, containers) : null;
-    const blockContent = active === null ? null : stripKnownMentionContainers(expandTabs(text), active.containers).text;
+    const normalized: BodyContainerLine | null = active === null ? normalizeBodyContainerLine(text, containers) : null;
+    const blockContent = active === null ? null : stripKnownBodyContainers(expandTabs(text), active.containers).text;
     const content: string = normalized?.text ?? blockContent ?? text;
     if (normalized !== null) containers = normalized.containers;
     if (properties) {
@@ -73,7 +72,6 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
   for (const pattern of [
     /%%[\s\S]*?(?:%%|$)/gu,
     /<!--[\s\S]*?(?:-->|$)/gu,
-    /!?\[[^\]\r\n]*\](?:\[[^\]\r\n]*\])?/gu,
     /^[ \t]{0,3}\[[^\]\r\n]+\]:[^\r\n]*/gmu,
     /\\\[[\s\S]*?(?:\\\]|$)/gu,
     /[a-z][a-z0-9+.-]*:\/\/[^\s<>]+|mailto:[^\s<>]+|\bwww\.[^\s<>]+|[\w.+-]+@[\w.-]+\.[\p{L}]{2,}/giu,
@@ -136,7 +134,7 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
   }
   for (const opening of source.matchAll(/!?\[\[/gu)) {
     const end = source.indexOf("]]", opening.index + opening[0].length);
-    ranges.push({ from: opening.index, to: end < 0 ? source.length : end + 2 });
+    if (end < 0) ranges.push({ from: opening.index, to: end < 0 ? source.length : end + 2 });
   }
   // Pair equal backtick runs in one pass, avoiding a separate scan per opening delimiter.
   const runs = [...source.matchAll(/`+/gu)];
@@ -161,9 +159,6 @@ export async function extractMarkdownMentionExclusions(source: string, scheduler
     if (endIndex !== undefined) index = endIndex;
     const pause = scheduler.checkpoint();
     if (pause !== null) await pause;
-  }
-  for (const reference of await extractMarkdownExplicitReferencesAsync(source, scheduler)) {
-    ranges.push({ from: reference.startOffset, to: reference.endOffset });
   }
   return ranges;
 }
@@ -208,11 +203,11 @@ function htmlOpeningEnd(text: string, initialQuote: string | null): { end: numbe
   return { end: undefined, quote };
 }
 
-type MentionContainer = "quote" | number;
+type BodyContainer = "quote" | number;
 
-interface MentionContainerLine {
+interface BodyContainerLine {
   readonly text: string;
-  readonly containers: readonly MentionContainer[];
+  readonly containers: readonly BodyContainer[];
 }
 
 function expandTabs(line: string): string {
@@ -225,13 +220,13 @@ function expandTabs(line: string): string {
   });
 }
 
-function stripKnownMentionContainers(line: string, containers: readonly MentionContainer[]): {
+function stripKnownBodyContainers(line: string, containers: readonly BodyContainer[]): {
   text: string | null;
   remainder: string;
-  consumed: readonly MentionContainer[];
+  consumed: readonly BodyContainer[];
 } {
   let text = line;
-  const consumed: MentionContainer[] = [];
+  const consumed: BodyContainer[] = [];
   for (const container of containers) {
     const prefix = container === "quote" ? /^ {0,3}> ?/u.exec(text)?.[0] :
       text.startsWith(" ".repeat(container)) ? " ".repeat(container) : undefined;
@@ -242,8 +237,8 @@ function stripKnownMentionContainers(line: string, containers: readonly MentionC
   return { text, remainder: text, consumed };
 }
 
-function normalizeMentionContainerLine(line: string, previous: readonly MentionContainer[]): MentionContainerLine {
-  const stripped = stripKnownMentionContainers(expandTabs(line), previous);
+function normalizeBodyContainerLine(line: string, previous: readonly BodyContainer[]): BodyContainerLine {
+  const stripped = stripKnownBodyContainers(expandTabs(line), previous);
   let text = stripped.remainder;
   const containers = [...stripped.consumed];
   // New containers are recognized only outside protected blocks. Their continuation indentation
@@ -261,12 +256,3 @@ function normalizeMentionContainerLine(line: string, previous: readonly MentionC
   return { text, containers: text.trim().length === 0 && containers.length === stripped.consumed.length ? previous : containers };
 }
 
-/** Shared source-container interpretation for mention protection and table-cell writing. */
-export function normalizeMentionContainerLines(source: string): readonly MentionContainerLine[] {
-  let containers: readonly MentionContainer[] = [];
-  return source.split(/\r\n|\r|\n/u).map((line) => {
-    const normalized = normalizeMentionContainerLine(line, containers);
-    containers = normalized.containers;
-    return normalized;
-  });
-}

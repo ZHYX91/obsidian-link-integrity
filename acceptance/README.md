@@ -17,8 +17,10 @@ Fixture setup is not product evidence. Candidate identity, host lifecycle, produ
 
 The review regression also exercises CRLF/empty/adjacent Canvas fences, Bases dynamic arguments and display names, and YAML-decoded position fallback. The seeded `Bounded regex` rule matches no fixture filename; previewing it exercises the bounded matcher through the settings UI without changing the default isolation counts.
 
-## Potential mention scenarios
+## Body diagnostic scenarios
 
-The `potential-mentions` and `potential-mentions-fakelink` scenarios use the same base fixture without automatically adding notes. The self-contained `link-integrity-acceptance-provider` registers an explicit **Create potential mention fixtures in this disposable acceptance Vault** command. Run it only in the identified disposable Vault after observing the initial five broken/four isolated counts. It creates seven notes under `Mentions Acceptance/`, refuses to overwrite existing files, and never targets an ordinary Vault. New counts after this command depend on the added notes and any explicit link edits.
+The `body-link-hints` and `body-link-hints-fakelink` scenarios preserve the untouched five broken/four isolated baseline. Only in the identified disposable Vault, explicitly run the provider commands `create-body-hint-fixtures`, `repair-body-hint-fixtures` and `restore-body-hint-fixtures`. They create three notes under `Body Hints Acceptance/`, verify exact known fixture bytes before repair/restore, and refuse overwrites. After indexing the transitions are ten broken/five isolated, five/five, and ten/five. Setup is not product acceptance.
 
-The second scenario requires a separate FakeLink environment supplied by the host operator; the product fixture does not bundle third-party runtime code. Test clean behavior and coexistence separately. Record the exact candidate and host, incomplete checks and failures; setup alone proves no product behavior.
+Broken body hints default Off. Legacy potential settings must not enable them, and retired potential commands/actions must be absent. Check three confirmed reasons, valid and protected negatives, read-only diagnostic navigation, native clicks, metadata refresh and Off/unload cleanup. Reading skips duplicate or third-party ambiguous destinations rather than guessing.
+
+The FakeLink scenario uses an independent operator-supplied FakeLink environment; no third-party runtime is bundled. Include the bare Target#^missing-block mixed with a real same-destination link, both enable orders, hover preview, third-party conversion updates and disabling either plugin. Virtual text must never become a LinkIndex occurrence or graph edge. Record the exact candidate/host and honest incomplete checks or failures.

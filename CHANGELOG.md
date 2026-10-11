@@ -7,6 +7,13 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
+- Add optional warning-colored waves for confirmed missing file, heading and block references in editor and reading views, with a read-only current-note diagnostic command. Body hints default Off, including upgrades with missing fields.
+- Prove current saved text, explicit body syntax and metadata before marking links; preserve native navigation and skip ambiguous third-party/FakeLink anchors.
+- Remove potential-mention matching, inline suggestions, manual queries, reverse lookup, candidate picking, link creation and its dedicated Undo. Legacy mention settings are ignored; existing real links are never rewritten or restored.
+- Retain Broken links/Isolated files diagnostics, ignore/expected-isolation Undo, three imperative settings tabs and manual-install ZIP assets.
+
 ## [0.3.0] - 2026-10-12
 
 - Add local potential mentions for Markdown titles and aliases, with same-name, contained and crossing candidates retained.
@@ -188,7 +195,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.0...HEAD
 [0.2.10]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...0.2.10
 [0.2.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...0.2.9
 [0.2.8]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.7...0.2.8
@@ -202,4 +209,5 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 [0.2.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.1
 [0.1.0]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.0
+[0.4.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.10...0.3.0
