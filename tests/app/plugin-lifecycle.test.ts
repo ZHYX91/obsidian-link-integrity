@@ -1,4 +1,4 @@
-import { Notice, TFile, TFolder } from "obsidian";
+import { Notice, TFile, TFolder, type Editor, type MarkdownFileInfo } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import LinkIntegrityPlugin from "../../src/app/plugin";
@@ -10,6 +10,8 @@ import {
 } from "../../src/core/occurrence-identity";
 import { createDefaultSettings } from "../../src/shared/settings";
 import type { BrokenLinkResult, IndexStatus, SidebarViewState } from "../../src/ui/sidebar";
+import type { BodyLinkRuntime } from "../../src/app/body-link-runtime";
+import { bodySetup } from "../helpers/body-links";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -103,6 +105,8 @@ describe("plugin index lifecycle", () => {
     expect(snapshotBuildCount).toBeGreaterThanOrEqual(1);
     expect(metadataEvents.listenerCount("changed")).toBe(1);
     expect(metadataEvents.listenerCount("deleted")).toBe(1);
+    expect(metadataEvents.listenerCount("resolve")).toBe(1);
+    expect(metadataEvents.listenerCount("resolved")).toBe(1);
 
     const rebuildSpy = vi.spyOn(plugin, "rebuild");
     const buildsBeforeRegraph = snapshotBuildCount;
@@ -225,6 +229,37 @@ describe("plugin index lifecycle", () => {
     plugin.onunload();
   });
 
+  it("recovers body projections after changed/resolve and same-cache rename/resolved without graph work", async () => {
+    vi.useFakeTimers();
+    const test = bodySetup(); const file = test.files.get(test.path)!; const cache = { links: [reference("Missing", test.text)] };
+    test.caches.set(test.path, cache); test.app.metadataCache.unresolvedLinks[test.path] = {};
+    const vaultEvents = new TestEvents(); const metadataEvents = new TestEvents(); let layoutReady!: () => void;
+    Object.assign(test.app.vault, { getFiles: vi.fn(() => [...test.files.values()]), on: vaultEvents.on });
+    Object.assign(test.app.metadataCache, { on: metadataEvents.on, offref: metadataEvents.offref });
+    Object.assign(test.app, { workspace: { getLeavesOfType: () => [], onLayoutReady: (callback: () => void) => { layoutReady = callback; } } });
+    const plugin = new LinkIntegrityPlugin(test.app as never, {} as never); Object.assign(plugin, { app: test.app });
+    Object.assign(test.settings.brokenLinks, { bodyHints: true }); vi.spyOn(plugin, "loadData").mockResolvedValue(test.settings);
+    await plugin.onload(); layoutReady(); const indexing = plugin.ensureIndex(); metadataEvents.emit("resolved"); await indexing;
+    const runtime = plugin as unknown as PluginRuntimeInspection & { bodyLinks: BodyLinkRuntime };
+    const editor = { getValue: () => test.text } as Editor; const info = { file } as MarkdownFileInfo;
+    const rows = () => document.querySelectorAll(".link-integrity-body-diagnostic").length;
+    await runtime.bodyLinks.current(editor, info); expect(rows()).toBe(0);
+    const registry = vi.spyOn(test.app.vault as typeof test.app.vault & { getFiles: () => TFile[] }, "getFiles"); registry.mockClear();
+    const generation = runtime.coordinator.store.generation;
+    test.app.metadataCache.unresolvedLinks[test.path] = { Missing: 1 }; metadataEvents.emit("resolve", file);
+    await runtime.bodyLinks.current(editor, info); expect(rows()).toBe(1); expect(registry).not.toHaveBeenCalled(); expect(runtime.coordinator.store.generation).toBe(generation);
+    test.app.metadataCache.unresolvedLinks[test.path] = {}; metadataEvents.emit("changed", file);
+    await vi.advanceTimersByTimeAsync(100); await runtime.coordinator.whenIdle(); await runtime.bodyLinks.current(editor, info); expect(rows()).toBe(0);
+    test.app.metadataCache.unresolvedLinks[test.path] = { Missing: 1 }; metadataEvents.emit("resolve", file);
+    await runtime.bodyLinks.current(editor, info); expect(rows()).toBe(1);
+    test.files.delete(test.path); file.path = "Moved.md"; test.files.set(file.path, file); test.bodies.set(file.path, test.text); test.caches.set(file.path, cache);
+    test.app.metadataCache.unresolvedLinks[file.path] = { Missing: 1 }; vaultEvents.emit("rename", file, test.path);
+    await vi.advanceTimersByTimeAsync(100); await runtime.coordinator.whenIdle(); await runtime.bodyLinks.current(editor, info); expect(rows()).toBe(0);
+    const renamedGeneration = runtime.coordinator.store.generation; registry.mockClear(); metadataEvents.emit("resolved");
+    await runtime.bodyLinks.current(editor, info); expect(rows()).toBe(1); expect(registry).not.toHaveBeenCalled(); expect(runtime.coordinator.store.generation).toBe(renamedGeneration);
+    plugin.onunload(); expect(document.querySelector("dialog")).toBeNull();
+  });
+
   it("revalidates all sources once when host metadata resolves after the startup fallback", async () => {
     vi.useFakeTimers();
     const source = createMockFile("Source.md", 1);
@@ -280,8 +315,8 @@ describe("plugin index lifecycle", () => {
     await runtime.coordinator.whenIdle();
     expect(runtime.query.getSnapshot().status.state).toBe("ready");
     expect(runtime.coordinator.index.getOutgoingNeighborCount(source.path)).toBe(0);
-    expect(metadataEvents.listenerCount("resolved")).toBe(1);
-    expect(metadataEvents.listenerCount("resolve")).toBe(0);
+    expect(metadataEvents.listenerCount("resolved")).toBe(2);
+    expect(metadataEvents.listenerCount("resolve")).toBe(1);
     expect(metadataEvents.listenerCount("changed")).toBe(1);
     expect(metadataEvents.listenerCount("deleted")).toBe(1);
 
@@ -294,7 +329,7 @@ describe("plugin index lifecycle", () => {
 
     expect(runtime.coordinator.index.getOutgoingNeighborCount(source.path)).toBe(1);
     expect(snapshotBuildCount).toBeGreaterThan(fallbackBuildCount);
-    expect(metadataEvents.listenerCount("resolved")).toBe(0);
+    expect(metadataEvents.listenerCount("resolved")).toBe(1);
     const correctedBuildCount = snapshotBuildCount;
     metadataEvents.emit("resolved");
     for (let count = 0; count < 100; count += 1) metadataEvents.emit("resolve", source);

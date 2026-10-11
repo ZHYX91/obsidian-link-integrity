@@ -119,6 +119,6 @@ i18n 门禁检查 11 个完整且独立的 catalog、编译期精确键覆盖、
 
 阅读测试覆盖同 label 不同目标、同目的地重复原生引用、裸 #^block 与真实引用混排、第三方额外 anchor、embed/引用式链接/变换文字的保守回退、native href/点击保留、hover/focus/Escape、触摸诊断入口、OFF、异步关闭、DOM 变化与 surviving children 卸载。编辑器测试覆盖修改立即清除、IME、viewport 上限和取消。
 
-显式 10k/50k 基准保留 index/query/incremental/regraph 规模，另以单来源高密度真实引用验证共享 proof/projection、多个阅读区块和重复目的地计数。记录实际数量、字符量及诊断内存，机器时间阈值不作为宿主保证；不将目标词典或潜在反查的旧结果用作当前能力证据。
+显式 10k/50k 基准保留 index/query/incremental/regraph 规模，另以单来源高密度真实引用验证共享 proof/projection、多个阅读区块和重复目的地计数，并覆盖超过两百万 UTF-16 单元的并发请求去重与完成后无缓存。回归还须覆盖 changed 后 resolve 恢复、同 cache rename 后 resolved 恢复且不增加图扫描，带片段及 .md 的缺文件键，开关控制观察器/交互监听、原位锚点属性变化，以及浮层所属视口、翻转、滚动和焦点恢复。记录实际数量、字符量及诊断内存，机器时间阈值不作为宿主保证；不将目标词典或潜在反查的旧结果用作当前能力证据。
 
 body-link-hints 与 body-link-hints-fakelink 使用显式 self-contained provider 命令 prepare/repair/restore，先观察原始五个无效/四个孤立，再观察 10/5→5/5→10/5。FakeLink 独立环境检验两种启用顺序、原生导航、hover preview、第三方转换更新与关闭任一插件；虚拟文字不能入图或误标。设置样本准备不是功能通过，真实桌面/Android emulator 证据与源码测试分别记录。

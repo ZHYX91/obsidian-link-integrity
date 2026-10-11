@@ -6,7 +6,7 @@ import { decorateBodyLinkReading, mapBodyReadingHints } from "../../src/adapters
 import { createBodyLinkEditorExtension } from "../../src/adapters/obsidian/body-link-editor";
 import { bodySetup } from "../helpers/body-links";
 
-afterEach(() => { vi.useRealTimers(); document.body.replaceChildren(); });
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); document.body.replaceChildren(); });
 function section(text: string, element: HTMLElement) {
   const children: MarkdownRenderChild[] = [];
   const context = { sourcePath: "Source.md", getSectionInfo: () => ({ text, lineStart: 0, lineEnd: text.split("\n").length - 1 }),
@@ -66,6 +66,48 @@ describe("native body annotation ownership", () => {
     const delayed = decorateBodyLinkReading(element, context, { enabled: () => true, source: () => new Promise((resolve) => { release = resolve; }), subscribe: () => () => {}, reason: () => "Missing" })!;
     await vi.waitFor(() => expect(release).toBeDefined()); delayed(); release(await test.service.source(test.path, test.text)); await Promise.resolve();
     expect(element.querySelector(".link-integrity-broken-body-hint")).toBeNull();
+  });
+  it("installs section observation/interaction only while On and ignores its own annotation mutations", async () => {
+    const test = bodySetup(); const element = document.createElement("p"); const link = anchor(); element.append(link);
+    const { context } = section(test.text, element); let enabled = false; let notify!: () => void;
+    const source = vi.fn(() => test.service.source(test.path, test.text)); const add = vi.spyOn(element, "addEventListener");
+    const observe = vi.spyOn(window.MutationObserver.prototype, "observe"); const disconnect = vi.spyOn(window.MutationObserver.prototype, "disconnect");
+    const dispose = decorateBodyLinkReading(element, context, { enabled: () => enabled, source,
+      subscribe: (listener) => { notify = listener; return () => {}; }, reason: () => "Missing" })!;
+    expect(observe).not.toHaveBeenCalled(); expect(add).not.toHaveBeenCalled();
+    enabled = true; notify(); await vi.waitFor(() => expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(true));
+    await new Promise((resolve) => window.setTimeout(resolve, 100)); expect(source).toHaveBeenCalledOnce(); expect(observe).toHaveBeenCalledOnce(); expect(add).toHaveBeenCalledTimes(5);
+    enabled = false; notify(); expect(disconnect).toHaveBeenCalledOnce(); expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(false);
+    element.append(anchor()); await new Promise((resolve) => window.setTimeout(resolve, 100)); expect(source).toHaveBeenCalledOnce();
+    enabled = true; notify(); await vi.waitFor(() => expect(source).toHaveBeenCalledTimes(2)); expect(observe).toHaveBeenCalledTimes(2); dispose();
+  });
+  it.each(["data-href", "href", "class"])("clears and reproves in-place %s changes without affecting native attributes", async (attribute) => {
+    const test = bodySetup(); const element = document.createElement("p"); const link = anchor(); link.title = "Native"; element.append(link);
+    const { context } = section(test.text, element); const source = vi.fn(() => test.service.source(test.path, test.text));
+    const dispose = decorateBodyLinkReading(element, context, { enabled: () => true, source, subscribe: () => () => {}, reason: () => "Missing" })!;
+    await vi.waitFor(() => expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(true));
+    link.setAttribute(attribute, attribute === "class" ? "internal-link virtual-link-a" : "Different");
+    await vi.waitFor(() => expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(false));
+    await vi.waitFor(() => expect(source).toHaveBeenCalledTimes(2)); expect(link.title).toBe("Native");
+    expect(link.getAttribute(attribute)).toBe(attribute === "class" ? "internal-link virtual-link-a" : "Different"); dispose();
+  });
+  it("clamps tooltips to their owner viewport, flips above and leaves oversized content scrollable", async () => {
+    const test = bodySetup(); const element = document.createElement("p"); const link = anchor(); link.setAttribute("aria-describedby", "native-description"); element.append(link);
+    const { context } = section(test.text, element); vi.spyOn(window, "innerWidth", "get").mockReturnValue(320); vi.spyOn(window, "innerHeight", "get").mockReturnValue(240);
+    let oversized = false;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const tooltip = this.classList.contains("link-integrity-body-tooltip");
+      return { left: tooltip ? 0 : 290, top: tooltip ? 0 : 200, bottom: tooltip ? 0 : 220,
+        width: tooltip ? 180 : 30, height: tooltip ? oversized ? 224 : 60 : 20 } as DOMRect;
+    });
+    const dispose = decorateBodyLinkReading(element, context, { enabled: () => true, source: () => test.service.source(test.path, test.text), subscribe: () => () => {}, reason: () => "Long missing reason" })!;
+    await vi.waitFor(() => expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(true));
+    link.dispatchEvent(new FocusEvent("focusin", { bubbles: true })); let tooltip = document.querySelector<HTMLElement>('[role="tooltip"]')!;
+    expect(tooltip.style.left).toBe("132px"); expect(tooltip.style.top).toBe("136px"); expect(tooltip.style.maxHeight).toBe("224px"); expect(tooltip.tabIndex).toBe(0);
+    link.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: tooltip })); expect(tooltip.isConnected).toBe(true);
+    tooltip.focus(); tooltip.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); expect(document.querySelector('[role="tooltip"]')).toBeNull(); expect(link.getAttribute("aria-describedby")).toBe("native-description"); expect(document.activeElement).toBe(link);
+    oversized = true; link.dispatchEvent(new FocusEvent("focusin", { bubbles: true })); tooltip = document.querySelector<HTMLElement>('[role="tooltip"]')!;
+    expect(tooltip.style.top).toBe("8px"); dispose(); expect(link.getAttribute("aria-describedby")).toBe("native-description");
   });
   it("clears editor marks immediately on text edits and Off while retaining native event behavior", async () => {
     const test = bodySetup(); let enabled = true; let notify!: () => void;

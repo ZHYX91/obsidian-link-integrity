@@ -35,6 +35,28 @@ describe("body projection lifecycle and visibility", () => {
     const promise = service.source(test.path, test.text); test.index.replaceSourceSnapshot(test.path, { sourcePath: test.path, occurrences: [] }); resolve([]);
     expect((await promise).state).toBe("pending");
   });
+  it("shares oversized in-flight proof/projection but retains no completed body", async () => {
+    const test = bodySetup(); const text = "x".repeat(2_000_001); let release!: () => void;
+    const proof = vi.fn(async () => { await new Promise<void>((done) => { release = done; }); return []; });
+    const service = new BodyLinkService(() => test.index, () => true, { proveSource: proof, isConfirmed: () => true });
+    const requests = Array.from({ length: 50 }, () => service.source(test.path, text));
+    expect(proof).toHaveBeenCalledOnce(); release(); const results = await Promise.all(requests);
+    expect(new Set(results).size).toBe(1); expect(results[0]!.state).toBe("ready");
+    const maps = service as unknown as { cache: Map<string, unknown>; inFlight: Map<string, unknown> };
+    expect(maps.cache.size).toBe(0); expect(maps.inFlight.size).toBe(0);
+    const next = service.source(test.path, text); expect(proof).toHaveBeenCalledTimes(2); release(); await next;
+  });
+  it("does not let a superseded oversized request remove or publish its replacement", async () => {
+    const test = bodySetup(); const releases: (() => void)[] = []; const signals: AbortSignal[] = [];
+    const proof = vi.fn(async (_path: string, _text: string, _snapshot: unknown, signal: AbortSignal) => {
+      signals.push(signal); await new Promise<void>((done) => { releases.push(done); }); return [];
+    });
+    const service = new BodyLinkService(() => test.index, () => true, { proveSource: proof, isConfirmed: () => true });
+    const first = service.source(test.path, "a".repeat(2_000_001)); const next = service.source(test.path, "b".repeat(2_000_001));
+    expect(signals[0]!.aborted).toBe(true); releases[0]!(); expect((await first).state).toBe("pending");
+    const shared = service.source(test.path, "b".repeat(2_000_001)); expect(proof).toHaveBeenCalledTimes(2);
+    releases[1]!(); expect(await shared).toBe(await next);
+  });
   it("enforces the four-document/total-text cache budget without discarding current results", async () => {
     const test = bodySetup(); const proof = vi.fn(async () => []);
     const service = new BodyLinkService(() => test.index, () => true, { proveSource: proof, isConfirmed: () => true });

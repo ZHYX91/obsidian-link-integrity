@@ -366,6 +366,14 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.registerEvent(this.app.metadataCache.on("deleted", (file) => {
       this.enqueueMetadata({ type: "delete", path: file.path });
     }));
+    // Resolution maps can settle after changed, or after rename without a new cache object.
+    // Refresh only the derived body proof; the existing incremental events own graph updates.
+    this.registerEvent(this.app.metadataCache.on("resolve", (file) => {
+      if (!this.unloaded) this.bodyLinks.sourceChanged(file.path, true);
+    }));
+    this.registerEvent(this.app.metadataCache.on("resolved", () => {
+      if (!this.unloaded) this.bodyLinks.sourceChanged(null, true);
+    }));
   }
 
   private waitForInitialMetadataResolution(maxWaitMs = 1_000): Promise<void> {

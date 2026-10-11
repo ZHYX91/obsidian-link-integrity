@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { bodySourceRange, canonicalBodyDestination } from "../../src/adapters/obsidian/body-link-port";
+import { bodySourceRange, bodyUnresolvedKey, canonicalBodyDestination } from "../../src/adapters/obsidian/body-link-port";
 import { extractMarkdownNonLinkExclusions } from "../../src/adapters/obsidian/body-link-syntax";
 import { protectedBodySyntax, ordinaryListBodySyntax } from "../fixtures/body-protected-syntax";
 import { bodySetup } from "../helpers/body-links";
@@ -27,6 +27,13 @@ describe("current explicit body proof", () => {
     const test = bodySetup(source.replace("白云山", "[[Missing]]"));
     expect((await test.service.source(test.path, test.text)).hints).toHaveLength(1);
   });
+  it.each(["\t[[Missing]]", "- item\n\t~~~\n\t[[Missing]]\n\t~~~", ">\t~~~\n>\t[[Missing]]\n>\t~~~",
+    "- outer\n\t- inner\n\t\t~~~\n\t\t[[Missing]]\n\t\t~~~", "- item\n\t<pre>\n\t[[Missing]]\n\t</pre>"])("preserves tab-expanded container protection: %s", async (text) => {
+    const test = bodySetup(text); expect((await test.service.source(test.path, text)).hints).toEqual([]);
+  });
+  it.each(["text\t[[Missing]]", "- item\n\tcontinuation [[Missing]]", ">\tcontinuation [[Missing]]"])("keeps ordinary tab-separated body links: %s", async (text) => {
+    const test = bodySetup(text); expect((await test.service.source(test.path, text)).hints).toHaveLength(1);
+  });
   it.each(["~~~\n[[Missing]]\n~~~", "%%\n[[Missing]]\n%%", "---\nfield: '[[Missing]]'\n---", "<!-- [[Missing]] -->", "`[[Missing]]`", "$[[Missing]]$"])("protects non-body syntax: %s", async (text) => {
     const ranges = await extractMarkdownNonLinkExclusions(text); const from = text.indexOf("[[Missing]]");
     expect(ranges.some((range) => range.from <= from && range.to >= from + 11)).toBe(true);
@@ -49,6 +56,19 @@ describe("current explicit body proof", () => {
     test.files.set("Missing.md", test.files.get("Target.md")!); expect(test.port.isConfirmed(source.links[0]!)).toBe(false);
     delete test.app.metadataCache.unresolvedLinks[test.path]; test.files.delete("Missing.md"); expect(test.port.isConfirmed(source.links[0]!)).toBe(false);
     test.pending.add(test.path); expect(await test.port.proveSource(test.path, test.text, test.index.getSourceSnapshot(test.path)!, new AbortController().signal)).toBeNull();
+  });
+  it("uses fragment-free extension-normalized host resolution keys only for missing files", async () => {
+    const test = bodySetup("[[Missing#Heading]] [[Missing#^block]] [[Missing.md#Heading]] [[Folder/Other.MD#^block]] [[Target#Heading]]");
+    expect(test.app.metadataCache.unresolvedLinks[test.path]).toEqual({ Missing: 1, "Folder/Other": 1 });
+    const source = await test.service.source(test.path, test.text);
+    expect(source.hints.map((hint) => hint.diagnostic.reason)).toEqual(["missing-file", "missing-file", "missing-file", "missing-file", "missing-heading"]);
+    delete test.app.metadataCache.unresolvedLinks[test.path]!.Missing;
+    expect(source.links.slice(0, 3).map((link) => test.port.isConfirmed(link))).toEqual([false, false, false]);
+    // Existing-file subpaths use target metadata, never the missing-file resolution map.
+    test.app.metadataCache.unresolvedLinks[test.path] = {};
+    expect(test.port.isConfirmed(source.links[4]!)).toBe(true);
+    for (const [input, output] of [["Missing.MD#Heading", "Missing"], ["Folder/Missing.md#^block", "Folder/Missing"],
+      [".md#Heading", ".md"], ["Missing.md.#Heading", "Missing.md."], ["other.pdf#Heading", "other.pdf"]]) expect(bodyUnresolvedKey(input!)).toBe(output);
   });
   it("rejects absent metadata, cancelled proof, malformed offsets and encoded destinations", async () => {
     const test = bodySetup(); const abort = new AbortController(); abort.abort();

@@ -34,3 +34,18 @@ it(`shares one dense ${count}-reference source across reading sections`, async (
     `heap delta ${Math.round((process.memoryUsage().heapUsed - before) / 1024 / 1024)} MiB (diagnostic only; output grows with references).`);
   await window.happyDOM.close();
 });
+
+it(`shares an uncached oversized ${count}-reference source across concurrent requests`, async () => {
+  const references = Array.from({ length: count }, (_, index) => `[[Missing-${index}|Label]]`).join("\n");
+  const text = " ".repeat(2_000_001 - references.length) + "\n" + references;
+  const test = bodySetup(text); const before = process.memoryUsage().heapUsed; const started = performance.now();
+  const confirm = vi.spyOn(test.port, "isConfirmed");
+  const results = await Promise.all(Array.from({ length: 50 }, () => test.service.source(test.path, text)));
+  expect(new Set(results).size).toBe(1); expect(results[0]!.hints).toHaveLength(count);
+  expect(test.app.vault.cachedRead).toHaveBeenCalledOnce(); expect(confirm).toHaveBeenCalledTimes(count);
+  const state = test.service as unknown as { cache: Map<string, unknown>; inFlight: Map<string, unknown> };
+  expect(state.cache.size).toBe(0); expect(state.inFlight.size).toBe(0);
+  console.log(`Oversized body: 1 source, ${count} references, ${text.length} UTF16 units; 50 shared requests, 1 proof/projection, ` +
+    `zero completed/in-flight retention; ${Math.round(performance.now() - started)} ms, ` +
+    `heap delta ${Math.round((process.memoryUsage().heapUsed - before) / 1024 / 1024)} MiB (diagnostic only; active output grows with references).`);
+});

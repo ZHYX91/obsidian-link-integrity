@@ -211,12 +211,13 @@ interface BodyContainerLine {
 }
 
 function expandTabs(line: string): string {
-  let column = 0;
-  return line.replace(/[^\t]*\t/gu, (part) => {
-    column += part.length - 1;
+  let column = 0; let previous = 0;
+  return line.replace(/\t/gu, (_tab, index: number) => {
+    column += index - previous;
     const spaces = 4 - column % 4;
     column += spaces;
-    return part.slice(0, -1) + " ".repeat(spaces);
+    previous = index + 1;
+    return " ".repeat(spaces);
   });
 }
 

@@ -120,8 +120,8 @@ create、delete 和 rename 会重新取得文件 registry，并比较新旧 look
 
 BodyLinkService 只请求当前 Markdown 来源快照，不遍历注册表，不修改 LinkIndex。正文开关关闭时不自动读取正文。独立端口将索引位置转换到当前全文 UTF-16 坐标，并复核原文、CRLF/CR 到 LF 的精确归一化、当前缓存身份与 fresh 显式语法。专用保守扫描器补充属性、容器代码、HTML、注释及数学保护，不改变既有诊断 parser。
 
-缺文件需官方 unresolvedLinks 与 resolver 双重确认；标题/块缺失需当前目标缓存与官方 resolveSubpath。Vault 更新到元数据 changed 之间保留 pending gate；事件开始即失效旧投影，不能等待发布后才清理。初始 resolved 在启用前已发生时仍可使用公开来源缓存与解析映射，不依赖只观测注册后的事件。
+缺文件需官方 unresolvedLinks 与 resolver 双重确认，映射键去除片段与 Markdown 扩展名；标题/块缺失需当前目标缓存与官方 resolveSubpath。Vault 更新到元数据 changed/resolve/resolved 之间保留 pending gate；事件开始即失效旧投影，不能等待发布后才清理。常驻 resolve/resolved 只恢复正文投影，不启动全库重建。初始 resolved 在启用前已发生时仍可使用公开来源缓存与解析映射，不依赖只观测注册后的事件。
 
-每个来源 generation 共享一次完整 proof 和诊断投影；最多缓存四份正文，合计两百万 UTF-16 单元。超过预算的单篇仅按需计算，不留缓存。来源结果和 range 输出随实际引用数量增长，不能宣称总内存恒定。阅读区块使用共享有序位置索引与目的地计数，禁止每个 hint 重新遍历全部 anchors。编辑器只渲染 viewport 内最多 1000 处提示；阅读每区块最多 1000，诊断列表每页 50。
+每个来源 generation 共享一次完整 proof 和诊断投影，包括超过两百万 UTF-16 单元的来源；计算中请求独立去重，完成后最多缓存四份正文，合计两百万 UTF-16 单元，超过预算的单篇不留完成缓存。来源结果和 range 输出随实际引用数量增长，不能宣称总内存恒定。阅读区块使用共享有序位置索引与目的地计数，禁止每个 hint 重新遍历全部 anchors。编辑器只渲染 viewport 内最多 1000 处提示；阅读每区块最多 1000，诊断列表每页 50。
 
-正文层只添加自有 decoration 或原生 anchor 属性。所有同目的地 anchors 与区块内全部显式引用共同参与唯一性证明；第三方生成的 internal-link 类名本身不构成来源证据。修改、缓存、重建、设置变化、异步取消及卸载统一失效；reading disposer 由插件显式持有并幂等释放，不依赖宿主立即重渲染。
+正文层只添加自有 decoration 或原生 anchor 属性。所有同目的地 anchors 与区块内全部显式引用共同参与唯一性证明；第三方生成的 internal-link 类名本身不构成来源证据。未知渲染器生成完全相同的 href 与文字时，DOM 本身不能绝对证明来源归属，命令与侧栏保留独立诊断入口。修改、缓存、重建、设置变化、异步取消及卸载统一失效；reading disposer 由插件显式持有并幂等释放，不依赖宿主立即重渲染。关闭时仅保留轻量订阅，开启才安装区块观察器与交互监听；href/data-href/class 或正文 DOM 变化清除并复验提示，忽略自有属性变化以避免循环。

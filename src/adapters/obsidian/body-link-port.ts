@@ -31,6 +31,14 @@ export function canonicalBodyDestination(value: string): string | null {
   } catch { return null; }
 }
 
+/** Public resolution-map keys omit fragments and a Markdown extension on the basename. */
+export function bodyUnresolvedKey(linktext: string): string {
+  const marker = linktext.indexOf("#");
+  const path = marker < 0 ? linktext : linktext.slice(0, marker);
+  const basename = path.slice(path.lastIndexOf("/") + 1); const dot = basename.lastIndexOf(".");
+  return dot > 0 && basename.slice(dot + 1).toLowerCase() === "md" ? path.slice(0, -3) : path;
+}
+
 function referenceLabel(raw: string, embedded: boolean): string | null {
   const text = embedded ? raw.slice(1) : raw;
   if (text.startsWith("[[") && text.endsWith("]]")) {
@@ -102,7 +110,7 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
     if (occurrence.fileStatus === "missing") {
       // Public source resolution maps also work when the initial global event preceded enablement.
       const unresolved = this.app.metadataCache.unresolvedLinks?.[occurrence.sourcePath];
-      return target === null && (unresolved?.[link.linktext] ?? 0) > 0;
+      return target === null && (unresolved?.[bodyUnresolvedKey(link.linktext)] ?? 0) > 0;
     }
     if (occurrence.fileStatus !== "resolved" || target === null || !this.metadataReady(target.path) || target.path !== occurrence.targetPath ||
       target.extension !== "md" || occurrence.subpath === null) return false;

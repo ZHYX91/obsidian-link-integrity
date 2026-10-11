@@ -1109,7 +1109,8 @@
   border-radius: var(--radius-s);
   background: var(--background-modifier-message);
   color: var(--text-normal);
-  pointer-events: none;
+  pointer-events: auto;
+  overflow-y: auto;
   overflow-wrap: anywhere;
 }
 
