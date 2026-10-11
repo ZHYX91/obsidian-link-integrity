@@ -37,7 +37,8 @@ it(`shares one dense ${count}-reference source across reading sections`, async (
 
 it(`shares an uncached oversized ${count}-reference source across concurrent requests`, async () => {
   const references = Array.from({ length: count }, (_, index) => `[[Missing-${index}|Label]]`).join("\n");
-  const text = " ".repeat(2_000_001 - references.length) + "\n" + references;
+  const fillerLength = 2_000_001 - references.length;
+  const text = "x7.+-".repeat(Math.ceil(fillerLength / 5)).slice(0, fillerLength) + "\n" + references;
   const test = bodySetup(text); const before = process.memoryUsage().heapUsed; const started = performance.now();
   const confirm = vi.spyOn(test.port, "isConfirmed");
   const results = await Promise.all(Array.from({ length: 50 }, () => test.service.source(test.path, text)));

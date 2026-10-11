@@ -118,7 +118,7 @@ create、delete 和 rename 会重新取得文件 registry，并比较新旧 look
 
 ## 来源绑定的正文诊断投影
 
-BodyLinkService 只请求当前 Markdown 来源快照，不遍历注册表，不修改 LinkIndex。正文开关关闭时不自动读取正文。独立端口将索引位置转换到当前全文 UTF-16 坐标，并复核原文、CRLF/CR 到 LF 的精确归一化、当前缓存身份与 fresh 显式语法。专用保守扫描器补充属性、容器代码、HTML、注释及数学保护，不改变既有诊断 parser。
+BodyLinkService 只请求当前 Markdown 来源快照，不遍历注册表，不修改 LinkIndex。正文开关关闭时不自动读取正文。独立端口将索引位置转换到当前全文 UTF-16 坐标，并复核原文、CRLF/CR 到 LF 的精确归一化、当前缓存身份与 fresh 显式语法。专用保守扫描器补充属性、容器代码、HTML、注释及数学保护，不改变既有诊断 parser；URL/email 使用一次 token 与分隔符索引，未闭合 Markdown 使用每行关闭位置索引，避免在每个开头重复搜索失败后缀。未闭合 Wiki 链接第一次覆盖后缀后停止。
 
 缺文件需官方 unresolvedLinks 与 resolver 双重确认，映射键去除片段与 Markdown 扩展名；标题/块缺失需当前目标缓存与官方 resolveSubpath。Vault 更新到元数据 changed/resolve/resolved 之间保留 pending gate；事件开始即失效旧投影，不能等待发布后才清理。常驻 resolve/resolved 只恢复正文投影，不启动全库重建。初始 resolved 在启用前已发生时仍可使用公开来源缓存与解析映射，不依赖只观测注册后的事件。
 
