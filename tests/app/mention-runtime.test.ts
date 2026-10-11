@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MarkdownView, type App, type Command, type Editor, type Plugin, type TFile, type WorkspaceLeaf } from "obsidian";
+import { MarkdownView, Notice, type App, type Command, type Editor, type MarkdownPostProcessorContext, type Plugin, type TFile, type WorkspaceLeaf } from "obsidian";
 import { MentionRuntime } from "../../src/app/mention-runtime";
 import { createFileRecord, LinkIndex } from "../../src/core";
 import { createDefaultSettings } from "../../src/shared/settings";
@@ -24,8 +24,9 @@ function setup(raw = "白云山") {
   const commands: Command[] = [];
   const listeners = new Map<string, () => void>();
   const register = vi.fn();
+  const reading = vi.fn();
   const plugin = { addCommand: (command: Command) => { commands.push(command); return command; },
-    registerEditorExtension: vi.fn(), registerMarkdownPostProcessor: vi.fn(), register,
+    registerEditorExtension: vi.fn(), registerMarkdownPostProcessor: reading, register,
     registerEvent: vi.fn() } as unknown as Plugin;
   const app = { vault: { getFileByPath: (path: string) => files.get(path) ?? null,
     cachedRead: vi.fn(async (file: TFile) => bodies.get(file.path) ?? ""),
@@ -40,12 +41,12 @@ function setup(raw = "白云山") {
       } }) },
   } as unknown as App;
   const index = new LinkIndex([...files.keys()].map((path) => createFileRecord(path)));
-  const ensure = vi.fn(async () => undefined);
+  const ensure = vi.fn(async (): Promise<void> => undefined);
   const report = vi.fn();
   const settings = createDefaultSettings();
   const runtime = new MentionRuntime(app, () => index, ensure, () => settings, report);
   runtime.register(plugin);
-  return { runtime, commands, app, view, source, target, editor, report, ensure, listeners, settings, index, register };
+  return { runtime, commands, app, view, source, target, editor, report, ensure, listeners, settings, index, register, reading };
 }
 
 async function click(label: string): Promise<void> {
@@ -109,5 +110,75 @@ describe("mention host composition", () => {
     expect(document.body.textContent).toContain("Stale");
     test.runtime.close();
     expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  it.each(["index", "match"])("never reopens a picker after closing during the pending %s request", async (stage) => {
+    const test = setup();
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    if (stage === "index") test.ensure.mockReturnValue(pending);
+    else vi.spyOn(test.runtime.service, "matchSource").mockImplementation(async () => {
+      await pending;
+      return { sourcePath: "Source.md", sourceText: "白云山", documentRevision: "revision", matches: [] };
+    });
+    const runtime = test.runtime as unknown as { current: (editor: Editor, info: MarkdownView, atCursor: boolean) => Promise<void> };
+    const completion = runtime.current(test.editor, test.view, false);
+    await Promise.resolve();
+    test.runtime.close();
+    release();
+    await completion;
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(test.report).not.toHaveBeenCalled();
+  });
+
+  it("keeps Notice Undo available after successful creation closes the picker", async () => {
+    const test = setup();
+    const runtime = test.runtime as unknown as { current: (editor: Editor, info: MarkdownView, atCursor: boolean) => Promise<void> };
+    await runtime.current(test.editor, test.view, false);
+    document.querySelector<HTMLButtonElement>(".link-integrity-mention-picker-results button")!.click();
+    await click("Create link");
+    await vi.waitFor(() => expect(document.querySelector("dialog")).toBeNull());
+    expect(test.editor.getValue()).toBe("[[白云山]]");
+    const notice = (Notice as unknown as { messages: DocumentFragment[] }).messages.at(-1)!;
+    notice.querySelector<HTMLButtonElement>("button")!.click();
+    expect(test.editor.getValue()).toBe("白云山");
+    expect(test.editor.transaction).toHaveBeenCalledTimes(2);
+    test.runtime.close();
+  });
+
+  it("rejects an already closed runtime before any index or match work", async () => {
+    const test = setup();
+    test.runtime.close();
+    await test.runtime.reverse("白云山.md", document);
+    expect(test.ensure).not.toHaveBeenCalled();
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  it("disposes reading roots on runtime close without host unload and supports re-enabling on the same root", async () => {
+    const element = document.createElement("div");
+    element.className = "markdown-preview-view";
+    element.innerHTML = "<p>白云山</p>";
+    document.body.append(element);
+    element.querySelector("p")!.getBoundingClientRect = () => ({ top: 20, bottom: 40 } as DOMRect);
+    const children: Array<{ onload: () => void; onunload: () => void }> = [];
+    const context = { sourcePath: "Source.md", getSectionInfo: () => ({ text: "白云山", lineStart: 0, lineEnd: 0 }),
+      addChild: (child: typeof children[number]) => { children.push(child); child.onload(); } } as unknown as MarkdownPostProcessorContext;
+    const first = setup();
+    Object.defineProperty(first.settings.general, "mentionDisplayMode", { value: "document" });
+    first.reading.mock.calls[0]![0](element, context);
+    await vi.waitFor(() => expect(element.querySelector(".link-integrity-mention-hint")).not.toBeNull());
+    first.runtime.close();
+    expect(element.querySelector(".link-integrity-mention-hint")).toBeNull();
+    const second = setup();
+    Object.defineProperty(second.settings.general, "mentionDisplayMode", { value: "document" });
+    second.reading.mock.calls[0]![0](element, context);
+    await vi.waitFor(() => expect(element.querySelector(".link-integrity-mention-hint")).not.toBeNull());
+    children[0]!.onunload();
+    const hint = element.querySelector<HTMLElement>(".link-integrity-mention-hint")!;
+    hint.click();
+    expect(document.querySelector("dialog")).not.toBeNull();
+    second.runtime.close();
+    expect(element.querySelector(".link-integrity-mention-hint")).toBeNull();
+    children[1]!.onunload();
   });
 });

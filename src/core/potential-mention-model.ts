@@ -31,10 +31,16 @@ export interface PotentialMentionSource {
   readonly sourceText?: string;
   readonly documentRevision: string;
   readonly matches: readonly PotentialMentionMatch[];
+  /** Reverse results retain bounded rows; other pages are revalidated and loaded on demand. */
+  readonly matchCount?: number;
+  readonly loadMatches?: (offset: number, limit: number) => Promise<readonly PotentialMentionMatch[]>;
 }
 
 export interface MentionMatchOptions {
   readonly excludedRanges?: readonly MentionRange[];
   /** Excludes a source file from its own suggestions without changing the dictionary. */
   readonly sourcePath?: string;
+  /** Output clipping retains complete original ranges that intersect the requested source range. */
+  readonly range?: MentionRange;
+  readonly ranges?: readonly MentionRange[];
 }

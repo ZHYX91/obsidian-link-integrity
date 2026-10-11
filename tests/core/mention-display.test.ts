@@ -13,6 +13,10 @@ describe("mention display projections", () => {
       [from, to, tracks, ranges.map((match) => match.text)])).toEqual([
       [1, 2, 1, ["白云山"]], [2, 3, 2, ["白云山", "山", "山南路"]], [3, 4, 1, ["山南路"]],
     ]);
+    expect(mentionDisplayFragments(matches, { from: 1, to: 4 }, 1)).toEqual([
+      { from: 1, to: 2, tracks: 1, matches: [matches[0]] },
+    ]);
+    expect(mentionDisplayFragments(matches, { from: 1, to: 4 }, 0)).toEqual([]);
   });
 
   it("uses the actual paragraph at EOF, CRLF and trailing empty lines", () => {

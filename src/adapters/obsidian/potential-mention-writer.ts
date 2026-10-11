@@ -32,11 +32,12 @@ export class ObsidianPotentialMentionWriter {
     match: PotentialMentionMatch,
     targetPath: string,
     getCurrentFile: () => TFile | null,
+    isWriteActive: () => boolean = () => true,
   ): Promise<MentionEditReceipt> {
     const sourceText = source.sourceText;
     if (sourceText === undefined) throw new MentionWriteError("range-unavailable");
     const assertSource = (): void => {
-      if (getCurrentFile() !== file || file.path !== source.sourcePath || this.app.vault.getFileByPath(source.sourcePath) !== file ||
+      if (!isWriteActive() || getCurrentFile() !== file || file.path !== source.sourcePath || this.app.vault.getFileByPath(source.sourcePath) !== file ||
         editor.getValue() !== sourceText) throw new MentionWriteError("source-changed");
     };
     assertSource();

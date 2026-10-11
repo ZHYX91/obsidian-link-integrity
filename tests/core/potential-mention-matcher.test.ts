@@ -37,6 +37,16 @@ describe("potential mention matching", () => {
     ]);
   });
 
+  it("retains complete crossing ranges when clipping output to separated visible windows", () => {
+    const matcher = new PotentialMentionMatcher(names);
+    const source = "白云山南路\n白云山南路\n白云山南路";
+    const complete = matcher.match(source);
+    expect(matcher.match(source, { ranges: [{ from: 1, to: 3 }, { from: 14, to: 15 }] })).toEqual(
+      complete.filter(({ from, to }) => to > 1 && from < 3 || to > 14 && from < 15),
+    );
+    expect(matcher.match(source, { ranges: [] })).toEqual([]);
+  });
+
   it("deduplicates title/alias rows without dropping their provenance", () => {
     const matcher = new PotentialMentionMatcher([
       ...names,

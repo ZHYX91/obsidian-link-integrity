@@ -1,6 +1,6 @@
 import type { LinkIndex } from "../../core/link-index";
 import { PotentialMentionMatcher } from "../../core/potential-mention-matcher";
-import type { MentionRange, PotentialMentionSource } from "../../core/potential-mention-model";
+import type { MentionRange, PotentialMentionMatch, PotentialMentionSource } from "../../core/potential-mention-model";
 import { normalizeVaultPath } from "../../core/model";
 import { WorkScheduler, type WorkSchedulerOptions } from "../../scheduling/work-scheduler";
 import type { PotentialMentionPort } from "./ports";
@@ -13,6 +13,7 @@ export interface MentionReverseSnapshot {
   readonly checked: number;
   readonly total: number;
   readonly sources: readonly PotentialMentionSource[];
+  readonly matchCount: number;
 }
 
 export class MentionRequestCancelledError extends Error {
@@ -29,7 +30,7 @@ export class PotentialMentionService {
   private reverseGeneration = 0;
   private matcher: PotentialMentionMatcher | null = null;
   private matcherRequest: Promise<PotentialMentionMatcher> | null = null;
-  private readonly activeSources = new Map<string, { text: string; request: Promise<PotentialMentionSource> }>();
+  private readonly activeSources = new Map<string, { text: string; range: string; request: Promise<PotentialMentionSource> }>();
 
   public get aliasesComplete(): boolean { return this.port.aliasesComplete?.() ?? true; }
 
@@ -59,16 +60,18 @@ export class PotentialMentionService {
   public async matchSource(
     sourcePath: string,
     sourceText: string,
-    range?: MentionRange,
+    range?: MentionRange | readonly MentionRange[],
     signal?: AbortSignal,
   ): Promise<PotentialMentionSource> {
     let entry = this.activeSources.get(sourcePath);
-    if (entry?.text !== sourceText) {
-      const request = this.matchFullSource(sourcePath, sourceText);
-      entry = { text: sourceText, request };
+    const ranges = range === undefined ? undefined : "from" in range ? [range] : range;
+    const rangeKey = ranges?.map(({ from, to }) => `${from}:${to}`).join(",") ?? "full";
+    if (entry?.text !== sourceText || entry.range !== rangeKey) {
+      const request = this.matchFullSource(sourcePath, sourceText, ranges);
+      entry = { text: sourceText, range: rangeKey, request };
       // At most four active documents and two million UTF-16 units; reverse scans never enter this cache.
       this.activeSources.delete(sourcePath);
-      if (sourceText.length <= 2_000_000) this.activeSources.set(sourcePath, entry);
+      if (ranges !== undefined && sourceText.length <= 2_000_000) this.activeSources.set(sourcePath, entry);
       let retained = [...this.activeSources.values()].reduce((total, value) => total + value.text.length, 0);
       while (this.activeSources.size > 4 || retained > 2_000_000) {
         const oldest = this.activeSources.keys().next().value as string;
@@ -79,18 +82,18 @@ export class PotentialMentionService {
     }
     const result = await entry.request;
     if (signal?.aborted === true) throw new MentionRequestCancelledError();
-    return range === undefined ? result : { ...result,
-      matches: result.matches.filter((match) => match.from >= range.from && match.to <= range.to) };
+    return result;
   }
 
-  private async matchFullSource(sourcePath: string, sourceText: string): Promise<PotentialMentionSource> {
+  private async matchFullSource(sourcePath: string, sourceText: string, ranges?: readonly MentionRange[]): Promise<PotentialMentionSource> {
     const generation = this.sourceGeneration;
     const scheduler = new WorkScheduler(this.schedulerOptions);
     const current = (): boolean => generation === this.sourceGeneration;
     const matcher = await this.getMatcher();
     if (!current()) throw new MentionRequestCancelledError();
     const excludedRanges = [...await this.port.excludedRanges(sourceText, scheduler)];
-    const matches = await consumeSteps(matcher.matchSteps(sourceText, { sourcePath, excludedRanges }), scheduler, current);
+    const matches = await consumeSteps(matcher.matchSteps(sourceText, { sourcePath, excludedRanges,
+      ...(ranges === undefined ? {} : { ranges }) }), scheduler, current);
     const documentRevision = await mentionDocumentRevision(sourceText);
     if (!current()) throw new MentionRequestCancelledError();
     return { sourcePath: normalizeVaultPath(sourcePath), sourceText, documentRevision,
@@ -113,12 +116,15 @@ export class PotentialMentionService {
     const registryIdentity = sourcePaths.join("\n");
     const sources: PotentialMentionSource[] = [];
     let checked = 0;
+    let matchCount = 0;
+    let retained = 0;
+    let observedStale = false;
     let lastProgressAt = 0;
     const snapshot = (state: MentionReverseSnapshot["state"]): MentionReverseSnapshot => ({
-      targetPath, state, checked, total: sourcePaths.length, sources: [...sources],
+      targetPath, state, checked, total: sourcePaths.length, sources: [...sources], matchCount,
     });
     const cancelled = (): boolean => generation !== this.reverseGeneration || options.signal?.aborted === true;
-    const stale = (): boolean => namesGeneration !== this.namesGeneration || sourceGeneration !== this.sourceGeneration ||
+    const stale = (): boolean => observedStale || namesGeneration !== this.namesGeneration || sourceGeneration !== this.sourceGeneration ||
       index !== this.getIndex();
     const reportProgress = (): void => {
       if (options.onProgress === undefined) return;
@@ -131,6 +137,7 @@ export class PotentialMentionService {
     try {
       const matcher = await this.getMatcher();
       const scheduler = new WorkScheduler(this.schedulerOptions);
+      const targetMatcher = await consumeSteps(matcher.forTargetSteps(targetPath), scheduler, () => !stale() && !cancelled());
       for (const sourcePath of sourcePaths) {
         if (stale()) return snapshot("stale");
         if (cancelled()) return snapshot("cancelled");
@@ -140,11 +147,60 @@ export class PotentialMentionService {
         if (sourceText === null) return snapshot("stale");
         if (sourceText !== null && sourcePath !== targetPath) {
           const excludedRanges = await this.port.excludedRanges(sourceText, scheduler);
-          const matches = await consumeSteps(matcher.matchSteps(sourceText, { sourcePath, excludedRanges }), scheduler,
-            () => !stale() && !cancelled());
-          const related = matches.filter((match) => match.targets.some(({ path }) => path === targetPath));
-          if (related.length > 0) sources.push({ sourcePath, documentRevision: await mentionDocumentRevision(sourceText),
-            matches: withMentionContexts(sourceText, related) });
+          let count = 0;
+          const first: PotentialMentionMatch[] = [];
+          await consumeMatches(targetMatcher.scanSteps(sourceText, { sourcePath, excludedRanges }), scheduler,
+            () => !stale() && !cancelled(), (match) => {
+              count += 1;
+              if (retained + first.length < 50) first.push(match);
+            });
+          if (count > 0) {
+            const documentRevision = await mentionDocumentRevision(sourceText);
+            if (stale() || cancelled()) return snapshot(stale() ? "stale" : "cancelled");
+            const loadMatches = async (offset: number, limit: number): Promise<readonly PotentialMentionMatch[]> => {
+              if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 0 || limit > 50) throw new RangeError("Invalid mention page");
+              const fail = (): never => {
+                observedStale = true;
+                options.onProgress?.(snapshot("stale"));
+                throw new MentionRequestCancelledError();
+              };
+              const assertCurrent = (): void => {
+                if (cancelled()) throw new MentionRequestCancelledError();
+                if (stale()) fail();
+              };
+              assertCurrent();
+              if (stale() || this.getIndex().getFile(sourcePath)?.extension !== "md") return fail();
+              const text = await this.port.readSource(sourcePath);
+              assertCurrent();
+              if (text === null) return fail();
+              const revision = await mentionDocumentRevision(text);
+              assertCurrent();
+              if (revision !== documentRevision) return fail();
+              const pageScheduler = new WorkScheduler(this.schedulerOptions);
+              const excluded = await this.port.excludedRanges(text, pageScheduler);
+              assertCurrent();
+              const page: PotentialMentionMatch[] = [];
+              if (limit === 0) return page;
+              let ordinal = 0;
+              const steps = targetMatcher.scanSteps(text, { sourcePath, excludedRanges: excluded });
+              for (const match of steps) {
+                if (match !== undefined) {
+                  if (ordinal >= offset && page.length < limit) page.push(match);
+                  ordinal += 1;
+                }
+                if (page.length >= limit) break;
+                const pause = pageScheduler.checkpoint();
+                if (pause !== null) await pause;
+                assertCurrent();
+              }
+              assertCurrent();
+              return withMentionContexts(text, matcher.withAllTargets(page, sourcePath));
+            };
+            const matches = withMentionContexts(sourceText, matcher.withAllTargets(first, sourcePath));
+            retained += matches.length;
+            matchCount += count;
+            sources.push({ sourcePath, documentRevision, matchCount: count, matches, loadMatches });
+          }
         }
         checked += 1;
         reportProgress();
@@ -192,6 +248,7 @@ function withMentionContexts(source: string, matches: readonly PotentialMentionS
   let position = 0;
   let line = 1;
   return matches.map((match) => {
+    if (match.from < position) { position = 0; line = 1; }
     while (position < match.from) {
       if (source[position] === "\r") { line += 1; if (source[position + 1] === "\n") position += 1; }
       else if (source[position] === "\n") line += 1;
@@ -199,6 +256,17 @@ function withMentionContexts(source: string, matches: readonly PotentialMentionS
     }
     return { ...match, context: { line, excerpt: source.slice(Math.max(0, match.from - 30), match.to + 30).replace(/\s+/gu, " ") } };
   });
+}
+
+async function consumeMatches(steps: Generator<void | PotentialMentionMatch>, scheduler: WorkScheduler,
+  current: () => boolean, accept: (match: PotentialMentionMatch) => void): Promise<void> {
+  for (const match of steps) {
+    if (match !== undefined) accept(match);
+    const pause = scheduler.checkpoint();
+    if (pause !== null) await pause;
+    if (!current()) throw new MentionRequestCancelledError();
+  }
+  if (!current()) throw new MentionRequestCancelledError();
 }
 
 async function consumeSteps<T>(steps: Generator<void, T>, scheduler: WorkScheduler, current: () => boolean): Promise<T> {

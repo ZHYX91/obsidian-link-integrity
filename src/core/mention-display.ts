@@ -6,7 +6,8 @@ export interface MentionDisplayFragment extends MentionRange {
 }
 
 /** Visual density is capped; each fragment retains every complete source range. */
-export function mentionDisplayFragments(matches: readonly PotentialMentionMatch[], viewport: MentionRange): MentionDisplayFragment[] {
+export function mentionDisplayFragments(matches: readonly PotentialMentionMatch[], viewport: MentionRange, limit = Infinity): MentionDisplayFragment[] {
+  if (limit <= 0) return [];
   const events = new Map<number, { starts: PotentialMentionMatch[]; ends: PotentialMentionMatch[] }>();
   const event = (offset: number) => {
     let value = events.get(offset);
@@ -32,6 +33,7 @@ export function mentionDisplayFragments(matches: readonly PotentialMentionMatch[
     for (const match of changes?.ends ?? []) active.delete(match);
     for (const match of changes?.starts ?? []) active.add(match);
     if (active.size > 0 && to > from) fragments.push({ from, to, tracks: active.size > 1 ? 2 : 1, matches: [...active] });
+    if (fragments.length >= limit) break;
   }
   return fragments;
 }

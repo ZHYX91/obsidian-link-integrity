@@ -88,9 +88,18 @@ export class PotentialMentionMatcher {
     source: string,
     options: MentionMatchOptions = {},
   ): Generator<void, readonly PotentialMentionMatch[]> {
+    const matches: PotentialMentionMatch[] = [];
+    for (const match of this.scanSteps(source, options)) {
+      if (match !== undefined) matches.push(match);
+      yield;
+    }
+    return yield* sortSteps(matches, (left, right) => left.from - right.from || left.to - right.to);
+  }
+
+  /** Streams exact candidates without retaining an output array; checkpoints remain cancellable. */
+  public *scanSteps(source: string, options: MentionMatchOptions = {}): Generator<void | PotentialMentionMatch> {
     const sourcePath = options.sourcePath === undefined ? null : normalizeVaultPath(options.sourcePath);
     const excluded = mergedRanges(options.excludedRanges ?? [], source.length);
-    const matches: PotentialMentionMatch[] = [];
     const boundaries = new Set<number>([source.length]);
     let segments = 0;
     for (const segment of new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(source)) {
@@ -128,9 +137,11 @@ export class PotentialMentionMatcher {
             targets = sourcePath === null ? allTargets : allTargets.filter(({ path }) => path !== sourcePath);
             filteredTargets.set(text, targets);
           }
-          if (targets.length > 0 && boundaries.has(from) && boundaries.has(to) &&
+          if (targets.length > 0 && (options.ranges === undefined || options.ranges.some((range) => to > range.from && from < range.to)) &&
+            (options.range === undefined || to > options.range.from && from < options.range.to) &&
+            boundaries.has(from) && boundaries.has(to) &&
             mentionWordEdges(source, from, to)) {
-            matches.push({ from, to, text: source.slice(from, to), targets });
+            yield { from, to, text: source.slice(from, to), targets };
           }
           work += 1;
           if (work % 128 === 0) yield;
@@ -140,7 +151,36 @@ export class PotentialMentionMatcher {
       work += 1;
       if (work % 1024 === 0) yield;
     }
-    return yield* sortSteps(matches, (left, right) => left.from - right.from || left.to - right.to);
+  }
+
+  /** Reverse lookup is an explicit projection to one chosen target, with the same name semantics. */
+  public *forTargetSteps(targetPath: string): Generator<void, PotentialMentionMatcher> {
+    const names: MentionName[] = [];
+    let work = 0;
+    for (const [text, targets] of this.targetsByName) {
+      for (const target of targets) {
+        if (target.path === targetPath) {
+          for (const kind of target.nameKinds) names.push({ text, targetPath, kind });
+          break;
+        }
+        if (++work % 128 === 0) yield;
+      }
+      yield;
+    }
+    return yield* PotentialMentionMatcher.createSteps(names);
+  }
+
+  public withAllTargets(matches: readonly PotentialMentionMatch[], sourcePath: string): readonly PotentialMentionMatch[] {
+    const cache = new Map<string, readonly PotentialMentionTarget[]>();
+    return matches.map((match) => {
+      const key = normalizeMentionText(match.text);
+      let targets = cache.get(key);
+      if (targets === undefined) {
+        targets = (this.targetsByName.get(key) ?? []).filter(({ path }) => path !== sourcePath);
+        cache.set(key, targets);
+      }
+      return { ...match, targets };
+    });
   }
 
   private node(index: number): MatcherNode {

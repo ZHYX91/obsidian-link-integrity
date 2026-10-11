@@ -8,7 +8,7 @@ import type { PotentialMentionMatch } from "../../core/potential-mention-model";
 
 export interface MentionEditorOptions {
   readonly mode: () => "off" | "paragraph" | "document";
-  readonly match: (path: string, text: string, range: { from: number; to: number } | undefined,
+  readonly match: (path: string, text: string, range: readonly { from: number; to: number }[] | undefined,
     signal: AbortSignal) => Promise<PotentialMentionSource>;
   readonly subscribe: (listener: () => void) => () => void;
   readonly pick: (source: PotentialMentionSource, matches: readonly PotentialMentionMatch[], info: MarkdownFileInfo,
@@ -88,12 +88,17 @@ export function createMentionEditorExtension(options: MentionEditorOptions): Ext
       const text = this.view.state.doc.toString();
       const path = info.file.path;
       try {
-        const source = await options.match(path, text, mode === "paragraph"
-          ? mentionParagraphRange(text, this.view.state.selection.main.head) : undefined, request.signal);
+        const paragraph = mode === "paragraph" ? mentionParagraphRange(text, this.view.state.selection.main.head) : null;
+        const ranges = this.view.visibleRanges.map((range) => paragraph === null ? range :
+          { from: Math.max(range.from, paragraph.from), to: Math.min(range.to, paragraph.to) }).filter(({ from, to }) => to > from);
+        const source = await options.match(path, text, ranges, request.signal);
         if (request.signal.aborted || this.disposed || this.view.state.doc.toString() !== text ||
           this.view.state.field(editorInfoField, false)?.file?.path !== path) return;
-        const fragments = this.view.visibleRanges.flatMap((range) => mentionDisplayFragments(source.matches, range))
-          .slice(0, MAX_MENTION_DECORATIONS);
+        const fragments: MentionDisplayFragment[] = [];
+        for (const range of this.view.visibleRanges) {
+          fragments.push(...mentionDisplayFragments(source.matches, range, MAX_MENTION_DECORATIONS - fragments.length));
+          if (fragments.length >= MAX_MENTION_DECORATIONS) break;
+        }
         this.fragments = fragments;
         this.source = source;
         this.decorations = Decoration.set(fragments.map((fragment, index) => Decoration.mark({
