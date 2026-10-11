@@ -28,6 +28,7 @@ import {
   extractBasesExplicitReferences,
   extractMarkdownExplicitReferencesAsync,
   isExternalReference,
+  maskMarkdownNonContent,
   type ParsedExplicitReference,
 } from "./explicit-link-parser";
 
@@ -111,6 +112,12 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       const source = await this.vault.cachedRead(file);
       return this.buildParsedTextSnapshot(file, source, "markdown-link", scheduler);
     }
+    // Keep the host's reference/frontmatter semantics. Only discard a cache entry
+    // when its current source location proves that its opening is non-content.
+    const hasPositionedReferences = (cache.links?.length ?? 0) + (cache.embeds?.length ?? 0) > 0;
+    const source = hasPositionedReferences ? await this.vault.cachedRead(file) : "";
+    const masked = hasPositionedReferences ? maskMarkdownNonContent(source) : source;
+    const lineStarts = createLineStarts(source);
     const inputs: OccurrenceInput[] = [];
     let ordinal = 0;
     const appendPositioned = (
@@ -118,6 +125,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       kind: LinkOccurrenceKind,
     ): void => {
       for (const reference of references ?? []) {
+        if (cachedOpeningIsMasked(reference, source, masked, lineStarts)) continue;
         inputs.push({
           raw: reference.original,
           linktext: reference.link,
@@ -410,9 +418,40 @@ function canvasPosition(canvasNodeId: string | null): SourcePosition {
 function createLineStarts(source: string): readonly number[] {
   const starts = [0];
   for (let index = 0; index < source.length; index += 1) {
-    if (source[index] === "\n") starts.push(index + 1);
+    if (source[index] === "\r") {
+      if (source[index + 1] === "\n") index += 1;
+      starts.push(index + 1);
+    } else if (source[index] === "\n") starts.push(index + 1);
   }
   return starts;
+}
+
+function cachedOpeningIsMasked(
+  reference: ReferenceCache,
+  source: string,
+  masked: string,
+  lineStarts: readonly number[],
+): boolean {
+  const start = cachePointOffset(reference.position.start, source, lineStarts);
+  const end = cachePointOffset(reference.position.end, source, lineStarts);
+  if (start === null || end === null || end <= start ||
+    source.slice(start, end) !== reference.original) return false;
+  return masked[start] !== source[start];
+}
+
+function cachePointOffset(
+  point: { readonly line: number; readonly col: number },
+  source: string,
+  lineStarts: readonly number[],
+): number | null {
+  if (!Number.isInteger(point.line) || !Number.isInteger(point.col) || point.col < 0) return null;
+  const start = lineStarts[point.line];
+  if (start === undefined) return null;
+  let end = lineStarts[point.line + 1] ?? source.length;
+  if (source[end - 1] === "\n") end -= 1;
+  if (source[end - 1] === "\r") end -= 1;
+  const offset = start + point.col;
+  return offset <= end ? offset : null;
 }
 
 function offsetToLineColumn(

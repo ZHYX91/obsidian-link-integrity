@@ -11,6 +11,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 - Add optional warning-colored waves for confirmed missing file, heading and block references in editor and reading views, with a read-only current-note diagnostic command. Body hints default Off, including upgrades with missing fields.
 - Prove current saved text, explicit body syntax and metadata before marking links; preserve native navigation and skip ambiguous third-party/FakeLink anchors.
+- Filter accurately positioned cached references in comments and code using the shared source mask; keep native reference-style links and Frontmatter semantics. Preserve reading-view warning waves above the host's unresolved-link and hover styles.
 - Remove potential-mention matching, inline suggestions, manual queries, reverse lookup, candidate picking, link creation and its dedicated Undo. Legacy mention settings are ignored; existing real links are never rewritten or restored.
 - Retain Broken links/Isolated files diagnostics, ignore/expected-isolation Undo, three imperative settings tabs and manual-install ZIP assets.
 

@@ -3,10 +3,11 @@ import type {
   MetadataCache,
   Vault,
 } from "obsidian";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
 import { occurrenceIdMatches } from "../../src/core/occurrence-identity";
+import { createFileRecord, LinkIndex } from "../../src/core";
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 
 interface FakeFile {
@@ -16,6 +17,93 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["\n", "\r\n", "\r"])("filters cached comment links and embeds like fallback with %j line endings", async (newline) => {
+    const file = fakeFile("Source.md");
+    const source = ["😀 [[Real]]", "%% [[Protected ghost]] ![[Ghost.png]] %%", "[[Other]]"].join(newline);
+    const cache = {
+      links: [positioned(source, "Real", "[[Real]]"), positioned(source, "Protected ghost", "[[Protected ghost]]"),
+        positioned(source, "Other", "[[Other]]")],
+      embeds: [positioned(source, "Ghost.png", "![[Ghost.png]]")],
+    };
+    const options = { content: { [file.path]: source }, destinations: new Map() };
+    const cached = createPort([file], { ...options, caches: new Map([[file.path, cache]]) });
+    const fallback = createPort([file], { ...options, caches: new Map() });
+    const actual = await cached.port.buildSourceSnapshot(file.path);
+    const expected = await fallback.port.buildSourceSnapshot(file.path);
+    expect(actual).toEqual(expected);
+    expect(actual?.occurrences.map(({ linkpath }) => linkpath)).toEqual(["Real", "Other"]);
+    expect(cached.cachedRead).toHaveBeenCalledOnce();
+    expect(fallback.cachedRead).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    "%% before\n[[Ghost]]\nafter %%",
+    "`[[Ghost]]`",
+    "```md\n[[Ghost]]\n```",
+    "~~~\n[[Ghost]]",
+    "\n    [[Ghost]]",
+    "---\nrelated: '[[Property]]' # [[Ghost]]\n---",
+  ])("shares the existing non-content boundary for positioned cache entries: %s", async (protectedText) => {
+    const file = fakeFile("Source.md");
+    const source = `${protectedText}\n`;
+    const test = createPort([file], {
+      content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [positioned(source, "Ghost", "[[Ghost]]")] }]]),
+    });
+    expect((await test.port.buildSourceSnapshot(file.path))?.occurrences).toEqual([]);
+  });
+
+  it("retains native reference forms, formatted labels and frontmatter while preserving graph edges", async () => {
+    const file = fakeFile("Source.md");
+    const target = fakeFile("Target.md");
+    const source = ["---", "related: '[[Target]]'", "---", "[label][ref] [ref][] [ref]",
+      "[a `code` label](Target)", "![[Target]]", "%% [[Ghost]] %%", "[ref]: Target"].join("\n");
+    const native = ["[label][ref]", "[ref][]", "[ref]", "[a `code` label](Target)"];
+    const test = createPort([file, target], {
+      content: { [file.path]: source }, destinations: new Map([["Target", target]]),
+      caches: new Map([[file.path, {
+        links: [...native.map((raw) => positioned(source, "Target", raw,
+          raw === "[ref]" ? source.indexOf("[ref][]") + "[ref][] ".length : 0)),
+        positioned(source, "Ghost", "[[Ghost]]")],
+        embeds: [positioned(source, "Target", "![[Target]]")],
+        frontmatterLinks: [{ link: "Target", original: "[[Target]]", key: "related" }],
+      }], [target.path, {}]]),
+    });
+    const snapshot = await test.port.buildSourceSnapshot(file.path);
+    expect(snapshot?.occurrences.map(({ raw }) => raw)).toEqual([...native, "![[Target]]", "[[Target]]"]);
+    expect(snapshot?.occurrences.at(-1)).toMatchObject({ kind: "frontmatter", position: { property: "related" } });
+    const index = new LinkIndex([createFileRecord(file.path), createFileRecord(target.path)]);
+    index.replaceSourceSnapshot(file.path, snapshot!);
+    expect(index.getOutgoingNeighborCount(file.path)).toBe(1);
+    expect(index.getIncomingContributionCount(target.path)).toBe(6);
+    expect(snapshot?.occurrences.every(({ fileStatus }) => fileStatus === "resolved")).toBe(true);
+  });
+
+  it("does not infer a mask from inaccurate or stale cache coordinates", async () => {
+    const file = fakeFile("Source.md");
+    const source = "%% [[Ghost]] %%\n[[Real]]";
+    const ghost = positioned(source, "Ghost", "[[Ghost]]");
+    const test = createPort([file], {
+      content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [
+        { ...ghost, original: "[[Stale]]" },
+        { ...ghost, position: { ...ghost.position, start: { ...ghost.position.start, col: 100 } } },
+        { ...ghost, position: { ...ghost.position, start: { ...ghost.position.start, line: -1 } } },
+      ] }]]),
+    });
+    expect((await test.port.buildSourceSnapshot(file.path))?.occurrences).toHaveLength(3);
+  });
+
+  it("keeps frontmatter-only caches independent of body reads", async () => {
+    const file = fakeFile("Source.md");
+    const test = createPort([file], {
+      content: {}, destinations: new Map(),
+      caches: new Map([[file.path, { frontmatterLinks: [{ link: "Target", original: "[[Target]]", key: "related" }] }]]),
+    });
+    expect((await test.port.buildSourceSnapshot(file.path))?.occurrences).toHaveLength(1);
+    expect(test.cachedRead).not.toHaveBeenCalled();
+  });
+
   it("omits unsupported decoded YAML coordinates without losing repeated occurrences", async () => {
     const base = fakeFile("Escaped.base");
     const { port } = createPort([base], {
@@ -323,18 +411,29 @@ function createPort(
     readonly caches: ReadonlyMap<string, CachedMetadata>;
     readonly destinations: ReadonlyMap<string, FakeFile>;
   },
-): { readonly port: ObsidianLinkIndexPort } {
+): { readonly port: ObsidianLinkIndexPort; readonly cachedRead: ReturnType<typeof vi.fn> } {
   const files = new Map(inputFiles.map((file) => [file.path, file]));
+  const cachedRead = vi.fn((file: FakeFile) => Promise.resolve(options.content[file.path] ?? ""));
   const vault = {
     getFiles: () => [...files.values()],
     getFileByPath: (path: string) => files.get(path) ?? null,
-    cachedRead: (file: FakeFile) => Promise.resolve(options.content[file.path] ?? ""),
+    cachedRead,
   } as unknown as Vault;
   const metadataCache = {
     getFileCache: (file: FakeFile) => options.caches.get(file.path) ?? null,
     getFirstLinkpathDest: (linkpath: string) => options.destinations.get(linkpath) ?? null,
   } as unknown as MetadataCache;
-  return { port: new ObsidianLinkIndexPort(vault, metadataCache) };
+  return { port: new ObsidianLinkIndexPort(vault, metadataCache), cachedRead };
+}
+
+function positioned(source: string, link: string, original: string, from = 0) {
+  const offset = source.indexOf(original, from);
+  if (offset < 0) throw new Error(`Missing test reference: ${original}`);
+  const point = (index: number) => {
+    const prefix = source.slice(0, index).split(/\r\n|\r|\n/u);
+    return { line: prefix.length - 1, col: prefix.at(-1)!.length, offset: index };
+  };
+  return { link, original, position: { start: point(offset), end: point(offset + original.length) } };
 }
 
 function fakeFile(path: string): FakeFile {

@@ -424,7 +424,8 @@ function isEscaped(source: string, index: number): boolean {
   return backslashes % 2 === 1;
 }
 
-function maskMarkdownNonContent(source: string): string {
+/** Same-length UTF-16 mask shared by fallback parsing and positioned cache filtering. */
+export function maskMarkdownNonContent(source: string): string {
   // Every offset used by RegExp, indexOf, and slice is a UTF-16 code-unit offset.
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.

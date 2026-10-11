@@ -1093,7 +1093,9 @@
   }
 }
 
-.link-integrity-broken-body-hint {
+.link-integrity-broken-body-hint,
+.markdown-rendered a.internal-link.link-integrity-broken-body-hint,
+.markdown-rendered a.internal-link.link-integrity-broken-body-hint:hover {
   text-decoration-line: underline;
   text-decoration-style: wavy;
   text-decoration-color: var(--text-error);
