@@ -29,6 +29,11 @@ interface SidebarFocusMeasurements {
 }
 
 interface LayoutMeasurements {
+  readonly bodyHints: {
+    readonly marked: readonly { readonly line: string; readonly style: string; readonly color: string }[];
+    readonly native: { readonly style: string; readonly color: string };
+    readonly virtual: { readonly style: string; readonly color: string };
+  };
   readonly dialog: { readonly scrollable: boolean; readonly footerVisibleAfterScroll: boolean };
   readonly checkbox: {
     readonly height: number;
@@ -98,6 +103,15 @@ describe("Obsidian host CSS layout contract", () => {
   beforeAll(async () => {
     measurements = await renderLayoutMeasurements();
   }, 30_000);
+
+  it("keeps warning waves above native unresolved and hover rules without styling unmarked links", () => {
+    expect(measurements.bodyHints.marked).toHaveLength(4);
+    for (const hint of measurements.bodyHints.marked) {
+      expect(hint).toEqual({ line: "underline", style: "wavy", color: "rgb(220, 53, 69)" });
+    }
+    expect(measurements.bodyHints.native).toEqual({ style: "solid", color: "rgb(109, 140, 255)" });
+    expect(measurements.bodyHints.virtual).toEqual(measurements.bodyHints.native);
+  });
 
   it("keeps the rule editor scrollable and its actions reachable in a short window", () => {
     expect(measurements.dialog.scrollable).toBe(true);
@@ -381,6 +395,7 @@ function createLayoutDocument(pluginCss: string, sidebarFocusProbe: string): str
   --size-4-6: 24px;
   --size-4-8: 32px;
   --text-faint: #7f8792;
+  --text-error: #dc3545;
   --text-muted: #a5aeb9;
   --text-normal: #e6e9ed;
   --text-on-accent: white;
@@ -416,9 +431,28 @@ input[type="checkbox"] {
 select, input[type="text"], input[type="search"] { height: var(--input-height); }
 .setting-item { display: flex; }
 ${pluginCss.replaceAll("</style", "<\\/style")}
+/* Host selectors intentionally load after the plugin. The unresolved selectors
+   retain the official specificity, including the extra hover pseudo-class. */
+.markdown-rendered .internal-link.is-unresolved {
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-color: var(--interactive-accent);
+}
+.markdown-rendered .internal-link.is-unresolved:hover {
+  text-decoration-line: none;
+  text-decoration-color: var(--interactive-accent);
+}
 </style>
 </head>
 <body>
+<section class="markdown-rendered" id="body-hint-fixture">
+  <a href="#" class="internal-link is-unresolved link-integrity-broken-body-hint">Missing file</a>
+  <a href="#" class="internal-link link-integrity-broken-body-hint">Missing heading</a>
+  <a href="#" class="internal-link link-integrity-broken-body-hint">Missing block</a>
+  <a href="#" class="internal-link is-unresolved link-integrity-broken-body-hint is-probed-hover">Hovered missing file</a>
+  <a href="#" class="internal-link is-unresolved" id="unmarked-native">Native unresolved</a>
+  <a href="#" class="internal-link is-unresolved virtual-link-a" id="unmarked-virtual">Virtual unresolved</a>
+</section>
 <section class="link-integrity-sidebar" id="result-fixture" style="width: 250px">
   <ul class="link-integrity-result-list">
     <li class="link-integrity-result-row" id="result-row">
@@ -516,6 +550,21 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
 <pre id="layout-results"></pre>
 <script>${sidebarFocusProbe}</script>
 <script>
+  // Force hover in this headless cascade contract. Replacing the pseudo-class
+  // with a class preserves specificity and tests both actual stylesheet rules.
+  for (const sheet of document.styleSheets) {
+    for (const rule of sheet.cssRules) {
+      if (rule.selectorText?.includes(":hover")) rule.selectorText = rule.selectorText.replaceAll(":hover", ".is-probed-hover");
+    }
+  }
+  const decoration = (element) => {
+    const style = getComputedStyle(element);
+    return { line: style.textDecorationLine, style: style.textDecorationStyle, color: style.textDecorationColor };
+  };
+  const controlDecoration = (id) => {
+    const { style, color } = decoration(document.getElementById(id));
+    return { style, color };
+  };
   const resultMain = document.getElementById("result-main");
   const resultRow = document.getElementById("result-row");
   const resultBadge = document.getElementById("result-badge");
@@ -538,6 +587,10 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const dialogPanel = document.getElementById("dialog-panel").getBoundingClientRect();
   const dialogActions = document.getElementById("dialog-actions").getBoundingClientRect();
   const measurements = {
+    bodyHints: {
+      marked: Array.from(document.querySelectorAll("#body-hint-fixture .link-integrity-broken-body-hint"), decoration),
+      native: controlDecoration("unmarked-native"), virtual: controlDecoration("unmarked-virtual"),
+    },
     sidebarFocus: window.sidebarFocus,
     dialog: {
       scrollable: dialogContent.clientHeight > 0 && dialogContent.scrollHeight > dialogContent.clientHeight,

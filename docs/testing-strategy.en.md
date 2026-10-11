@@ -119,6 +119,8 @@ When a failure is found, record the smallest reproduction, the affected semantic
 
 ## Body diagnostic regression and coexistence acceptance
 
+Cached and fallback paths must agree for exactly positioned Obsidian comments, code and YAML-comment references, covering LF/CRLF/CR, embeds, native reference-style links, formatted labels and independent property references. The real adapter's 10k/50k-source benchmark checks one body read per source, protected references excluded from the graph, and 12 single-source edits causing only 12 reads without registry enumeration. A real Chromium style regression loads native unresolved and hover selectors, proving that owned hints retain warning-colored waves while unmarked native and virtual links keep host styling; it still does not replace real-host acceptance.
+
 Automated regression covers default Off, missing/legacy mention fields, three settings tabs, absence of retired commands/actions, shared diagnostic toggles/ignores, the three confirmed missing reasons and pending/invalid/unsupported negatives, full-text and cache/snapshot identity, equal-length prefixes becoming code/comments, CRLF/CR coordinates and protected syntax. Confirmed diagnostics never change graph/isolation results, and missing headings/blocks preserve existing file edges.
 
 Reading tests cover same labels at different targets, repeated native destinations, bare #^block mixed with real references, extra third-party anchors, conservative fallback for embeds/reference-style links/transformed text, native href/click preservation, hover/focus/Escape, the touch diagnostic entry, Off, asynchronous close, DOM mutation and surviving children at unload. Editor tests cover immediate clearing on edits, IME, viewport limits and cancellation.

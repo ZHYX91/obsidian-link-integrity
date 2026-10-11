@@ -53,6 +53,8 @@ The Markdown fallback preserves UTF-16 source offsets while masking fenced and i
 
 Markdown destination and title boundaries are indexed once, including failed attempts, and parsing checkpoints yield through the shared scheduler. Frontmatter navigation uses YAML syntax-node source ranges for complete property paths; malformed or ambiguous paths decline precise positioning.
 
+When Metadata Cache contains body links/embeds, each source snapshot reads current text once and reuses the fallback parser's same-length non-content mask. An entry is excluded only when cached line/column coordinates exactly match its original reference and its opening is masked; unreliable coordinates retain host semantics without guessing. Reference-style links and code inside labels retain host recognition, while frontmatterLinks remain independent; property-only caches cause no additional body read. This read is confined to the source being built, without additional registry enumeration or referer rebuilding.
+
 Ignore previews use the execution matcher, visit stored occurrences in scheduled batches, cancel superseded drafts, and restart if the authoritative index changes while counting. Single-source and occurrence rules restrict enumeration to the source snapshot.
 
 Core lookup-key normalization is used only for conservative revalidation after namespace changes. It neither replaces the official resolver nor decides the final target.
