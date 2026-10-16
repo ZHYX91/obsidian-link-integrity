@@ -437,6 +437,9 @@ export function checkReadmeI18n(projectRoot = defaultProjectRoot) {
     if (/Orphan files|孤儿文件/iu.test(source)) {
       errors.push(`${filePath} contains retired orphan-file terminology`);
     }
+    if (/FakeLink/iu.test(source)) {
+      errors.push(`${filePath} exposes an implementation-only FakeLink term`);
+    }
     for (const [label, pattern] of forbiddenPublicJargon.get(filePath) ?? []) {
       if (pattern.test(source)) {
         errors.push(`${filePath} contains internal public-facing jargon: ${label}`);

@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
-Link Integrity es un complemento local de Obsidian de solo lectura para enlaces rotos y archivos aislados.
+Link Integrity te ayuda a encontrar enlaces que ya no funcionan y archivos sin conexiones válidas con otros archivos de tu bóveda de Obsidian. Muestra los problemas sin cambiar enlaces ni eliminar archivos.
 
 ## Capturas de pantalla
 
@@ -48,7 +48,7 @@ Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` e
 3. Selecciona un resultado para abrir su origen. Los filtros de archivos aislados solo cambian la vista actual y no modifican los valores predeterminados guardados.
 4. El análisis al iniciar está desactivado de forma predeterminada. Al abrir la barra lateral, el índice se crea cuando es necesario; también puedes usar **Crear índice** o **Reconstruir índice** en General. Después de la primera creación correcta, los cambios del Vault actualizan los resultados automáticamente.
 
-Las marcas están desactivadas por defecto en Broken links. Actívelas para edición y lectura. Se conserva la navegación nativa; el comando de diagnóstico muestra motivos por teclado o toque. Los rangos sin guardar, pendientes o ambiguos no se marcan. El texto virtual de FakeLink no es un enlace explícito ni una conexión del grafo.
+Las marcas en las notas están desactivadas por defecto. Puedes activarlas al leer o editar y seguir abriendo los enlaces normalmente. Si la ubicación de un enlace aún no es segura, no se marca; revísalo en la barra lateral.
 
 ## Ajustes
 

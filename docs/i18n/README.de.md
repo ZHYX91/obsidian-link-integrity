@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
-Link Integrity ist ein lokales, schreibgeschütztes Obsidian-Plugin für defekte Links und isolierte Dateien.
+Link Integrity zeigt defekte Links und Dateien ohne gültige Verbindungen zu anderen Dateien im Obsidian-Vault. Es hilft beim Prüfen, ohne Links zu verändern oder Dateien zu löschen.
 
 ## Screenshots
 
@@ -48,7 +48,7 @@ Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` na
 3. Einen Eintrag auswählen, um seine Quelle zu öffnen. Filter für isolierte Dateien ändern nur die aktuelle Ansicht und nicht die gespeicherten Standardwerte.
 4. Der Startscan ist standardmäßig aus. Beim Öffnen der Seitenleiste wird der Index bei Bedarf erstellt; alternativ stehen **Index erstellen** und **Index neu erstellen** in den allgemeinen Einstellungen bereit. Nach dem ersten erfolgreichen Aufbau werden Änderungen im Vault automatisch übernommen.
 
-Texthinweise sind in Broken links standardmäßig aus. Aktivieren Sie sie für Editor und Leseansicht. Die native Navigation bleibt erhalten; der Diagnosebefehl zeigt Gründe per Tastatur oder Touch. Ungespeicherte, ausstehende und mehrdeutige Stellen bleiben unmarkiert. Virtueller FakeLink-Text zählt nicht als expliziter Link oder Graphverbindung.
+Markierungen im Notiztext sind standardmäßig aus. Sie können sie beim Lesen oder Bearbeiten aktivieren und Links weiterhin normal öffnen. Wenn die Position eines Links noch nicht sicher feststeht, bleibt die Markierung aus; prüfen Sie ihn stattdessen in der Seitenleiste.
 
 ## Einstellungen
 

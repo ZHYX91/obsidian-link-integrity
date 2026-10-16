@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
-Link Integrity 是本機、唯讀的 Obsidian 外掛，用於無效連結（Broken links）與孤立檔案（Isolated files）。
+Link Integrity 能找出筆記中指向不存在檔案、標題或區塊的連結，也能找出沒有連到其他檔案的筆記與附件。它只提供檢查結果，**不會修改連結或刪除檔案**。（側欄名稱為 Broken links 和 Isolated files。）
 
 ## 介面截圖
 
@@ -48,7 +48,7 @@ Bases 動態查詢得到的檔案不會自動算成連結。如果目標檔案�
 3. 選取結果即可開啟來源。孤立檔案篩選只影響目前畫面，不會修改已儲存的預設設定。
 4. 啟動時掃描預設關閉。開啟側邊欄後會在需要時建立索引，也可以在「一般」設定中使用 **建立索引** 或 **重建索引**。首次建立成功後，Vault 中後續的變更會自動更新結果。
 
-內文提示在無效連結設定中預設關閉，可為編輯與閱讀視圖開啟。保留原生導覽；鍵盤或觸控可用「診斷目前筆記的失效連結」查看原因。未儲存、等待或歧義範圍不標色。FakeLink 虛擬文字不作為顯式連結或圖連接。
+內文提示預設關閉，可在編輯與閱讀檢視啟用。仍可照常開啟連結，也可用診斷命令查看原因。尚未更新完成或無法精確定位的連結不會畫波浪線，請在側欄繼續檢查。
 
 ## 設定
 

@@ -2,7 +2,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
-Link Integrity là plugin Obsidian cục bộ, chỉ đọc cho liên kết hỏng và tệp cô lập.
+Link Integrity giúp tìm các liên kết không còn hoạt động và những tệp không có kết nối hợp lệ với tệp khác trong kho Obsidian. Plugin chỉ hiển thị kết quả kiểm tra, không sửa liên kết hay xóa tệp.
 
 ## Ảnh chụp màn hình
 
@@ -48,7 +48,7 @@ Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css`
 3. Chọn một kết quả để mở tệp nguồn. Bộ lọc tệp cô lập chỉ thay đổi chế độ xem hiện tại, không thay đổi giá trị mặc định đã lưu.
 4. Quét khi khởi động mặc định bị tắt. Khi mở thanh bên, chỉ mục sẽ được tạo khi cần; bạn cũng có thể dùng **Tạo chỉ mục** hoặc **Tạo lại chỉ mục** trong phần Chung. Sau lần tạo đầu tiên thành công, thay đổi trong Vault sẽ tự động cập nhật kết quả.
 
-Dấu trong nội dung mặc định tắt ở Broken links. Bật cho chỉnh sửa và đọc. Điều hướng gốc được giữ nguyên; lệnh chẩn đoán hiển thị lý do bằng bàn phím hoặc cảm ứng. Phạm vi chưa lưu, đang chờ hoặc mơ hồ không được đánh dấu. Văn bản ảo FakeLink không phải liên kết tường minh hay kết nối đồ thị.
+Gạch chân cảnh báo trong nội dung ghi chú mặc định tắt. Bạn có thể bật khi đọc hoặc chỉnh sửa mà vẫn mở liên kết như bình thường. Nếu chưa xác định được vị trí liên kết một cách chắc chắn, hãy xem kết quả trong thanh bên.
 
 ## Cài đặt
 
