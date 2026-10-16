@@ -11,8 +11,8 @@ import {
 } from "../../src/shared/i18n";
 
 describe("i18n", () => {
-  it("publishes eleven complete typed catalogs and language autonyms", () => {
-    expect(SUPPORTED_LOCALES).toHaveLength(11);
+  it("publishes twelve complete typed catalogs and language autonyms", () => {
+    expect(SUPPORTED_LOCALES).toHaveLength(12);
     expect(LOCALE_OPTIONS.map(({ value }) => value)).toEqual(SUPPORTED_LOCALES);
     const sourceKeys = Object.keys(ZH_CN_MESSAGES).sort();
     for (const locale of SUPPORTED_LOCALES) {
@@ -29,6 +29,8 @@ describe("i18n", () => {
     ["ko-KR", "ko"],
     ["es-MX", "es"],
     ["vi-VN", "vi"],
+    ["ar-SA", "ar"],
+    ["ar_EG", "ar"],
     ["zh-Hans", "zh-CN"],
     ["zh_Hant_TW", "zh-TW"],
     ["nl-NL", "en"],
@@ -55,11 +57,26 @@ describe("i18n", () => {
     }
   });
 
-  it("keeps an RTL foundation when automatic locale falls back to English", () => {
+  it("renders Arabic RTL and preserves RTL for an unsupported host language", () => {
     const translator = createTranslator("auto", "ar-SA");
-    expect(translator.locale).toBe("en");
+    expect(translator.locale).toBe("ar");
     expect(translator.direction).toBe("rtl");
+    expect(translator.t("settings.general.language")).toBe("لغة الواجهة");
+    expect(resolveTextDirection("ar", "en")).toBe("rtl");
+    const unsupported = createTranslator("auto", "fa-IR");
+    expect(unsupported.locale).toBe("en");
+    expect(unsupported.direction).toBe("rtl");
     expect(resolveTextDirection("en", "ar-SA")).toBe("ltr");
+  });
+
+  it("uses Arabic plural rules for 0, 1, 2, 3 and 11", () => {
+    const t = createTranslator("ar", "en").t;
+    expect(t("sidebar.broken.occurrences", { count: 0 })).toContain("لا توجد");
+    expect(t("sidebar.broken.occurrences", { count: 1 })).toContain("رابط معطّل");
+    expect(t("sidebar.broken.occurrences", { count: 2 })).toContain("رابطان معطّلان");
+    expect(t("sidebar.broken.occurrences", { count: 3 })).toContain("روابط معطّلة");
+    expect(t("sidebar.broken.occurrences", { count: 11 })).toContain("رابطًا معطّلًا");
+    expect(t("fileType.selectedCount", { selected: 2, total: 5 })).toContain("2 من 5");
   });
 
   it("provides localized host-following language and command labels", () => {
@@ -99,6 +116,7 @@ describe("i18n", () => {
     ["vi", /đồ thị liên kết/iu],
     ["zh-CN", /链接图/u],
     ["zh-TW", /連結圖/u],
+    ["ar", /رسم بياني|مخطط بياني/u],
   ] as const)("keeps temporary-filter copy free of graph jargon in %s", (locale, pattern) => {
     expect(createTranslator(locale, "en").t("sidebar.fileTypes.temporary"))
       .not.toMatch(pattern);

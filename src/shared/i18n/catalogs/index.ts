@@ -1,5 +1,6 @@
 import type { MessageCatalogs } from "../types";
 import { EN_MESSAGES } from "./en";
+import { AR_MESSAGES } from "./ar";
 import { DE_MESSAGES } from "./de";
 import { ES_MESSAGES } from "./es";
 import { FR_MESSAGES } from "./fr";
@@ -23,4 +24,5 @@ export const MESSAGE_CATALOGS: MessageCatalogs = {
   ko: KO_MESSAGES,
   es: ES_MESSAGES,
   vi: VI_MESSAGES,
+  ar: AR_MESSAGES,
 };

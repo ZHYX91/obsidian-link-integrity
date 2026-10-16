@@ -28,6 +28,7 @@ export const LOCALE_OPTIONS: readonly LocaleOption[] = [
   { value: "ko", autonym: "한국어" },
   { value: "es", autonym: "Español" },
   { value: "vi", autonym: "Tiếng Việt" },
+  { value: "ar", autonym: "العربية" },
 ];
 
 export type CatalogOverrides = Partial<
