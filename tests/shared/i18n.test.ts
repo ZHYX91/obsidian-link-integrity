@@ -94,8 +94,8 @@ describe("i18n", () => {
     expect(en.t("settings.ignore.matcher.formatFamily")).toBe("File type group");
     expect(zh.t("settings.ignore.matcher.formatFamily")).toBe("文件类型组");
     expect(ar.t("settings.ignore.matcher.formatFamily")).toBe("مجموعة أنواع الملفات");
-    expect(en.t("settings.expected.conditions")).not.toMatch(/\\bAND\\b|\\bOR\\b/);
-    expect(zh.t("settings.expected.conditions")).not.toMatch(/\\bAND\\b|\\bOR\\b/);
+    expect(en.t("settings.expected.conditions")).not.toMatch(/\bAND\b|\bOR\b/);
+    expect(zh.t("settings.expected.conditions")).not.toMatch(/\bAND\b|\bOR\b/);
     expect(en.t("sidebar.isolated.showExpected.description")).not.toContain("high-confidence");
   });
 
