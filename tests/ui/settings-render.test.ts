@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createTranslator } from "../../src/shared/i18n";
+import { createTranslator, type PluginLocale } from "../../src/shared/i18n";
 import { createDefaultSettings } from "../../src/shared/settings";
 import { renderImperativeSettings } from "../../src/ui/settings/render";
 import type { SettingsUiContext } from "../../src/ui/settings/types";
@@ -165,7 +165,7 @@ describe("imperative settings tab reveal", () => {
   });
 });
 
-function context(locale: "auto" | "en", hostLocale: string): SettingsUiContext {
+function context(locale: PluginLocale, hostLocale: string): SettingsUiContext {
   return {
     settings: createDefaultSettings(),
     translator: createTranslator(locale, hostLocale),
