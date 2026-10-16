@@ -194,6 +194,23 @@ const config = {
         "Giấy phép",
       ],
     },
+    {
+      label: "العربية",
+      path: "docs/i18n/README.ar.md",
+      sections: [
+        "لقطات الشاشة",
+        "الميزات",
+        "المتطلبات والتوافق",
+        "التثبيت",
+        "الاستخدام",
+        "الإعدادات",
+        "القيود",
+        "الخصوصية والأمان",
+        "التطوير",
+        "الدعم",
+        "الترخيص",
+      ],
+    },
   ],
   requiredTokens: [
     "https://github.com/ZHYX91/obsidian-link-integrity/releases/latest",
