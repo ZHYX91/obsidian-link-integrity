@@ -86,6 +86,16 @@ describe("README marketplace link contract", () => {
     );
   });
 
+  it("rejects implementation-only FakeLink text in any translated guide", async () => {
+    const guide = "docs/i18n/README.ar.md";
+    const absolutePath = path.join(fixtureRoot, guide);
+    const source = await readFile(absolutePath, "utf8");
+    await writeFile(absolutePath, source + "\nFakeLink\n");
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      "docs/i18n/README.ar.md exposes an implementation-only FakeLink term",
+    );
+  });
+
   it("rejects literal archive calques in Spanish and Brazilian Portuguese", async () => {
     await replaceInReadme(
       "docs/i18n/README.es.md",

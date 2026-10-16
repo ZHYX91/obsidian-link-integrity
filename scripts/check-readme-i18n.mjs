@@ -194,6 +194,23 @@ const config = {
         "Giấy phép",
       ],
     },
+    {
+      label: "العربية",
+      path: "docs/i18n/README.ar.md",
+      sections: [
+        "لقطات الشاشة",
+        "الميزات",
+        "المتطلبات والتوافق",
+        "التثبيت",
+        "الاستخدام",
+        "الإعدادات",
+        "القيود",
+        "الخصوصية والأمان",
+        "التطوير",
+        "الدعم",
+        "الترخيص",
+      ],
+    },
   ],
   requiredTokens: [
     "https://github.com/ZHYX91/obsidian-link-integrity/releases/latest",
@@ -419,6 +436,9 @@ export function checkReadmeI18n(projectRoot = defaultProjectRoot) {
     }
     if (/Orphan files|孤儿文件/iu.test(source)) {
       errors.push(`${filePath} contains retired orphan-file terminology`);
+    }
+    if (/FakeLink/iu.test(source)) {
+      errors.push(`${filePath} exposes an implementation-only FakeLink term`);
     }
     for (const [label, pattern] of forbiddenPublicJargon.get(filePath) ?? []) {
       if (pattern.test(source)) {
