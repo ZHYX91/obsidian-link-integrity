@@ -87,6 +87,18 @@ describe("i18n", () => {
     expect(createTranslator("en", "en").t("settings.general.language.auto"))
       .toBe("Follow Obsidian");
   });
+  it("explains connection filters in everyday language", () => {
+    const en = createTranslator("en", "en");
+    const zh = createTranslator("zh-CN", "en");
+    const ar = createTranslator("ar", "en");
+    expect(en.t("settings.ignore.matcher.formatFamily")).toBe("File type group");
+    expect(zh.t("settings.ignore.matcher.formatFamily")).toBe("文件类型组");
+    expect(ar.t("settings.ignore.matcher.formatFamily")).toBe("مجموعة أنواع الملفات");
+    expect(en.t("settings.expected.conditions")).not.toMatch(/\\bAND\\b|\\bOR\\b/);
+    expect(zh.t("settings.expected.conditions")).not.toMatch(/\\bAND\\b|\\bOR\\b/);
+    expect(en.t("sidebar.isolated.showExpected.description")).not.toContain("high-confidence");
+  });
+
   it("keeps advanced ignore controls user-facing in the primary locales", () => {
     expect(createTranslator("en", "en").t("settings.ignore.matcher.occurrenceId"))
       .toBe("Reference identifier");

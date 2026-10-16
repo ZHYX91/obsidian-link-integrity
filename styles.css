@@ -362,6 +362,8 @@
 
 .link-integrity-result-path,
 .link-integrity-result-context {
+  /* Keep mixed Arabic and Latin file names readable in an RTL sidebar. */
+  unicode-bidi: plaintext;
   inline-size: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;

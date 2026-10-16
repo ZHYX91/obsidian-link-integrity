@@ -21,6 +21,7 @@ describe("imperative settings tab reveal", () => {
   it.each([
     ["LTR", "en", "en", 120],
     ["RTL with Chromium negative scrollLeft", "auto", "ar", -120],
+    ["RTL with Arabic selected over an English host", "ar", "en", -120],
   ] as const)("reveals and focuses the active tab in %s", (
     _label,
     locale,
