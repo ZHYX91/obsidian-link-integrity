@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createDefaultSettings } from "../../src/shared/settings";
-import { createTranslator } from "../../src/shared/i18n";
+import { SUPPORTED_LOCALES, createTranslator } from "../../src/shared/i18n";
 import {
   getDeclarativeSettingDefinitions,
   getSettingsPageDefinitions,
@@ -68,7 +68,10 @@ describe("settings definitions", () => {
     const language = general.sections[0]?.items.find((item) =>
       item.kind === "dropdown" && item.key === "general.locale");
     expect(language?.kind).toBe("dropdown");
-    if (language?.kind === "dropdown") expect(language.options).toHaveLength(12);
+    if (language?.kind === "dropdown") {
+      expect(language.options).toHaveLength(SUPPORTED_LOCALES.length + 1);
+      expect(language.options.map(({ value }) => value)).toEqual(["auto", ...SUPPORTED_LOCALES]);
+    }
   });
 });
 
