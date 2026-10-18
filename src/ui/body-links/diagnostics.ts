@@ -14,6 +14,7 @@ export function bodyReasonKey(reason: BrokenReason): "sidebar.broken.reason.miss
 export function openBodyLinkDiagnostics(document: Document, translator: Translator, source: BodyDiagnosticSource,
   navigate: (hint: BodyDiagnosticItem) => void, onClose: () => void): () => void {
   const dialog = document.createElement("dialog"); dialog.className = "link-integrity-body-diagnostics";
+  dialog.dir = translator.direction;
   dialog.setAttribute("aria-label", translator.t("body.command"));
   const previous = document.activeElement; let page = 0; let closed = false;
   const close = (): void => {

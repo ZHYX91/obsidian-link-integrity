@@ -7,6 +7,12 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-18
+
+- Add Arabic translations and right-to-left layout across settings, results and current-note diagnostics.
+- Clarify interface wording across all twelve supported languages without changing link or isolation semantics.
+- Preserve mixed-language diagnostic targets, navigation and focus when selecting a language independently of Obsidian.
+
 ## [0.4.0] - 2026-10-12
 
 - Add optional warning-colored waves for confirmed missing file, heading and block references in editor and reading views, with a read-only current-note diagnostic command. Body hints default Off, including upgrades with missing fields.

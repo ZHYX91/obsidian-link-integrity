@@ -140,6 +140,31 @@
         "Virtual title/alias/header text does not become a LinkIndex occurrence, broken diagnostic or graph edge; extra same-destination FakeLink anchors cause reading mapping to skip the entire ambiguous group",
         "Native clicks, context menus and FakeLink actions retain ownership; third-party conversion to a real link updates through normal source/metadata indexing"
       ]
+    },
+    {
+      "id": "arabic-rtl-navigation",
+      "title": "Arabic direction, mixed-language paths and persistent language selection",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Verify the five broken/four isolated baseline, select Arabic while Obsidian uses English, and inspect both business tabs and all three settings tabs",
+        "Search using Arabic text and open Connected/Source.md; follow both mixed-language links to العربية/Target-中文-123.md, checking the heading and block destination",
+        "In this disposable Vault only, append [[العربية/Target-中文-123#Missing heading]] to Connected/Source.md; wait for six broken/four isolated, run the current-note diagnostic command, and activate its mixed-path diagnostic; undo the append and verify five/four again",
+        "Inspect narrow layouts, long labels, rule preview/save/Undo, keyboard arrows/Home/End/Tab on desktop and touch/soft keyboard on Android; close diagnostics and check focus restoration",
+        "Switch Arabic, Chinese, English and Follow Obsidian; close/reopen settings and restart the host after saving Arabic; confirm persisted selection and plugin-only direction"
+      ],
+      "expected": [
+        "Every plugin surface including current-note diagnostics follows its selected language direction without reversing the English host",
+        "Mixed Arabic/English/Chinese/number paths remain readable and navigate to the exact note, heading, block or diagnostic source position",
+        "Language changes do not change classifications or Markdown bytes; only the deliberate temporary missing heading raises the diagnostic count by one",
+        "Controls and visible focus remain reachable at narrow widths; saved language persists across reopening and restart"
+      ]
     }
   ]
 }

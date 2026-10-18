@@ -24,3 +24,7 @@ The `body-link-hints` and `body-link-hints-fakelink` scenarios preserve the unto
 Broken body hints default Off. Legacy potential settings must not enable them, and retired potential commands/actions must be absent. Check three confirmed reasons, valid and protected negatives, read-only diagnostic navigation, native clicks, metadata refresh and Off/unload cleanup. Reading skips duplicate or third-party ambiguous destinations rather than guessing.
 
 The FakeLink scenario uses an independent operator-supplied FakeLink environment; no third-party runtime is bundled. Include the bare Target#^missing-block mixed with a real same-destination link, both enable orders, hover preview, third-party conversion updates and disabling either plugin. Virtual text must never become a LinkIndex occurrence or graph edge. Record the exact candidate/host and honest incomplete checks or failures.
+
+## Arabic and mixed-language paths
+
+The `arabic-rtl-navigation` scenario uses `العربية/Target-中文-123.md` and its valid heading/block references from `Connected/Source.md`. These connected notes preserve the five broken/four isolated baseline. A temporary missing-heading reference is added and undone only in the disposable Vault; the expected broken count moves five → six → five without changing the isolated count. Record language persistence, plugin-only direction, diagnostic focus and actual navigation separately from fixture preparation.
