@@ -1,8 +1,8 @@
 # Link Integrity
 
-[English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.de.md) · [Français](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.fr.md) · [Русский](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ru.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.pt-BR.md) · [日本語](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ko.md) · [Español](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.es.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.vi.md)
+[English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.de.md) · [Français](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.fr.md) · [Русский](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ru.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.pt-BR.md) · [日本語](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ko.md) · [Español](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.es.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.vi.md) · [العربية](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ar.md)
 
-Link Integrity is a local, read-only Obsidian plugin for Broken links and Isolated files.
+Find links that no longer work and files that aren't connected to other notes in your Obsidian vault. Link Integrity shows you what to check, without changing or deleting anything.
 
 ## Screenshots
 
@@ -18,7 +18,7 @@ Configure indexing, ignore rules, file types, and expected-isolation rules in Ob
 
 ## Features
 
-- Optionally marks confirmed missing files, headings and blocks with warning-colored waves in note text.
+- If you turn on in-note hints, broken links to missing files, headings or blocks get a wavy underline. You can still click links normally.
 - Finds internal links to missing files, headings, and blocks in Markdown, embeds, frontmatter, Canvas, and explicit Bases file references.
 - Finds files that have no working incoming or outgoing connection to another existing file in the Vault. Self-links and external URLs do not count as Vault connections.
 - Warns when an isolated file also contains broken outgoing links, so it is not mistaken for a file that is obviously safe to clean up.
@@ -48,15 +48,15 @@ For a manual installation, place `main.js`, `manifest.json`, and `styles.css` in
 3. Select a result to open its source. Use the isolated-file filters to narrow the current view without changing your saved defaults.
 4. Startup scanning is off by default. Opening the sidebar builds the index when needed; you can also use **Build index** or **Rebuild index** in General settings. After the first successful build, changes in the Vault update the results automatically.
 
-Body hints are Off by default in Broken links settings. Enable them for editor and reading views. Native navigation remains available; use Diagnose broken links in the current note to inspect reasons by keyboard or touch. Unsaved, pending or ambiguous ranges are left unmarked. FakeLink virtual text is never treated as an explicit link or graph connection.
+Body hints are Off by default in Broken links settings. Enable them for editor and reading views. Native navigation remains available; use Diagnose broken links in the current note to inspect reasons by keyboard or touch. Links that have not finished updating or cannot be located precisely are left unmarked. You can still review them in the sidebar.
 
 ## Settings
 
 **What counts as isolated?** This is about *valid connections to existing Vault files*, not just backlinks:
 
 - **Isolated:** `A.md` has no valid link to another existing file and no other file links to it. Self-links and external URLs do not count as connections.
-- **No incoming links, but not isolated:** `B.md` exists and `A.md` links to it using `[[B]]`. Nothing links back to `A.md`, yet its outgoing link still connects it to `B.md`. The optional **No incoming links** filter will show cases like this; the default Isolated files view does not.
-- **Isolated with broken links:** `A.md` only contains `[[Missing]]`, the target does not exist, and no other file links to `A.md`. It has no *valid* connection, so it is still isolated, but the broken-link warning means it is **not** a safe automatic cleanup candidate.
+- **No incoming links, but not isolated:** `B.md` exists and `A.md` links to it using `[[B]]`. Nothing links back to `A.md`, yet its outgoing link still connects it to `B.md`. The optional **No incoming links** filter will show cases like this; the regular Isolated files view will not.
+- **Isolated with broken links:** `A.md` only contains `[[Missing]]`, the target does not exist, and no other file links to `A.md`. It has no *valid* connection, so it is still isolated, but the broken-link warning is a reason to **review the file instead of assuming it can be deleted**.
 - **Expected isolated:** a standalone template or archive can be marked **Expected isolated**; it stays a real file, moves out of the main isolated count, and is never deleted or repaired by the plugin.
 
 - **General** controls language, startup scanning, default result views, and Build/Rebuild index actions. **Follow Obsidian** is the default language choice.
@@ -64,7 +64,7 @@ Body hints are Off by default in Broken links settings. Enable them for editor a
 - **Isolated files** controls the default file types, the optional no-incoming-links view, Expected isolated files, ignore rules, and expected-isolation rules.
 - Expected-isolation rules can combine file type, an exact folder or a folder with subfolders, date formats, glob patterns, and advanced regular expressions. The periodic-notes preset supports daily, weekly, monthly, quarterly, and yearly naming patterns.
 
-Settings and user-defined rules are stored in `data.json`. The calculated link index is kept in memory and rebuilt after restart.
+Your settings and rules are saved in `data.json`. Scan results are kept only while Obsidian is running; they are rebuilt the next time they are needed.
 
 ## Limitations
 

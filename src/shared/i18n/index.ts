@@ -1,5 +1,6 @@
 export { MESSAGE_CATALOGS } from "./catalogs";
 export { EN_MESSAGES } from "./catalogs/en";
+export { AR_MESSAGES } from "./catalogs/ar";
 export { DE_MESSAGES } from "./catalogs/de";
 export { ES_MESSAGES } from "./catalogs/es";
 export { FR_MESSAGES } from "./catalogs/fr";

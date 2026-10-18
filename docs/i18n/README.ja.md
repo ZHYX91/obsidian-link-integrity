@@ -1,8 +1,8 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
-Link Integrity は無効なリンクと孤立したファイルを調べる、ローカルで読み取り専用の Obsidian プラグインです。
+Link Integrity は、Obsidian の保管庫でリンク先が見つからない箇所や、ほかのファイルにつながっていないノート・添付ファイルを探します。確認結果を表示するだけで、リンクを書き換えたりファイルを削除したりしません。
 
 ## スクリーンショット
 
@@ -48,7 +48,7 @@ Bases の動的クエリ結果は、自動的にリンクとして扱いませ�
 3. 結果を選ぶと元のファイルを開けます。孤立ファイルのフィルターは現在の表示だけに作用し、保存済みの既定値は変更しません。
 4. 起動時スキャンは既定で無効です。サイドバーを開くと必要に応じてインデックスを作成します。一般設定の **インデックスを構築** または **再構築** も使用できます。最初の構築に成功した後は、Vault の変更に合わせて結果が自動更新されます。
 
-本文の表示は無効なリンク設定で初期状態はオフです。編集・閲覧で有効にできます。標準のナビゲーションを維持し、診断コマンドでキーボードやタッチから理由を確認できます。未保存、待機中、不明確な範囲は表示しません。FakeLink の仮想テキストは明示的なリンクやグラフの接続になりません。
+ノート本文の波線表示は初期状態ではオフです。編集時や閲覧時に有効にしても、リンクは通常どおり開けます。リンクの位置を正確に特定できない場合は波線を表示しないため、サイドバーで確認してください。
 
 ## 設定
 

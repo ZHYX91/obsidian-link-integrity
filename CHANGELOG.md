@@ -7,6 +7,12 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-18
+
+- Add Arabic translations and right-to-left layout across settings, results and current-note diagnostics.
+- Clarify interface wording across all twelve supported languages without changing link or isolation semantics.
+- Preserve mixed-language diagnostic targets, navigation and focus when selecting a language independently of Obsidian.
+
 ## [0.4.0] - 2026-10-12
 
 - Add optional warning-colored waves for confirmed missing file, heading and block references in editor and reading views, with a read-only current-note diagnostic command. Body hints default Off, including upgrades with missing fields.
@@ -196,7 +202,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.1...HEAD
 [0.2.10]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...0.2.10
 [0.2.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...0.2.9
 [0.2.8]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.7...0.2.8
@@ -212,3 +218,4 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 [0.1.0]: https://github.com/ZHYX91/obsidian-link-integrity/tree/0.1.0
 [0.4.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.10...0.3.0
+[0.4.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.0...0.4.1

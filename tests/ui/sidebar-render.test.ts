@@ -44,6 +44,26 @@ describe("sidebar renderer", () => {
     expect(empty?.textContent).not.toMatch(/Every (?:file|internal link)/);
   });
 
+  it("renders Arabic sidebar labels RTL without changing the host", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("ar", "en");
+    const state = viewState();
+    const dispose = renderSidebar(container, {
+      model: createSidebarViewModel(querySnapshot(), state),
+      state,
+      translator,
+      navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]),
+      allowNoIncomingFilter: true,
+      onStateChange: vi.fn(),
+    });
+    expect(container.dir).toBe("rtl");
+    expect(container.querySelector('[role="tab"]')?.textContent).toContain("الروابط المعطّلة");
+    dispose();
+    expect(container.hasAttribute("dir")).toBe(false);
+  });
+
   it.each(["", "missing"])("does not call an empty no-incoming projection isolated (%s)", (search) => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");

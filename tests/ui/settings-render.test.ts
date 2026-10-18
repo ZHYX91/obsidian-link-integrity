@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createTranslator } from "../../src/shared/i18n";
+import { createTranslator, type PluginLocale } from "../../src/shared/i18n";
 import { createDefaultSettings } from "../../src/shared/settings";
 import { renderImperativeSettings } from "../../src/ui/settings/render";
 import type { SettingsUiContext } from "../../src/ui/settings/types";
@@ -21,6 +21,7 @@ describe("imperative settings tab reveal", () => {
   it.each([
     ["LTR", "en", "en", 120],
     ["RTL with Chromium negative scrollLeft", "auto", "ar", -120],
+    ["RTL with Arabic selected over an English host", "ar", "en", -120],
   ] as const)("reveals and focuses the active tab in %s", (
     _label,
     locale,
@@ -164,7 +165,7 @@ describe("imperative settings tab reveal", () => {
   });
 });
 
-function context(locale: "auto" | "en", hostLocale: string): SettingsUiContext {
+function context(locale: PluginLocale, hostLocale: string): SettingsUiContext {
   return {
     settings: createDefaultSettings(),
     translator: createTranslator(locale, hostLocale),

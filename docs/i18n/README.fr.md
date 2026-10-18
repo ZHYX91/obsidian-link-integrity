@@ -1,8 +1,8 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
-Link Integrity est un module Obsidian local en lecture seule pour les liens cassés et les fichiers isolés.
+Link Integrity vous aide à repérer les liens qui ne fonctionnent plus et les fichiers sans lien valide avec d’autres fichiers de votre coffre Obsidian. Il affiche les problèmes sans modifier les notes ni supprimer de fichiers.
 
 ## Captures d’écran
 
@@ -48,7 +48,7 @@ Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css
 3. Sélectionnez un résultat pour ouvrir sa source. Les filtres de fichiers isolés ne changent que la vue courante, pas vos valeurs par défaut enregistrées.
 4. L’analyse au démarrage est désactivée par défaut. L’ouverture de la barre latérale construit l’index lorsque nécessaire ; vous pouvez aussi utiliser **Construire l’index** ou **Reconstruire l’index** dans Général. Après la première construction réussie, les changements du Vault mettent les résultats à jour automatiquement.
 
-Les marques sont désactivées par défaut dans Broken links. Activez-les pour l’édition et la lecture. La navigation native est conservée ; la commande de diagnostic affiche les raisons au clavier ou au toucher. Les plages non enregistrées, en attente ou ambiguës ne sont pas marquées. Le texte virtuel de FakeLink ne devient ni lien explicite ni connexion du graphe.
+Les marques dans les notes sont désactivées par défaut. Vous pouvez les activer en lecture ou en édition tout en continuant à ouvrir les liens normalement. Si la position d’un lien est incertaine, vérifiez-le dans la barre latérale.
 
 ## Paramètres
 

@@ -13,6 +13,7 @@ export const SUPPORTED_LOCALES = [
   "ko",
   "es",
   "vi",
+  "ar",
 ] as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
