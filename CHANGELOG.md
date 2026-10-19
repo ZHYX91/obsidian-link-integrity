@@ -7,6 +7,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Remove the unused direct js-yaml development dependency while retaining its patched version for ESLint's transitive dependency.
 - Add localized User guide and Report an issue links in General settings, and explain how to enable and inspect hints in note text.
 - Align language navigation, translated sidebar names, and ordinary control cursors with the other plugins.
 - Check navigation CSS declarations through CSSOM instead of their textual order, while retaining the existing browser layout regressions.
