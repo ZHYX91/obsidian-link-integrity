@@ -19,7 +19,7 @@ Different evidence answers different questions and cannot substitute for another
 
 A green build is not real-host acceptance. A production Vault is not used for destructive or first-time acceptance experiments.
 
-Optional product acceptance records desktop and current Android-emulator evidence for the exact candidate; it is independent of publication. Android physical devices and iOS are outside the shared acceptance scope.
+Select representative acceptance on the exact candidate by change impact. Desktop interaction, settings or lifecycle changes require relevant real-host scenarios; mobile interaction or shared runtime behavior affecting mobile requires relevant Android emulator scenarios. Documentation-only or host-independent logic changes may omit hosts with a recorded reason. Confirmed serious product defects affecting a release block that release. Missing host/tool evidence stays unverified and is assessed by risk; it does not automatically block publication or add a separate approval step. Claim acceptance only for observed passing scope. The full host matrix is not required for every release, and CI does not automatically enforce host coverage. Record actual desktop and emulator coverage separately. Android physical devices and iOS are outside the shared acceptance scope.
 
 ## Core semantic tests
 
