@@ -24,6 +24,26 @@ describe("custom settings sections", () => {
     vi.useRealTimers();
   });
 
+  it.each(["en", "zh-CN", "ar"] as const)("renders the local guide and issue form in %s without changing settings", (locale) => {
+    const container = document.createElement("div");
+    const translator = createTranslator(locale, "en");
+    const onSettingsChange = vi.fn();
+    const cleanup = renderCustomSetting(container, "help-and-support", context(createDefaultSettings(), {
+      translator,
+      onSettingsChange,
+      writeProtected: true,
+    }));
+    const guide = locale === "en" ? "README.md" : `docs/i18n/README.${locale}.md`;
+    const links = Array.from(container.querySelectorAll<HTMLAnchorElement>("a"));
+    expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      [translator.t("settings.general.userGuide"), `https://github.com/ZHYX91/obsidian-link-integrity/blob/main/${guide}`],
+      [translator.t("settings.general.reportIssue"), "https://github.com/ZHYX91/obsidian-link-integrity/issues/new/choose"],
+    ]);
+    expect(onSettingsChange).not.toHaveBeenCalled();
+    cleanup();
+    expect(container.querySelector("a")).toBeNull();
+  });
+
   it("renders compact expected-rule summaries and commits only a saved draft", () => {
     vi.useFakeTimers();
     const rule = expectedRule();

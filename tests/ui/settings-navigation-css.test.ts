@@ -1,28 +1,42 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const styles = readFileSync(resolve(process.cwd(), "styles.css"), "utf8");
+import { styleDeclarations } from "../helpers/stylesheet";
+
+const tabSelector = ".link-integrity-settings-tabs > button.link-integrity-settings-tab";
 
 describe("settings navigation CSS", () => {
   it("resets theme buttons and keeps the active tab unmistakable", () => {
-    expect(styles).toMatch(
-      /\.link-integrity-settings-tabs > button\.link-integrity-settings-tab\s*\{[^}]*appearance:\s*none !important;[^}]*background:\s*transparent !important;[^}]*border:\s*0 !important;[^}]*border-block-end:\s*2px solid transparent !important;/s,
-    );
-    expect(styles).toMatch(
-      /\.link-integrity-settings-tabs > button\.link-integrity-settings-tab\.is-active,[\s\S]*?border-block-end-color:\s*var\(--interactive-accent\) !important;[\s\S]*?font-weight:\s*var\(--font-semibold\) !important;/s,
-    );
+    const tab = styleDeclarations(tabSelector);
+    for (const [property, value] of [
+      ["appearance", "none"],
+      ["background", "transparent"],
+      ["border", "0px"],
+      ["border-block-end", "2px solid transparent"],
+    ] as const) {
+      expect(tab.getPropertyValue(property), property).toBe(value);
+      expect(tab.getPropertyPriority(property), property).toBe("important");
+    }
+    const active = styleDeclarations(`${tabSelector}.is-active`);
+    expect(active.getPropertyValue("border-block-end-color")).toBe("var(--interactive-accent)");
+    expect(active.getPropertyValue("font-weight")).toBe("var(--font-semibold)");
+    expect(active.getPropertyPriority("border-block-end-color")).toBe("important");
+    expect(active.getPropertyPriority("font-weight")).toBe("important");
   });
 
   it("uses the shared spacing and minimum-size contract", () => {
-    expect(styles).toMatch(
-      /\.link-integrity-settings-tabs\s*\{[^}]*align-items:\s*stretch;[^}]*gap:\s*var\(--size-2-1\);[^}]*margin:\s*0;[^}]*overflow-x:\s*auto;/s,
-    );
-    expect(styles).toMatch(
-      /\.link-integrity-settings-panel\s*\{[^}]*margin-block-start:\s*var\(--size-4-5\);[^}]*padding-block-start:\s*0;/s,
-    );
-    expect(styles).toMatch(
-      /\.link-integrity-settings-tabs > button\.link-integrity-settings-tab\s*\{[^}]*block-size:\s*auto;[^}]*min-block-size:\s*34px;[^}]*padding:\s*7px 12px !important;/s,
-    );
+    const tabs = styleDeclarations(".link-integrity-settings-tabs");
+    expect(tabs.getPropertyValue("align-items")).toBe("stretch");
+    expect(tabs.getPropertyValue("gap")).toBe("var(--size-2-1)");
+    expect(tabs.getPropertyValue("margin")).toBe("0px");
+    expect(tabs.getPropertyValue("overflow-x")).toBe("auto");
+    const panel = styleDeclarations(".link-integrity-settings-panel");
+    expect(panel.getPropertyValue("margin-block-start")).toBe("var(--size-4-5)");
+    expect(panel.getPropertyValue("padding-block-start")).toBe("0");
+    const tab = styleDeclarations(tabSelector);
+    expect(tab.getPropertyValue("block-size")).toBe("auto");
+    expect(tab.getPropertyValue("min-block-size")).toBe("34px");
+    expect(tab.getPropertyValue("padding")).toBe("7px 12px");
+    expect(tab.getPropertyPriority("padding")).toBe("important");
+    expect(tab.getPropertyValue("cursor")).toBe("var(--cursor, default)");
   });
 });

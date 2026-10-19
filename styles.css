@@ -220,7 +220,7 @@
   inset: 0;
   inline-size: 100%;
   block-size: 100%;
-  cursor: pointer;
+  cursor: var(--cursor, default);
   opacity: 0;
 }
 
@@ -293,7 +293,7 @@
 
 .link-integrity-broken-folder-tree summary {
   min-block-size: var(--link-integrity-target-size);
-  cursor: pointer;
+  cursor: var(--cursor, default);
   padding: var(--size-2-2);
   overflow-wrap: anywhere;
 }
@@ -430,7 +430,7 @@
 .link-integrity-temporary-filter > summary,
 .link-integrity-file-type-category > summary {
   min-block-size: var(--link-integrity-target-size);
-  cursor: pointer;
+  cursor: var(--cursor, default);
   padding: var(--size-2-2);
   overflow-wrap: anywhere;
 }
@@ -517,7 +517,7 @@
   min-inline-size: var(--link-integrity-target-size);
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: var(--cursor, default);
   vertical-align: middle;
 }
 
@@ -533,7 +533,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--size-2-2);
   align-items: center;
-  cursor: pointer;
+  cursor: var(--cursor, default);
   overflow-wrap: anywhere;
 }
 
@@ -543,7 +543,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--size-2-2);
   align-items: center;
-  cursor: pointer;
+  cursor: var(--cursor, default);
 }
 
 .link-integrity-advanced-toggle .link-integrity-count {
@@ -660,7 +660,7 @@
 .link-integrity-periodic-entry > summary,
 .link-integrity-settings-rule > summary {
   min-block-size: var(--link-integrity-target-size);
-  cursor: pointer;
+  cursor: var(--cursor, default);
   overflow-wrap: anywhere;
 }
 
@@ -846,7 +846,7 @@
 
 .link-integrity-rule-advanced > summary {
   min-block-size: var(--link-integrity-target-size, 34px);
-  cursor: pointer;
+  cursor: var(--cursor, default);
   font-weight: var(--font-semibold);
 }
 
@@ -973,7 +973,7 @@
   box-sizing: border-box;
   box-shadow: none !important;
   color: var(--text-muted) !important;
-  cursor: pointer;
+  cursor: var(--cursor, default);
   flex: 0 0 auto;
   font-family: inherit !important;
   font-size: var(--font-ui-small) !important;
@@ -1015,7 +1015,7 @@
 
 .link-integrity-index-details > summary {
   min-block-size: var(--link-integrity-target-size);
-  cursor: pointer;
+  cursor: var(--cursor, default);
   color: var(--text-muted);
   font-size: var(--font-ui-small);
 }
@@ -1144,4 +1144,14 @@
 
 .link-integrity-body-diagnostic small {
   color: var(--text-muted);
+}
+
+.link-integrity-settings-support {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-3);
+}
+
+.link-integrity-settings-support a {
+  cursor: var(--cursor, default);
 }

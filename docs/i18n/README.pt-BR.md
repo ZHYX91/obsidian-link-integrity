@@ -1,6 +1,6 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
 O Link Integrity ajuda a encontrar links que não funcionam mais e arquivos sem conexões válidas com outros arquivos do cofre do Obsidian. Ele mostra o que revisar sem alterar links nem excluir arquivos.
 
@@ -22,7 +22,7 @@ Gerencie índice, regras de exclusão, tipos de arquivo e regras de isolamento e
 - Encontra links internos para arquivos, títulos e blocos ausentes em Markdown, incorporações, Frontmatter, Canvas e referências explícitas de arquivo em Bases.
 - Encontra arquivos sem conexão válida de entrada ou saída com outro arquivo existente no Vault. Links para o próprio arquivo e URLs externas não contam como conexões do Vault.
 - Avisa quando um arquivo isolado também contém links de saída quebrados, evitando que ele pareça um arquivo obviamente seguro para remover.
-- Notas periódicas, modelos, arquivos arquivados e itens semelhantes podem ser marcados como Expected isolated. Isso muda apenas a classificação nos resultados, sem alterar os links reais.
+- Notas periódicas, modelos, arquivos arquivados e itens semelhantes podem ser marcados como Isolamento esperado. Isso muda apenas a classificação nos resultados, sem alterar os links reais.
 - Filtra arquivos isolados por arquivos do Obsidian, formatos de imagem, áudio, vídeo, PDF e extensões de anexos configuradas.
 - Cria um índice completo quando necessário e o mantém atualizado automaticamente conforme o Vault muda.
 - Abre cada problema na origem quando há navegação precisa disponível. A análise e a indexação permanecem locais.
@@ -44,7 +44,7 @@ Na instalação manual, coloque `main.js`, `manifest.json` e `styles.css` em `Va
 ## Uso
 
 1. Ative o Link Integrity nos plugins da comunidade.
-2. Abra o Link Integrity pela faixa ou paleta de comandos. A barra lateral contém **Broken links** e **Isolated files**.
+2. Abra o Link Integrity pela faixa ou paleta de comandos. A barra lateral contém **Links quebrados** e **Arquivos isolados**.
 3. Selecione um resultado para abrir a origem. Os filtros de arquivos isolados alteram apenas a visualização atual, sem mudar os padrões salvos.
 4. A varredura na inicialização vem desativada. Ao abrir a barra lateral, o índice é criado quando necessário; também é possível usar **Criar índice** ou **Reconstruir índice** em Geral. Depois da primeira criação bem-sucedida, mudanças no Vault atualizam os resultados automaticamente.
 
@@ -53,8 +53,8 @@ As marcas no texto das notas ficam desativadas por padrão. Você pode ativá-la
 ## Configurações
 
 - **Geral**: idioma, varredura na inicialização, visualizações padrão e ações de criação/reconstrução do índice. O idioma padrão é **Seguir o Obsidian**.
-- **Broken links**: quais problemas são mostrados e quais regras nomeadas de exclusão são usadas, com prévia das correspondências.
-- **Isolated files**: tipos de arquivo padrão, visualização opcional sem links de entrada, Expected isolated, regras de exclusão e regras de isolamento esperado.
+- **Links quebrados**: quais problemas são mostrados e quais regras nomeadas de exclusão são usadas, com prévia das correspondências.
+- **Arquivos isolados**: tipos de arquivo padrão, visualização opcional sem links de entrada, Isolamento esperado, regras de exclusão e regras de isolamento esperado.
 - As regras de isolamento esperado podem combinar tipo de arquivo, uma pasta ou pasta com subpastas, formatos de data, padrões glob e expressões regulares avançadas. A predefinição de notas periódicas cobre dia, semana, mês, trimestre e ano.
 
 Configurações e regras do usuário ficam em `data.json`. O índice de links calculado permanece na memória e é recriado após reiniciar.

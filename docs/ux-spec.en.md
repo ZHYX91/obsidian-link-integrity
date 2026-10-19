@@ -84,10 +84,13 @@ Settings use the plugin-rendered top-tab surface on every supported Obsidian ver
 ### 4.1 General
 
 - Language: Follow Obsidian or one of 12 bundled languages.
+- Help and support: open the user guide in the resolved interface language or the issue form.
 - Default sidebar tab and optional scan on startup. Startup scanning is off by default; before the sidebar is first opened, indexing and listeners remain dormant.
 - Link-index status and a manual rebuild action for recovery or complete verification, not routine refresh. The status summary stays compact, while a collapsed-by-default Index details disclosure shows Vault files, analyzed sources, link references, pending updates, and completion time plus duration for the latest full rebuild and incremental batch. A failure may expose its latest error inside the details, but never a Vault name, file path, or note content. Disclosure state is not persisted.
 
 A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings search, keyboard navigation, and status text use the selected locale. All 12 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
+
+Language choices and README navigation use the same native-name order: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português (Brasil), Русский, Tiếng Việt, العربية. Localized guides use their actual sidebar labels rather than requiring the English names. Ordinary controls respect the host cursor preference.
 
 ### 4.2 Broken links
 

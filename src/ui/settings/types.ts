@@ -39,6 +39,7 @@ export type SettingsCustomSectionId =
   | "broken-ignore-rules"
   | "isolated-ignore-rules"
   | "index-maintenance"
+  | "help-and-support"
   | "persistence-status";
 
 export interface ExpectedRulePreviewState {

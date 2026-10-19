@@ -1,8 +1,8 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
-Link Integrity 能找出筆記中指向不存在檔案、標題或區塊的連結，也能找出沒有連到其他檔案的筆記與附件。它只提供檢查結果，**不會修改連結或刪除檔案**。（側欄名稱為 Broken links 和 Isolated files。）
+Link Integrity 能找出筆記中指向不存在檔案、標題或區塊的連結，也能找出沒有連到其他檔案的筆記與附件。它只提供檢查結果，**不會修改連結或刪除檔案**。
 
 ## 介面截圖
 

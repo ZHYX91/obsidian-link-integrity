@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { createTranslator, SUPPORTED_LOCALES } from "../../src/shared/i18n";
+
 // @ts-expect-error The README checker is an executable JavaScript module.
 import { checkReadmeI18n } from "../../scripts/check-readme-i18n.mjs";
 
@@ -35,8 +37,24 @@ afterEach(async () => {
 });
 
 describe("README marketplace link contract", () => {
-  it("accepts the synchronized repository READMEs", () => {
+  it("accepts the synchronized READMEs using the sidebar names in each reader's language", async () => {
     expect(checkReadmeI18n(fixtureRoot)).toEqual([]);
+    for (const locale of SUPPORTED_LOCALES) {
+      const relativePath = locale === "en" ? "README.md" : `docs/i18n/README.${locale}.md`;
+      const source = await readFile(path.join(fixtureRoot, relativePath), "utf8");
+      const { t } = createTranslator(locale, "en");
+      expect(source, relativePath).toContain(t("sidebar.tab.broken"));
+      expect(source, relativePath).toContain(t("sidebar.tab.isolated"));
+    }
+  });
+
+  it("rejects replacing the Chinese interface names with English-only labels", async () => {
+    const relativePath = "docs/i18n/README.zh-CN.md";
+    const absolutePath = path.join(fixtureRoot, relativePath);
+    const source = await readFile(absolutePath, "utf8");
+    await writeFile(absolutePath, source.replaceAll("无效链接", "Broken links").replaceAll("孤立文件", "Isolated files"));
+    expect(checkReadmeI18n(fixtureRoot)).toContain(`${relativePath} is missing required product term: 无效链接`);
+    expect(checkReadmeI18n(fixtureRoot)).toContain(`${relativePath} is missing required product term: 孤立文件`);
   });
 
   it("rejects a repository-relative target in the English marketplace README", async () => {

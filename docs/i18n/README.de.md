@@ -1,6 +1,6 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
 Link Integrity zeigt defekte Links und Dateien ohne gültige Verbindungen zu anderen Dateien im Obsidian-Vault. Es hilft beim Prüfen, ohne Links zu verändern oder Dateien zu löschen.
 
@@ -22,7 +22,7 @@ Index, Ignorierregeln, Dateitypen und Regeln für erwartete Isolation werden in 
 - Findet interne Verweise auf fehlende Dateien, Überschriften und Blöcke in Markdown, Einbettungen, Frontmatter, Canvas und ausdrücklich angegebenen Bases-Dateiverweisen.
 - Findet Dateien ohne gültige eingehende oder ausgehende Verbindung zu einer anderen vorhandenen Vault-Datei. Selbstlinks und externe URLs zählen nicht als Vault-Verbindungen.
 - Weist darauf hin, wenn eine isolierte Datei zusätzlich defekte ausgehende Links enthält, damit sie nicht vorschnell als offensichtlich entbehrlich gilt.
-- Periodische Notizen, Vorlagen, Archive und ähnliche Dateien können als Expected isolated markiert werden. Das ändert nur ihre Einordnung in den Ergebnissen, nicht ihre tatsächlichen Links.
+- Periodische Notizen, Vorlagen, Archive und ähnliche Dateien können als Erwartet isoliert markiert werden. Das ändert nur ihre Einordnung in den Ergebnissen, nicht ihre tatsächlichen Links.
 - Filtert isolierte Dateien nach Obsidian-Dateien, Bildformaten, Audio, Video, PDF und konfigurierten Anhangserweiterungen.
 - Erstellt bei Bedarf einen vollständigen Index und hält ihn bei Änderungen im Vault automatisch aktuell.
 - Öffnet gemeldete Probleme an ihrer Quelle, wenn eine genaue Navigation möglich ist. Scannen, Zuordnen und Indexieren bleiben lokal.
@@ -44,7 +44,7 @@ Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` na
 ## Verwendung
 
 1. Link Integrity unter **Einstellungen → Community-Erweiterungen** aktivieren.
-2. Link Integrity über das Menüband oder die Befehlspalette öffnen. Die Seitenleiste enthält **Broken links** und **Isolated files**.
+2. Link Integrity über das Menüband oder die Befehlspalette öffnen. Die Seitenleiste enthält **Defekte Links** und **Isolierte Dateien**.
 3. Einen Eintrag auswählen, um seine Quelle zu öffnen. Filter für isolierte Dateien ändern nur die aktuelle Ansicht und nicht die gespeicherten Standardwerte.
 4. Der Startscan ist standardmäßig aus. Beim Öffnen der Seitenleiste wird der Index bei Bedarf erstellt; alternativ stehen **Index erstellen** und **Index neu erstellen** in den allgemeinen Einstellungen bereit. Nach dem ersten erfolgreichen Aufbau werden Änderungen im Vault automatisch übernommen.
 
@@ -53,8 +53,8 @@ Markierungen im Notiztext sind standardmäßig aus. Sie können sie beim Lesen o
 ## Einstellungen
 
 - **Allgemein**: Sprache, Startscan, Standardansichten und Aktionen zum Erstellen oder Neuerstellen des Index. Standard ist **Obsidian folgen**.
-- **Broken links**: Welche Probleme angezeigt werden und welche benannten Ignorierregeln mit Treffer-Vorschau gelten.
-- **Isolated files**: Standard-Dateitypen, die optionale Ansicht ohne eingehende Links, Expected isolated, Ignorierregeln und Regeln für erwartete Isolation.
+- **Defekte Links**: Welche Probleme angezeigt werden und welche benannten Ignorierregeln mit Treffer-Vorschau gelten.
+- **Isolierte Dateien**: Standard-Dateitypen, die optionale Ansicht ohne eingehende Links, Erwartet isoliert, Ignorierregeln und Regeln für erwartete Isolation.
 - Regeln für erwartete Isolation können Dateityp, einen einzelnen Ordner oder einen Ordner mit Unterordnern, Datumsformate, Glob-Muster und erweiterte reguläre Ausdrücke kombinieren. Die Voreinstellung für periodische Notizen unterstützt Tag, Woche, Monat, Quartal und Jahr.
 
 Einstellungen und benutzerdefinierte Regeln stehen in `data.json`. Der berechnete Link-Index bleibt im Arbeitsspeicher und wird nach einem Neustart neu erstellt.

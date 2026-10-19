@@ -2,8 +2,29 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SUPPORTED_LOCALES } from "../src/shared/i18n/types.ts";
+
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultProjectRoot = path.resolve(path.dirname(scriptPath), "..");
+
+const localizedProductTerms = {
+  en: ["Broken links", "Isolated files"],
+  "zh-CN": ["无效链接", "孤立文件"],
+  "zh-TW": ["無效連結", "孤立檔案"],
+  ja: ["無効なリンク", "孤立ファイル"],
+  ko: ["깨진 링크", "고립된 파일"],
+  de: ["Defekte Links", "Isolierte Dateien"],
+  fr: ["Liens rompus", "Fichiers isolés"],
+  es: ["Enlaces rotos", "Archivos aislados"],
+  "pt-BR": ["Links quebrados", "Arquivos isolados"],
+  ru: ["Неработающие ссылки", "Изолированные файлы"],
+  vi: ["Liên kết hỏng", "Tệp cô lập"],
+  ar: ["الروابط المعطّلة", "الملفات المنعزلة"],
+};
+
+function readmeLocale(filePath) {
+  return filePath === "README.md" ? "en" : path.basename(filePath).slice("README.".length, -".md".length);
+}
 const config = {
   repository: "ZHYX91/obsidian-link-integrity",
   languages: [
@@ -266,6 +287,10 @@ const forbiddenPublicJargon = new Map([
 const ignoredDirectories = new Set([".git", "coverage", "dist", "node_modules", "release"]);
 const normalizePath = (filePath) => filePath.split(path.sep).join("/");
 
+config.languages.sort((left, right) =>
+  SUPPORTED_LOCALES.indexOf(readmeLocale(left.path)) - SUPPORTED_LOCALES.indexOf(readmeLocale(right.path)),
+);
+
 function expectedNavigation(filePath) {
   return config.languages
     .map(({ label, path: targetPath }) => {
@@ -429,7 +454,7 @@ export function checkReadmeI18n(projectRoot = defaultProjectRoot) {
         errors.push(`${filePath} is missing required README contract token: ${token}`);
       }
     }
-    for (const productToken of ["Broken links", "Isolated files"]) {
+    for (const productToken of localizedProductTerms[readmeLocale(filePath)]) {
       if (!source.includes(productToken)) {
         errors.push(`${filePath} is missing required product term: ${productToken}`);
       }

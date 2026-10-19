@@ -1,6 +1,6 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
 Link Integrity giúp tìm các liên kết không còn hoạt động và những tệp không có kết nối hợp lệ với tệp khác trong kho Obsidian. Plugin chỉ hiển thị kết quả kiểm tra, không sửa liên kết hay xóa tệp.
 
@@ -22,7 +22,7 @@ Quản lý chỉ mục, quy tắc bỏ qua, loại tệp và quy tắc cô lập
 - Tìm các liên kết nội bộ trỏ tới tệp, tiêu đề hoặc khối không tồn tại trong Markdown, nội dung nhúng, Frontmatter, Canvas và các tham chiếu tệp được ghi rõ trong Bases.
 - Tìm tệp không có liên kết vào hoặc ra hợp lệ với bất kỳ tệp hiện có nào khác trong Vault. Liên kết tới chính tệp đó và URL bên ngoài không được tính là kết nối trong Vault.
 - Cảnh báo riêng khi một tệp cô lập vẫn có liên kết ra bị hỏng, để tránh hiểu nhầm rằng tệp đó rõ ràng có thể xóa.
-- Có thể đánh dấu ghi chú định kỳ, mẫu, tệp lưu trữ và các tệp tương tự là Expected isolated. Việc này chỉ thay đổi cách chúng được phân loại trong kết quả, không thay đổi các liên kết thật.
+- Có thể đánh dấu ghi chú định kỳ, mẫu, tệp lưu trữ và các tệp tương tự là Cô lập dự kiến. Việc này chỉ thay đổi cách chúng được phân loại trong kết quả, không thay đổi các liên kết thật.
 - Lọc tệp cô lập theo tệp Obsidian, định dạng ảnh, âm thanh, video, PDF và phần mở rộng tệp đính kèm đã cấu hình.
 - Tạo chỉ mục đầy đủ khi cần và tự động cập nhật khi Vault thay đổi.
 - Mở từng vấn đề tại nguồn nếu có thể xác định chính xác vị trí. Việc quét, đối chiếu và lập chỉ mục đều diễn ra cục bộ.
@@ -44,7 +44,7 @@ Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css`
 ## Cách dùng
 
 1. Bật Link Integrity trong plugin cộng đồng.
-2. Mở Link Integrity từ ribbon hoặc bảng lệnh. Thanh bên có **Broken links** và **Isolated files**.
+2. Mở Link Integrity từ ribbon hoặc bảng lệnh. Thanh bên có **Liên kết hỏng** và **Tệp cô lập**.
 3. Chọn một kết quả để mở tệp nguồn. Bộ lọc tệp cô lập chỉ thay đổi chế độ xem hiện tại, không thay đổi giá trị mặc định đã lưu.
 4. Quét khi khởi động mặc định bị tắt. Khi mở thanh bên, chỉ mục sẽ được tạo khi cần; bạn cũng có thể dùng **Tạo chỉ mục** hoặc **Tạo lại chỉ mục** trong phần Chung. Sau lần tạo đầu tiên thành công, thay đổi trong Vault sẽ tự động cập nhật kết quả.
 
@@ -53,8 +53,8 @@ Gạch chân cảnh báo trong nội dung ghi chú mặc định tắt. Bạn c�
 ## Cài đặt
 
 - **Chung**: ngôn ngữ, quét khi khởi động, chế độ xem mặc định và thao tác tạo/tạo lại chỉ mục. Ngôn ngữ mặc định là **Theo Obsidian**.
-- **Broken links**: chọn loại vấn đề cần hiển thị và quản lý quy tắc bỏ qua có tên kèm xem trước số mục khớp.
-- **Isolated files**: loại tệp mặc định, chế độ xem tùy chọn “không có liên kết vào”, Expected isolated, quy tắc bỏ qua và quy tắc cô lập dự kiến.
+- **Liên kết hỏng**: chọn loại vấn đề cần hiển thị và quản lý quy tắc bỏ qua có tên kèm xem trước số mục khớp.
+- **Tệp cô lập**: loại tệp mặc định, chế độ xem tùy chọn “không có liên kết vào”, Cô lập dự kiến, quy tắc bỏ qua và quy tắc cô lập dự kiến.
 - Quy tắc cô lập dự kiến có thể kết hợp loại tệp, một thư mục hoặc thư mục kèm thư mục con, định dạng ngày, mẫu glob và biểu thức chính quy nâng cao. Cài sẵn ghi chú định kỳ hỗ trợ ngày, tuần, tháng, quý và năm.
 
 Cài đặt và quy tắc của người dùng được lưu trong `data.json`. Chỉ mục liên kết đã tính chỉ được giữ trong bộ nhớ và sẽ được tạo lại sau khi khởi động lại.

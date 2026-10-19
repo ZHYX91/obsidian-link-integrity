@@ -1,6 +1,6 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
 Link Integrity te ayuda a encontrar enlaces que ya no funcionan y archivos sin conexiones válidas con otros archivos de tu bóveda de Obsidian. Muestra los problemas sin cambiar enlaces ni eliminar archivos.
 
@@ -22,7 +22,7 @@ Gestiona el índice, las reglas de exclusión, los tipos de archivo y las reglas
 - Encuentra enlaces internos a archivos, encabezados y bloques que faltan en Markdown, incrustaciones, Frontmatter, Canvas y referencias explícitas de archivo en Bases.
 - Encuentra archivos sin ninguna conexión entrante o saliente válida con otro archivo existente del Vault. Los enlaces al propio archivo y las URL externas no cuentan como conexiones del Vault.
 - Avisa cuando un archivo aislado también contiene enlaces salientes rotos, para no confundirlo con un archivo que claramente pueda eliminarse.
-- Las notas periódicas, plantillas, archivos archivados y elementos similares pueden marcarse como Expected isolated. Esto solo cambia su clasificación en los resultados; no altera sus enlaces reales.
+- Las notas periódicas, plantillas, archivos archivados y elementos similares pueden marcarse como Aislamiento esperado. Esto solo cambia su clasificación en los resultados; no altera sus enlaces reales.
 - Filtra archivos aislados por archivos de Obsidian, formatos de imagen, audio, vídeo, PDF y extensiones de adjuntos configuradas.
 - Construye un índice completo cuando hace falta y lo mantiene actualizado automáticamente a medida que cambia el Vault.
 - Abre cada problema en su origen cuando hay navegación precisa disponible. El análisis y la indexación se realizan de forma local.
@@ -44,7 +44,7 @@ Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` e
 ## Uso
 
 1. Activa Link Integrity en los complementos de la comunidad.
-2. Abre Link Integrity desde la cinta o la paleta de comandos. La barra lateral contiene **Broken links** e **Isolated files**.
+2. Abre Link Integrity desde la cinta o la paleta de comandos. La barra lateral contiene **Enlaces rotos** e **Archivos aislados**.
 3. Selecciona un resultado para abrir su origen. Los filtros de archivos aislados solo cambian la vista actual y no modifican los valores predeterminados guardados.
 4. El análisis al iniciar está desactivado de forma predeterminada. Al abrir la barra lateral, el índice se crea cuando es necesario; también puedes usar **Crear índice** o **Reconstruir índice** en General. Después de la primera creación correcta, los cambios del Vault actualizan los resultados automáticamente.
 
@@ -53,8 +53,8 @@ Las marcas en las notas están desactivadas por defecto. Puedes activarlas al le
 ## Ajustes
 
 - **General**: idioma, análisis al inicio, vistas predeterminadas y acciones para crear o reconstruir el índice. El idioma predeterminado es **Seguir Obsidian**.
-- **Broken links**: qué problemas se muestran y qué reglas de exclusión con nombre se aplican, con vista previa de coincidencias.
-- **Isolated files**: tipos de archivo predeterminados, vista opcional sin enlaces entrantes, Expected isolated, reglas de exclusión y reglas de aislamiento esperado.
+- **Enlaces rotos**: qué problemas se muestran y qué reglas de exclusión con nombre se aplican, con vista previa de coincidencias.
+- **Archivos aislados**: tipos de archivo predeterminados, vista opcional sin enlaces entrantes, Aislamiento esperado, reglas de exclusión y reglas de aislamiento esperado.
 - Las reglas de aislamiento esperado pueden combinar tipo de archivo, una carpeta o una carpeta con subcarpetas, formatos de fecha, patrones glob y expresiones regulares avanzadas. El ajuste de notas periódicas admite día, semana, mes, trimestre y año.
 
 Los ajustes y las reglas del usuario se guardan en `data.json`. El índice de enlaces calculado se mantiene en memoria y se vuelve a crear después de reiniciar.
