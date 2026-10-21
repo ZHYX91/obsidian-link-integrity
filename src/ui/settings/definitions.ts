@@ -88,6 +88,11 @@ export function getSettingsPageDefinitions(
             t("settings.general.indexMaintenance"),
             t("settings.general.indexMaintenance.description"),
           ),
+          custom(
+            "help-and-support",
+            t("settings.general.help"),
+            t("settings.general.help.description"),
+          ),
           custom("persistence-status", t("status.save.saved")),
         ],
       }],

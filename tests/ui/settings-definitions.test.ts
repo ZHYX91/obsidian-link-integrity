@@ -16,6 +16,11 @@ describe("settings definitions", () => {
     const isolated = pages.find(({ id }) => id === "isolated-files");
 
     expect(general?.sections[0]?.heading).toBeUndefined();
+    expect(general?.sections[0]?.items).toContainEqual(expect.objectContaining({
+      kind: "custom",
+      id: "help-and-support",
+      name: "Help and support",
+    }));
     expect(broken?.sections.find(({ items }) =>
       items.some((item) => item.kind === "custom" && item.id === "broken-ignore-rules"),
     )?.heading).toBeUndefined();

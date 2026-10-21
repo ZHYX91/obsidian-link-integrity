@@ -81,7 +81,20 @@ reset, and verify the installed hashes after copying.
 Acceptance fixtures, cleanup scripts, and destructive test operations may target only explicitly
 identified temporary Vaults; never point them at an ordinary or production Vault. Source checks,
 packaged-candidate checks, deployed-host behavior, and Android emulator evidence remain separate
-claims. Desktop and Android emulator acceptance are optional quality checks on an exact candidate. Record failures, skipped checks, and incomplete coverage honestly; they do not block explicitly authorized publication. Source/build checks, version identity, asset integrity and build provenance remain required.
+claims.
+
+Select representative acceptance by change impact on the exact candidate. Changes to desktop
+interaction, settings, editor integration or lifecycle require affected real-host scenarios.
+Changes to mobile interaction or shared mobile-runtime behavior require affected Android emulator
+scenarios when the plugin supports mobile. Documentation-only or host-independent logic changes
+may omit hosts with a recorded reason. Cover the original reported case and a relevant boundary;
+use one suitable environment for equivalent coverage and expand only for distinct risks.
+Run the selected checks when the environment is available; claim acceptance only for observed
+passing scope. Confirmed serious product defects block the affected release. Missing host/tool
+evidence is assessed by risk and recorded as unverified, without an automatic publication block
+or separate approval step. Record failures and follow-up honestly. Full host closure is not required
+for a scoped release, and the CI publication workflow does not automatically enforce host coverage.
+Source/build checks, version identity, asset integrity and build provenance remain required.
 
 The deterministic product fixture lives under `acceptance/fixtures/`. Use it only in an explicitly
 identified disposable Vault with a clean packaged candidate. Never point it at an ordinary or

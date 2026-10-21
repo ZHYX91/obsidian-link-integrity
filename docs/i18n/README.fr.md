@@ -1,6 +1,6 @@
 # Link Integrity
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [Português (Brasil)](README.pt-BR.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md) · [العربية](README.ar.md)
 
 Link Integrity vous aide à repérer les liens qui ne fonctionnent plus et les fichiers sans lien valide avec d’autres fichiers de votre coffre Obsidian. Il affiche les problèmes sans modifier les notes ni supprimer de fichiers.
 
@@ -22,7 +22,7 @@ Gérez l’index, les règles d’exclusion, les types de fichiers et les règle
 - Repère les liens internes vers des fichiers, titres ou blocs manquants dans Markdown, les incorporations, le Frontmatter, Canvas et les références de fichiers explicites de Bases.
 - Repère les fichiers qui n’ont aucune connexion entrante ou sortante valide avec un autre fichier existant du Vault. Les liens vers soi-même et les URL externes ne comptent pas comme connexions du Vault.
 - Signale lorsqu’un fichier isolé contient aussi des liens sortants invalides, afin d’éviter de le prendre pour un fichier manifestement supprimable.
-- Les notes périodiques, modèles, archives et fichiers similaires peuvent être marqués Expected isolated. Cela change uniquement leur classement dans les résultats, pas leurs véritables liens.
+- Les notes périodiques, modèles, archives et fichiers similaires peuvent être marqués Isolation attendue. Cela change uniquement leur classement dans les résultats, pas leurs véritables liens.
 - Filtre les fichiers isolés par fichiers Obsidian, formats d’image, audio, vidéo, PDF et extensions de pièces jointes configurées.
 - Construit un index complet quand c’est nécessaire, puis le tient à jour automatiquement lorsque le Vault change.
 - Ouvre chaque problème à sa source lorsqu’une navigation précise est disponible. L’analyse et l’indexation restent locales.
@@ -44,7 +44,7 @@ Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css
 ## Utilisation
 
 1. Activez Link Integrity dans les modules complémentaires.
-2. Ouvrez Link Integrity depuis le ruban ou la palette de commandes. La barre latérale contient **Broken links** et **Isolated files**.
+2. Ouvrez Link Integrity depuis le ruban ou la palette de commandes. La barre latérale contient **Liens rompus** et **Fichiers isolés**.
 3. Sélectionnez un résultat pour ouvrir sa source. Les filtres de fichiers isolés ne changent que la vue courante, pas vos valeurs par défaut enregistrées.
 4. L’analyse au démarrage est désactivée par défaut. L’ouverture de la barre latérale construit l’index lorsque nécessaire ; vous pouvez aussi utiliser **Construire l’index** ou **Reconstruire l’index** dans Général. Après la première construction réussie, les changements du Vault mettent les résultats à jour automatiquement.
 
@@ -53,8 +53,8 @@ Les marques dans les notes sont désactivées par défaut. Vous pouvez les activ
 ## Paramètres
 
 - **Général** : langue, analyse au démarrage, vues par défaut et commandes de construction/reconstruction de l’index. La langue par défaut est **Suivre Obsidian**.
-- **Broken links** : types de problèmes affichés et règles d’exclusion nommées avec aperçu des correspondances.
-- **Isolated files** : types de fichiers par défaut, vue facultative sans lien entrant, fichiers Expected isolated, règles d’exclusion et règles d’isolation attendue.
+- **Liens rompus** : types de problèmes affichés et règles d’exclusion nommées avec aperçu des correspondances.
+- **Fichiers isolés** : types de fichiers par défaut, vue facultative sans lien entrant, fichiers Isolation attendue, règles d’exclusion et règles d’isolation attendue.
 - Les règles d’isolation attendue peuvent combiner type de fichier, dossier seul ou avec sous-dossiers, formats de date, motifs glob et expressions régulières avancées. Le préréglage des notes périodiques couvre jour, semaine, mois, trimestre et année.
 
 Les paramètres et règles utilisateur sont stockés dans `data.json`. L’index de liens calculé reste en mémoire et est reconstruit après un redémarrage.

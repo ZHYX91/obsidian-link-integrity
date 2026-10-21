@@ -1,6 +1,6 @@
 # Link Integrity
 
-[English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-TW.md) · [Deutsch](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.de.md) · [Français](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.fr.md) · [Русский](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ru.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.pt-BR.md) · [日本語](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ko.md) · [Español](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.es.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.vi.md) · [العربية](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ar.md)
+[English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/README.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-CN.md) · [繁體中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.zh-TW.md) · [日本語](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ja.md) · [한국어](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ko.md) · [Deutsch](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.de.md) · [Français](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.fr.md) · [Español](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.es.md) · [Português (Brasil)](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.pt-BR.md) · [Русский](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ru.md) · [Tiếng Việt](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.vi.md) · [العربية](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/i18n/README.ar.md)
 
 Find links that no longer work and files that aren't connected to other notes in your Obsidian vault. Link Integrity shows you what to check, without changing or deleting anything.
 
@@ -48,7 +48,7 @@ For a manual installation, place `main.js`, `manifest.json`, and `styles.css` in
 3. Select a result to open its source. Use the isolated-file filters to narrow the current view without changing your saved defaults.
 4. Startup scanning is off by default. Opening the sidebar builds the index when needed; you can also use **Build index** or **Rebuild index** in General settings. After the first successful build, changes in the Vault update the results automatically.
 
-Body hints are Off by default in Broken links settings. Enable them for editor and reading views. Native navigation remains available; use Diagnose broken links in the current note to inspect reasons by keyboard or touch. Links that have not finished updating or cannot be located precisely are left unmarked. You can still review them in the sidebar.
+To see problems while reading or editing a note, turn on **Show broken links in note text** in **Broken links** settings. This is off by default, and links still open normally when it is enabled. Run **Diagnose broken links in the current note** from the command palette to read the reasons for each problem. Links that have not finished updating or cannot be located precisely are left unmarked; you can still review them in the sidebar.
 
 ## Settings
 
@@ -60,6 +60,7 @@ Body hints are Off by default in Broken links settings. Enable them for editor a
 - **Expected isolated:** a standalone template or archive can be marked **Expected isolated**; it stays a real file, moves out of the main isolated count, and is never deleted or repaired by the plugin.
 
 - **General** controls language, startup scanning, default result views, and Build/Rebuild index actions. **Follow Obsidian** is the default language choice.
+- **User guide** opens these instructions in the current interface language; **Report an issue** opens the feedback form. Both links are in **General → Help and support**.
 - **Broken links** controls which problems are shown and lets you create named ignore rules with a match preview.
 - **Isolated files** controls the default file types, the optional no-incoming-links view, Expected isolated files, ignore rules, and expected-isolation rules.
 - Expected-isolation rules can combine file type, an exact folder or a folder with subfolders, date formats, glob patterns, and advanced regular expressions. The periodic-notes preset supports daily, weekly, monthly, quarterly, and yearly naming patterns.

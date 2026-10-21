@@ -57,6 +57,8 @@ export function renderCustomSetting(
   settingElement.append(body);
   const cleanup = id === "persistence-status"
     ? renderPersistenceStatus(body, context)
+    : id === "help-and-support"
+      ? renderSupport(body, context)
     : id === "index-maintenance"
       ? renderIndexMaintenance(body, context)
     : id === "isolated-candidate-types"
@@ -71,6 +73,25 @@ export function renderCustomSetting(
     body.remove();
     settingElement.classList.remove("link-integrity-settings-custom-row");
   };
+}
+
+function renderSupport(container: HTMLElement, context: SettingsUiContext): undefined {
+  const { locale, t } = context.translator;
+  const repository = "https://github.com/ZHYX91/obsidian-link-integrity";
+  const guide = locale === "en" ? "README.md" : `docs/i18n/README.${locale}.md`;
+  container.classList.add("link-integrity-settings-support");
+  for (const [label, href] of [
+    [t("settings.general.userGuide"), `${repository}/blob/main/${guide}`],
+    [t("settings.general.reportIssue"), `${repository}/issues/new/choose`],
+  ] as const) {
+    const link = container.ownerDocument.createElement("a");
+    link.textContent = label;
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    container.append(link);
+  }
+  return undefined;
 }
 
 function renderPersistenceStatus(
