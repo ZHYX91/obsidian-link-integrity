@@ -144,7 +144,7 @@ Scan errors and settings-save errors are separate states and are presented indep
 - State never relies on color alone; badges and text communicate together.
 - Result menus, checkboxes, and disclosure controls have readable labels.
 
-When full host acceptance is selected, use a real desktop host and, for `isDesktopOnly: false`, the current Android emulator. Host acceptance remains optional for authorized publication. Android physical devices and iOS are out of scope; historical physical-device evidence is supplemental only and never a release gate. Automated DOM tests cannot substitute for desktop-host or Android-emulator conclusions.
+When full host acceptance is selected, use a real desktop host and, for `isDesktopOnly: false`, the current Android emulator. Select representative host coverage by change impact; Confirmed serious product defects affecting a release block that release. Missing host/tool evidence stays unverified and is assessed by risk; it does not automatically block publication or add a separate approval step. Claim acceptance only for observed passing scope. Documentation-only or host-independent logic changes may omit hosts with a recorded reason; the full matrix is not required every time. Android physical devices and iOS are out of scope; historical physical-device evidence is supplemental only and never a release gate. Automated DOM tests cannot substitute for desktop-host or Android-emulator conclusions.
 
 ## Broken body hint interaction
 
