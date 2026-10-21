@@ -55,7 +55,6 @@
     "eslint": "10.11.0",
     "eslint-plugin-obsidianmd": "0.4.2",
     "happy-dom": "20.14.5",
-    "js-yaml": "4.3.2",
     "obsidian": "1.13.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1",
@@ -68,6 +67,9 @@
     "yaml": "2.9.1"
   },
   "overrides": {
+    "@eslint/eslintrc": {
+      "js-yaml": "4.3.2"
+    },
     "obsidian": {
       "moment": "2.31.0"
     }

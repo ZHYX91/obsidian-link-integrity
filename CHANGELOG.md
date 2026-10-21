@@ -7,6 +7,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Remove the unused direct js-yaml development dependency while retaining its patched version for ESLint's transitive dependency.
+
 ## [0.4.1] - 2026-10-18
 
 - Add Arabic translations and right-to-left layout across settings, results and current-note diagnostics.
