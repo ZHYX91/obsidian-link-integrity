@@ -165,6 +165,28 @@
         "Language changes do not change classifications or Markdown bytes; only the deliberate temporary missing heading raises the diagnostic count by one",
         "Controls and visible focus remain reachable at narrow widths; saved language persists across reopening and restart"
       ]
+    },
+    {
+      "id": "localized-help-and-navigation",
+      "title": "Localized help, sidebar naming and narrow settings navigation",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Select Simplified Chinese and inspect both sidebar tabs and General help links; names agree with the localized user guide.",
+        "Inspect the note-text hint setting and enable it on an existing broken-link fixture, then verify the hint appears without changing note bytes.",
+        "Switch to English and a representative light/dark appearance, and inspect narrow settings navigation and wrapped help links."
+      ],
+      "expected": [
+        "Sidebar names, note-text hints and help labels are consistently localized.",
+        "Hints affect presentation only and preserve note bytes.",
+        "Settings navigation and help links stay readable at narrow width and across representative appearance modes."
+      ]
     }
   ]
 }
