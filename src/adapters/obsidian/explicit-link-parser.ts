@@ -535,6 +535,10 @@ function maskInlineCodeAndComments(
     runSegments.push(fencedRangeIndex);
   }
   const nextMatchingRun: Array<number | null> = Array.from({ length: runs.length }, () => null);
+  // An escaped first backtick is literal outside code. A longer run can
+  // still open code with the remaining backticks, whereas a backslash
+  // inside an already open code span does not escape its closing delimiter.
+  const nextMatchingAfterEscapedFirst: Array<number | null> = Array.from({ length: runs.length }, () => null);
   const nextByLength = new Map<number, number>();
   const runIndexByStart = new Map<number, number>();
   let segment = -1;
@@ -548,6 +552,7 @@ function maskInlineCodeAndComments(
     }
     const length = run[0].length;
     nextMatchingRun[index] = nextByLength.get(length) ?? null;
+    if (length > 1) nextMatchingAfterEscapedFirst[index] = nextByLength.get(length - 1) ?? null;
     nextByLength.set(length, index);
     runIndexByStart.set(run.index, index);
   }
@@ -578,7 +583,19 @@ function maskInlineCodeAndComments(
       cursor += 1;
       continue;
     }
-    const closingIndex = nextMatchingRun[openingIndex];
+    let precedingBackslashes = 0;
+    for (let at = cursor - 1; at >= 0 && source[at] === "\\"; at -= 1) {
+      precedingBackslashes += 1;
+    }
+    const escapedFirst = precedingBackslashes % 2 === 1;
+    const effectiveLength = opening[0].length - (escapedFirst ? 1 : 0);
+    if (effectiveLength === 0) {
+      cursor += opening[0].length;
+      continue;
+    }
+    const closingIndex = escapedFirst
+      ? nextMatchingAfterEscapedFirst[openingIndex]
+      : nextMatchingRun[openingIndex];
     if (closingIndex == null) {
       cursor += opening[0].length;
       continue;
@@ -589,7 +606,7 @@ function maskInlineCodeAndComments(
       continue;
     }
     const end = closing.index + closing[0].length;
-    maskRange(characters, cursor, end);
+    maskRange(characters, cursor + (escapedFirst ? 1 : 0), end);
     cursor = end;
   }
 }
