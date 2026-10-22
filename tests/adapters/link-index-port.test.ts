@@ -36,6 +36,21 @@ describe("ObsidianLinkIndexPort", () => {
     expect(fallback.cachedRead).toHaveBeenCalledOnce();
   });
 
+  it("keeps a positioned cache link between escaped backticks, just like fallback parsing", async () => {
+    const file = fakeFile("Source.md");
+    const source = "\\` [[Missing]] \\`";
+    const options = { content: { [file.path]: source }, destinations: new Map() };
+    const cached = createPort([file], {
+      ...options,
+      caches: new Map([[file.path, { links: [positioned(source, "Missing", "[[Missing]]")] }]]),
+    });
+    const fallback = createPort([file], { ...options, caches: new Map() });
+    const actual = await cached.port.buildSourceSnapshot(file.path);
+    const expected = await fallback.port.buildSourceSnapshot(file.path);
+    expect(actual?.occurrences.map(({ linkpath }) => linkpath)).toEqual(["Missing"]);
+    expect(actual).toEqual(expected);
+  });
+
   it.each([
     "%% before\n[[Ghost]]\nafter %%",
     "`[[Ghost]]`",
