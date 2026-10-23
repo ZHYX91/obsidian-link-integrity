@@ -4,7 +4,7 @@
 
 Link Integrity zeigt defekte Links und Dateien ohne gültige Verbindungen zu anderen Dateien im Obsidian-Vault. Es hilft beim Prüfen, ohne Links zu verändern oder Dateien zu löschen.
 
-## Screenshots
+## Bildschirmfotos
 
 Defekte Links und isolierte Dateien lassen sich in einer kompakten Seitenleiste prüfen:
 
@@ -32,7 +32,7 @@ Dynamische Ergebnisse von Bases-Abfragen werden nicht automatisch als Links gewe
 ## Anforderungen und Kompatibilität
 
 - Obsidian 1.12.7 oder neuer.
-- Unterstützt Obsidian auf Desktop- und Mobilgeräten.
+- Unterstützt Obsidian auf Desktop- und Mobilgeräten. Die formale Host-Abnahme unterscheidet Desktop-Tests von Android-Emulatortests; physische Android-Geräte und iOS gehören nicht zu diesem Prüfumfang.
 - Geprüft wird nur der aktuelle Vault. Externe Websites und entfernte Ressourcen werden nicht überprüft.
 
 ## Installation
@@ -52,10 +52,14 @@ Markierungen im Notiztext sind standardmäßig aus. Sie können sie beim Lesen o
 
 ## Einstellungen
 
+Beispiel: `A.md` verweist auf die vorhandene Datei `[[B]]`. Auch ohne eingehende Links ist `A.md` deshalb nicht isoliert. Enthält es nur `[[Missing]]` und sonst keine gültige Verbindung, gilt es als isoliert – prüfen Sie es trotzdem, statt es ungeprüft zu löschen.
+
 - **Allgemein**: Sprache, Startscan, Standardansichten und Aktionen zum Erstellen oder Neuerstellen des Index. Standard ist **Obsidian folgen**.
 - **Defekte Links**: Welche Probleme angezeigt werden und welche benannten Ignorierregeln mit Treffer-Vorschau gelten.
 - **Isolierte Dateien**: Standard-Dateitypen, die optionale Ansicht ohne eingehende Links, Erwartet isoliert, Ignorierregeln und Regeln für erwartete Isolation.
 - Regeln für erwartete Isolation können Dateityp, einen einzelnen Ordner oder einen Ordner mit Unterordnern, Datumsformate, Glob-Muster und erweiterte reguläre Ausdrücke kombinieren. Die Voreinstellung für periodische Notizen unterstützt Tag, Woche, Monat, Quartal und Jahr.
+
+**Vorsicht bei erweiterten Ignorierregeln:** „Erwartet isoliert“ und Regeln, die nur Ergebnisse ausblenden, ändern keine Verbindungen. Die erweiterte Option zum Ausschließen passender Links aus der Verbindungsanalyse tut dies: Diese Links zählen nicht mehr mit, und tatsächlich verknüpfte Dateien können als isoliert erscheinen. Prüfen Sie die Treffer vor dem Aktivieren.
 
 Einstellungen und benutzerdefinierte Regeln stehen in `data.json`. Der berechnete Link-Index bleibt im Arbeitsspeicher und wird nach einem Neustart neu erstellt.
 
