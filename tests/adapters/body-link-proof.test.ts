@@ -70,12 +70,14 @@ describe("current explicit body proof", () => {
     for (const [input, output] of [["Missing.MD#Heading", "Missing"], ["Folder/Missing.md#^block", "Folder/Missing"],
       [".md#Heading", ".md"], ["Missing.md.#Heading", "Missing.md."], ["other.pdf#Heading", "other.pdf"]]) expect(bodyUnresolvedKey(input!)).toBe(output);
   });
-  it("rejects absent metadata, cancelled proof, malformed offsets and encoded destinations", async () => {
+  it("rejects missing proof evidence while preserving literal and encoded destinations", async () => {
     const test = bodySetup(); const abort = new AbortController(); abort.abort();
     expect(await test.port.proveSource(test.path, test.text, test.index.getSourceSnapshot(test.path)!, abort.signal)).toBeNull();
     test.caches.delete(test.path); expect((await test.service.source(test.path, test.text)).state).toBe("pending");
     expect(bodySourceRange("x", [0], null)).toBeNull();
     expect(bodySourceRange("x", [0], { line: 0, column: -1, endLine: 0, endColumn: 1, property: null, canvasNodeId: null })).toBeNull();
-    expect(canonicalBodyDestination("%GG")).toBeNull(); expect(canonicalBodyDestination("Target%23Heading")).toBe('["Target","#Heading"]');
+    // A Vault filename is not necessarily URI-encoded: %GG can be literal text.
+    expect(canonicalBodyDestination("%GG")).toBe('["%GG",""]');
+    expect(canonicalBodyDestination("Target%23Heading")).toBe('["Target","#Heading"]');
   });
 });
