@@ -18,7 +18,7 @@ Gerencie índice, regras de exclusão, tipos de arquivo e regras de isolamento e
 
 ## Recursos
 
-- Marca opcionalmente arquivos, títulos e blocos ausentes confirmados com ondas de cor de alerta no texto.
+- Opcionalmente, sublinha com uma linha ondulada de alerta os links para arquivos, títulos e blocos cuja ausência foi confirmada.
 - Encontra links internos para arquivos, títulos e blocos ausentes em Markdown, incorporações, Frontmatter, Canvas e referências explícitas de arquivo em Bases.
 - Encontra arquivos sem conexão válida de entrada ou saída com outro arquivo existente no Vault. Links para o próprio arquivo e URLs externas não contam como conexões do Vault.
 - Avisa quando um arquivo isolado também contém links de saída quebrados, evitando que ele pareça um arquivo obviamente seguro para remover.
@@ -32,7 +32,7 @@ Resultados dinâmicos de consultas Bases não são tratados automaticamente como
 ## Requisitos e compatibilidade
 
 - Obsidian 1.12.7 ou posterior.
-- Compatível com Obsidian para desktop e dispositivos móveis.
+- Compatível com Obsidian para desktop e dispositivos móveis. A validação formal trata os testes no desktop e no emulador Android separadamente; aparelhos Android físicos e iOS não fazem parte desse escopo.
 - Verifica apenas o Vault atual. Sites externos e recursos remotos não são verificados.
 
 ## Instalação
@@ -52,10 +52,14 @@ As marcas no texto das notas ficam desativadas por padrão. Você pode ativá-la
 
 ## Configurações
 
+Por exemplo, se `A.md` contém `[[B]]` e `B.md` existe, `A.md` não está isolado mesmo sem links de entrada. Se contém apenas `[[Missing]]` e não há outras conexões válidas, continua isolado; revise-o antes de considerar a exclusão.
+
 - **Geral**: idioma, varredura na inicialização, visualizações padrão e ações de criação/reconstrução do índice. O idioma padrão é **Seguir o Obsidian**.
 - **Links quebrados**: quais problemas são mostrados e quais regras nomeadas de exclusão são usadas, com prévia das correspondências.
 - **Arquivos isolados**: tipos de arquivo padrão, visualização opcional sem links de entrada, Isolamento esperado, regras de exclusão e regras de isolamento esperado.
 - As regras de isolamento esperado podem combinar tipo de arquivo, uma pasta ou pasta com subpastas, formatos de data, padrões glob e expressões regulares avançadas. A predefinição de notas periódicas cobre dia, semana, mês, trimestre e ano.
+
+**Atenção às regras avançadas de exclusão:** o «Isolamento esperado» e as regras que apenas ocultam resultados não mudam as conexões entre arquivos. A opção avançada para excluir links correspondentes da análise de conexões remove esses links da contagem e pode fazer um arquivo conectado parecer isolado. Confira as correspondências antes de aplicar.
 
 Configurações e regras do usuário ficam em `data.json`. O índice de links calculado permanece na memória e é recriado após reiniciar.
 
