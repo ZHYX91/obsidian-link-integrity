@@ -32,7 +32,7 @@ Kết quả động từ truy vấn Bases không tự động được xem là l
 ## Yêu cầu và khả năng tương thích
 
 - Obsidian 1.12.7 trở lên.
-- Hỗ trợ Obsidian trên máy tính và thiết bị di động.
+- Hỗ trợ Obsidian trên máy tính và thiết bị di động. Phạm vi kiểm thử chính thức tách máy tính khỏi trình giả lập Android; thiết bị Android thực tế và iOS không thuộc phạm vi nghiệm thu đó.
 - Chỉ kiểm tra Vault hiện tại. Không kiểm tra website bên ngoài hoặc tài nguyên từ xa.
 
 ## Cài đặt
@@ -52,10 +52,14 @@ Gạch chân cảnh báo trong nội dung ghi chú mặc định tắt. Bạn c�
 
 ## Cài đặt
 
+Ví dụ, `A.md` liên kết tới `[[B]]` và `B.md` tồn tại thì `A.md` không cô lập dù không có liên kết nào trỏ vào nó. Nếu chỉ có `[[Missing]]` mà không có kết nối hợp lệ khác, tệp vẫn được xem là cô lập nhưng phải kiểm tra trước khi xóa.
+
 - **Chung**: ngôn ngữ, quét khi khởi động, chế độ xem mặc định và thao tác tạo/tạo lại chỉ mục. Ngôn ngữ mặc định là **Theo Obsidian**.
 - **Liên kết hỏng**: chọn loại vấn đề cần hiển thị và quản lý quy tắc bỏ qua có tên kèm xem trước số mục khớp.
 - **Tệp cô lập**: loại tệp mặc định, chế độ xem tùy chọn “không có liên kết vào”, Cô lập dự kiến, quy tắc bỏ qua và quy tắc cô lập dự kiến.
 - Quy tắc cô lập dự kiến có thể kết hợp loại tệp, một thư mục hoặc thư mục kèm thư mục con, định dạng ngày, mẫu glob và biểu thức chính quy nâng cao. Cài sẵn ghi chú định kỳ hỗ trợ ngày, tuần, tháng, quý và năm.
+
+**Lưu ý về quy tắc bỏ qua nâng cao:** Đánh dấu «Cô lập dự kiến» hoặc chỉ ẩn kết quả không làm thay đổi số kết nối. Tuy nhiên, tùy chọn nâng cao loại các liên kết khớp khỏi phép tính kết nối sẽ khiến chúng không còn được tính; vì vậy tệp thực sự có liên kết cũng có thể hiện là cô lập. Hãy xem trước các mục khớp trước khi áp dụng.
 
 Cài đặt và quy tắc của người dùng được lưu trong `data.json`. Chỉ mục liên kết đã tính chỉ được giữ trong bộ nhớ và sẽ được tạo lại sau khi khởi động lại.
 
