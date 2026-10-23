@@ -18,7 +18,7 @@ Gérez l’index, les règles d’exclusion, les types de fichiers et les règle
 
 ## Fonctionnalités
 
-- Marque en option les fichiers, titres et blocs absents confirmés par des vagues de couleur d’avertissement dans le texte.
+- Signale en option les liens vers des fichiers, titres ou blocs manquants confirmés par un soulignement ondulé de couleur d’alerte.
 - Repère les liens internes vers des fichiers, titres ou blocs manquants dans Markdown, les incorporations, le Frontmatter, Canvas et les références de fichiers explicites de Bases.
 - Repère les fichiers qui n’ont aucune connexion entrante ou sortante valide avec un autre fichier existant du Vault. Les liens vers soi-même et les URL externes ne comptent pas comme connexions du Vault.
 - Signale lorsqu’un fichier isolé contient aussi des liens sortants invalides, afin d’éviter de le prendre pour un fichier manifestement supprimable.
@@ -32,7 +32,7 @@ Les résultats dynamiques des requêtes Bases ne sont pas automatiquement consid
 ## Prérequis et compatibilité
 
 - Obsidian 1.12.7 ou version ultérieure.
-- Compatible avec Obsidian sur ordinateur et mobile.
+- Compatible avec Obsidian sur ordinateur et mobile. Le plan de validation distingue les hôtes de bureau de l’émulateur Android ; les appareils Android physiques et iOS restent hors du périmètre de cette validation.
 - Seul le Vault courant est vérifié. Les sites Web externes et ressources distantes ne le sont pas.
 
 ## Installation
@@ -52,10 +52,14 @@ Les marques dans les notes sont désactivées par défaut. Vous pouvez les activ
 
 ## Paramètres
 
+Exemple : si `A.md` contient un lien vers `[[B]]` et que `B.md` existe, `A.md` n’est pas isolé même sans lien entrant. S’il ne contient que `[[Missing]]` sans autre connexion valide, il reste isolé, mais cela ne signifie pas qu’il faut le supprimer.
+
 - **Général** : langue, analyse au démarrage, vues par défaut et commandes de construction/reconstruction de l’index. La langue par défaut est **Suivre Obsidian**.
 - **Liens rompus** : types de problèmes affichés et règles d’exclusion nommées avec aperçu des correspondances.
 - **Fichiers isolés** : types de fichiers par défaut, vue facultative sans lien entrant, fichiers Isolation attendue, règles d’exclusion et règles d’isolation attendue.
 - Les règles d’isolation attendue peuvent combiner type de fichier, dossier seul ou avec sous-dossiers, formats de date, motifs glob et expressions régulières avancées. Le préréglage des notes périodiques couvre jour, semaine, mois, trimestre et année.
+
+**Attention aux règles d’exclusion avancées :** « Isolation attendue » et les règles qui masquent seulement des résultats ne changent pas les connexions entre fichiers. L’option avancée qui exclut les liens correspondants de l’analyse des connexions les retire du comptage ; des fichiers réellement reliés peuvent alors paraître isolés. Vérifiez l’aperçu des correspondances avant de l’activer.
 
 Les paramètres et règles utilisateur sont stockés dans `data.json`. L’index de liens calculé reste en mémoire et est reconstruit après un redémarrage.
 
