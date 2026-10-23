@@ -25,8 +25,13 @@ export function bodySourceRange(text: string, starts: readonly number[], positio
 }
 
 export function canonicalBodyDestination(value: string): string | null {
+  let destination = value;
+  try { destination = decodeURIComponent(value); } catch {
+    // Wiki targets and decoded cache values may contain a literal percent sign.
+    // A URI decoding failure does not make that Vault destination invalid.
+  }
   try {
-    const parsed = parseLinktext(decodeURIComponent(value));
+    const parsed = parseLinktext(destination);
     return JSON.stringify([parsed.path.trim(), parsed.subpath]);
   } catch { return null; }
 }

@@ -19,15 +19,22 @@ export function createBodyLinkEditorExtension(options: BodyEditorOptions): Exten
     private abort: AbortController | null = null;
     private timer: number | null = null;
     private disposed = false;
+    private sourcePath: string | null;
     private readonly unsubscribe: () => void;
     private get window(): Window { return this.view.dom.ownerDocument.defaultView!; }
     public constructor(private readonly view: EditorView) {
+      this.sourcePath = view.state.field(editorInfoField, false)?.file?.path ?? null;
       this.unsubscribe = options.subscribe(() => { this.clear(); this.view.dispatch({ effects: redraw.of(null) }); this.schedule(); });
       this.schedule();
     }
     public update(update: ViewUpdate): void {
-      if (update.docChanged) this.clear();
-      if (update.docChanged || update.viewportChanged) this.schedule();
+      // Host file info can mutate in place, including a rename with unchanged text.
+      // Retain the path value rather than comparing shared objects in the two states.
+      const sourcePath = this.view.state.field(editorInfoField, false)?.file?.path ?? null;
+      const sourceChanged = sourcePath !== this.sourcePath;
+      this.sourcePath = sourcePath;
+      if (update.docChanged || sourceChanged) this.clear();
+      if (update.docChanged || update.viewportChanged || sourceChanged) this.schedule();
     }
     public destroy(): void {
       this.disposed = true; this.clear(); this.unsubscribe();
