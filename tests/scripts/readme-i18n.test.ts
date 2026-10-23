@@ -92,6 +92,30 @@ describe("README marketplace link contract", () => {
       "docs/i18n/README.zh-CN.md contains a missing relative target: ../assets/missing-overview.png",
     );
   });
+  it("rejects omission of the advanced rule's connection-count warning", async () => {
+    const guide = "docs/i18n/README.zh-TW.md";
+    await replaceInReadme(guide, "從連結分析排除符合條件的連結（進階）", "一般結果顯示規則");
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      `${guide} lacks the warning that advanced rules can change connection counts`,
+    );
+  });
+
+  it("keeps examples separating missing incoming links from real isolation", async () => {
+    const guide = "docs/i18n/README.de.md";
+    await replaceInReadme(guide, "[[Missing]]", "ein nicht vorhandener Link");
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      `${guide} must distinguish no incoming links from isolation with actual examples`,
+    );
+  });
+
+  it("requires an explicit statement of the mobile host-test boundary", async () => {
+    const guide = "docs/i18n/README.fr.md";
+    await replaceInReadme(guide, "Android physiques et iOS", "Android physiques et autres appareils");
+    expect(checkReadmeI18n(fixtureRoot)).toContain(
+      `${guide} must distinguish mobile support from formal acceptance scope`,
+    );
+  });
+
   it("rejects internal implementation jargon in public README copy", async () => {
     await replaceInReadme(
       "README.md",
