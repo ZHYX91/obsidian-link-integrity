@@ -27,6 +27,7 @@ export const RU_MESSAGES = localizedCatalog({
   "common.next": "Далее",
   "common.retry": "Повторить",
   "common.undo": "Отменить",
+  "common.undoUnavailable": "Отмена невозможна: объект или настройки изменились. Проверьте текущее состояние.",
   "common.expand": "Развернуть",
   "common.collapse": "Свернуть",
   "common.expandAll": "Развернуть всё",

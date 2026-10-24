@@ -113,6 +113,9 @@ export class Setting {
   addToggle(): this {
     return this;
   }
+  setDisabled(): this {
+    return this;
+  }
   setDesc(): this {
     return this;
   }

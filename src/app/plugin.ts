@@ -208,6 +208,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   public retrySettingsSave(): Promise<void> {
+    if (this.unloaded) return Promise.resolve();
     if (this.settingsWriteProtected) return Promise.resolve();
     return this.saveCoordinator.retry();
   }
@@ -234,10 +235,13 @@ export default class LinkIntegrityPlugin extends Plugin {
     settings: LinkIntegritySettings,
     impact: SettingsChangeImpact = "query-only",
   ): void {
+    if (this.unloaded) return;
     const scanOnStartupWasEnabled = this.settings.general.scanOnStartup;
-    this.settings = normalizeSettings(settings);
+    const nextSettings = normalizeSettings(settings);
+    const graphChanged = graphContributionRulesChanged(this.settings.ignoreRules, nextSettings.ignoreRules);
+    this.settings = nextSettings;
     if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
-    if (impact === "regraph") this.updateGraphContributionPolicy();
+    if (impact === "regraph" || graphChanged) this.updateGraphContributionPolicy();
     this.refreshEntrypoints();
     this.query.notify();
     this.bodyLinks.invalidate();
@@ -718,6 +722,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     mode: "exact" | "recursive",
     document: Document,
   ): void {
+    if (this.unloaded) return;
     const existing = findPureExpectedFolderRule(
       this.settings.isolatedFiles.expectedRules,
       path,
@@ -748,6 +753,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       },
     }, "query-only");
 
+    const receipt = JSON.stringify(this.settings.isolatedFiles.expectedRules.find(({ id }) => id === rule.id));
     const fragment = document.createDocumentFragment();
     const message = document.createElement("span");
     message.textContent = translator.t("sidebar.isolated.markedExpectedFolder", {
@@ -762,6 +768,14 @@ export default class LinkIntegrityPlugin extends Plugin {
     fragment.append(message, document.createTextNode(" "), undo);
     const notice = new Notice(fragment, 8_000);
     undo.addEventListener("click", () => {
+      if (this.unloaded) return;
+      const stored = this.settings.isolatedFiles.expectedRules.find(({ id }) => id === rule.id);
+      if (JSON.stringify(stored) !== receipt) {
+        undo.disabled = true;
+        new Notice(translator.t("common.undoUnavailable"));
+        notice.hide();
+        return;
+      }
       this.updateSettings({
         ...this.settings,
         isolatedFiles: {
@@ -777,7 +791,11 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private setExpectedFile(path: string, expected: boolean, document: Document): void {
+    if (this.unloaded) return;
+    const file = this.app.vault.getFileByPath(path);
+    if (file === null) return;
     const before = this.settings.isolatedFiles.expectedFilePaths;
+    if (before.includes(path) === expected) return;
     const after = expected
       ? [...before, path]
       : before.filter((candidate) => candidate !== path);
@@ -800,14 +818,22 @@ export default class LinkIntegrityPlugin extends Plugin {
     fragment.append(message, document.createTextNode(" "), undo);
     const notice = new Notice(fragment, 8_000);
     undo.addEventListener("click", () => {
+      if (this.unloaded) return;
+      const currentPath = file.path;
       const current = this.settings.isolatedFiles.expectedFilePaths;
+      if (this.app.vault.getFileByPath(currentPath) !== file || current.includes(currentPath) !== expected) {
+        undo.disabled = true;
+        new Notice(translator.t("common.undoUnavailable"));
+        notice.hide();
+        return;
+      }
       this.updateSettings({
         ...this.settings,
         isolatedFiles: {
           ...this.settings.isolatedFiles,
           expectedFilePaths: expected
-            ? current.filter((candidate) => candidate !== path)
-            : [...current, path],
+            ? current.filter((candidate) => candidate !== currentPath)
+            : [...current, currentPath],
         },
       }, "query-only");
       notice.hide();
@@ -868,6 +894,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     state: SidebarViewState,
     previousState: SidebarViewState,
   ): void {
+    if (this.unloaded) return;
     const changed = state.activeTab !== previousState.activeTab ||
       state.brokenView !== previousState.brokenView ||
       state.brokenGrouping !== previousState.brokenGrouping ||
@@ -939,10 +966,11 @@ function graphContributionRulesChanged(
   before: readonly IgnoreRule[],
   after: readonly IgnoreRule[],
 ): boolean {
-  const beforeGraphRules = before.filter(({ scope }) => scope === "exclude-graph-contribution");
-  const afterGraphRules = after.filter(({ scope }) => scope === "exclude-graph-contribution");
-  return beforeGraphRules.length !== afterGraphRules.length ||
-    beforeGraphRules.some((rule, index) => rule !== afterGraphRules[index]);
+  const fingerprint = (rules: readonly IgnoreRule[]): string => JSON.stringify([...new Set(
+    rules.filter(({ scope, enabled }) => enabled && scope === "exclude-graph-contribution")
+      .map(({ matcher }) => JSON.stringify([matcher.kind, matcher.value])),
+  )].sort());
+  return fingerprint(before) !== fingerprint(after);
 }
 
 function errorMessage(error: unknown): string {

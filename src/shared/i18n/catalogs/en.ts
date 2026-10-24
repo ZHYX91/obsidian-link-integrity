@@ -28,6 +28,7 @@ export const EN_MESSAGES = {
   "common.next": "Next",
   "common.retry": "Retry",
   "common.undo": "Undo",
+  "common.undoUnavailable": "Cannot undo because the target or settings have changed. Check the current state.",
   "common.expand": "Expand",
   "common.collapse": "Collapse",
   "common.expandAll": "Expand all",

@@ -8,7 +8,7 @@ import {
 import { normalizeSettings } from "../../shared/settings";
 import { button, checkboxLabel, labeledInput, select, textElement, runAction } from "./dom-controls";
 import { PreviewRequestCoordinator } from "./preview-coordinator";
-import type { SettingsUiContext } from "./types";
+import type { IgnoreRuleDraft, SettingsUiContext } from "./types";
 
 /** Owns unsaved edits and their preview; never writes settings on input changes. */
 export function renderIgnoreRules(
@@ -17,48 +17,74 @@ export function renderIgnoreRules(
   domain: "broken" | "isolated",
 ): () => void {
   const cleanups = new Set<() => void>();
+  let active = true;
   const settings = context.getSettings?.() ?? context.settings;
-  const rules = settings.ignoreRules.filter(({ scope }) => belongsToDomain(scope, domain));
+  const drafts = context.ignoreRuleDrafts ?? new Map<string, IgnoreRuleDraft>();
+  const visible = new Map(settings.ignoreRules.filter(({ scope }) => belongsToDomain(scope, domain))
+    .map((rule) => [rule.id, rule]));
+  for (const [id, entry] of drafts) {
+    if (entry.original !== null && JSON.stringify(entry.draft) === JSON.stringify(entry.original)) {
+      const stored = settings.ignoreRules.find((rule) => rule.id === id);
+      if (stored === undefined) { drafts.delete(id); continue; }
+      entry.original = stored;
+      entry.draft = stored;
+    }
+    const belongs = entry.original === null ? entry.domain === domain : belongsToDomain(entry.original.scope, domain);
+    if (belongs) visible.set(id, entry.draft);
+    else visible.delete(id);
+  }
+  const rules = [...visible.values()];
   const empty = textElement(container, "p", context.translator.t("settings.ignore.empty"));
   empty.hidden = rules.length > 0;
   container.append(empty);
   const append = (rule: IgnoreRule, isNew: boolean): void => {
     empty.hidden = true;
-    const editor = createRuleEditor(container, context, rule, isNew);
+    let entry = drafts.get(rule.id);
+    if (entry === undefined) {
+      entry = { original: isNew ? null : rule, draft: rule, domain, open: isNew };
+      drafts.set(rule.id, entry);
+    }
+    const editor = createRuleEditor(container, context, entry, drafts, isNew);
     cleanups.add(editor.cleanup);
   };
   for (const rule of rules) append(rule, false);
-  const add = button(container, context.translator.t("settings.ignore.addRule"), () => append({
+  const add = button(container, context.translator.t("settings.ignore.addRule"), () => {
+    if (!active) return;
+    append({
     id: context.createId("ignore-rule"),
     enabled: true,
     scope: domain === "broken" ? "hide-broken-result" : "exclude-isolated-candidate",
     matcher: { kind: "path-prefix", value: "" },
     createdAt: Date.now(),
     note: "",
-  }, true));
+    }, true);
+  });
   add.disabled = context.writeProtected;
-  return () => { for (const cleanup of cleanups) cleanup(); };
+  return () => { active = false; add.disabled = true; for (const cleanup of cleanups) cleanup(); };
 }
 
 function createRuleEditor(
   container: HTMLElement,
   context: SettingsUiContext,
-  source: IgnoreRule,
-  isNew: boolean,
+  entry: IgnoreRuleDraft,
+  drafts: Map<string, IgnoreRuleDraft>,
+  focusNew: boolean,
 ): { readonly cleanup: () => void } {
   const document = container.ownerDocument;
   const { t } = context.translator;
   const requests = new PreviewRequestCoordinator<string, IgnoreRulePreview>();
   let disposed = false;
-  let original = source;
-  let draft = source;
+  let original = entry.original ?? entry.draft;
+  let draft = entry.draft;
+  const isNew = entry.original === null;
   let previewIdentity: string | null = null;
   const currentRevision = (): string => `${context.getIndexRevision?.() ?? ""}:${context.getIndexStatus?.().state ?? "ready"}`;
   const indexReady = (): boolean => context.getIndexStatus === undefined || context.getIndexStatus().state === "ready";
   let lastRevision = currentRevision();
   const details = document.createElement("details");
   details.className = "link-integrity-settings-rule";
-  details.open = isNew;
+  details.open = entry.open;
+  details.addEventListener("toggle", () => { if (!disposed) entry.open = details.open; });
   const summary = document.createElement("summary");
   details.append(summary);
   const enabled = checkboxLabel(details, t("common.enabled"), draft.enabled).checkbox;
@@ -96,6 +122,7 @@ function createRuleEditor(
     refreshSave();
   };
   const update = (): void => {
+    if (disposed) return;
     draft = {
       ...draft,
       enabled: enabled.checked,
@@ -103,6 +130,8 @@ function createRuleEditor(
       matcher: { kind: matcher.value as IgnoreRule["matcher"]["kind"], value: value.value },
       note: note.value,
     };
+    entry.draft = draft;
+    entry.open = details.open;
     summary.textContent = draft.note || draft.matcher.value || t("settings.ignore.addRule");
     const graph = draft.scope === "exclude-graph-contribution";
     details.classList.toggle("is-graph-risk", graph);
@@ -159,34 +188,55 @@ function createRuleEditor(
     }
     const graphChanged = original.scope === "exclude-graph-contribution" ||
       candidate.scope === "exclude-graph-contribution";
-    runAction(() => context.onSettingsChange(normalizeSettings({
-      ...current,
-      ignoreRules: isNew ? [...current.ignoreRules, candidate]
-        : current.ignoreRules.map((rule) => rule.id === candidate.id ? candidate : rule),
-    }), graphChanged ? "regraph" : "query-only"), context);
+    runAction(async () => {
+      drafts.delete(candidate.id);
+      try {
+        await context.onSettingsChange(normalizeSettings({
+          ...current,
+          ignoreRules: isNew ? [...current.ignoreRules, candidate]
+            : current.ignoreRules.map((rule) => rule.id === candidate.id ? candidate : rule),
+        }), graphChanged ? "regraph" : "query-only");
+      } catch (error) {
+        drafts.set(candidate.id, entry);
+        throw error;
+      }
+    }, context);
   });
   save.className = "mod-cta";
   button(actions, t("common.cancel"), () => {
     if (disposed) return;
-    if (isNew) { cleanup(); details.remove(); return; }
-    original = (context.getSettings?.() ?? context.settings).ignoreRules.find(({ id }) => id === source.id) ?? original;
-    draft = original;
+    drafts.delete(draft.id);
+    const stored = (context.getSettings?.() ?? context.settings).ignoreRules.find(({ id }) => id === draft.id);
+    if (isNew || stored === undefined) { cleanup(); details.remove(); return; }
+    original = stored;
+    entry.original = stored;
+    draft = stored;
+    entry.open = false;
+    drafts.set(draft.id, entry);
     enabled.checked = draft.enabled;
     scope.value = draft.scope;
     matcher.value = draft.matcher.kind;
     value.value = draft.matcher.value;
     note.value = draft.note;
-    update();
     details.open = false;
+    update();
   });
   if (!isNew) {
     const remove = button(actions, t("common.delete"), () => {
       if (disposed) return;
       const current = context.getSettings?.() ?? context.settings;
       const stored = current.ignoreRules.find(({ id }) => id === original.id);
-      runAction(() => context.onSettingsChange(normalizeSettings({
-        ...current, ignoreRules: current.ignoreRules.filter(({ id }) => id !== original.id),
-      }), stored?.scope === "exclude-graph-contribution" ? "regraph" : "query-only"), context);
+      runAction(async () => {
+        drafts.delete(original.id);
+        try {
+          await context.onSettingsChange(normalizeSettings({
+            ...current, ignoreRules: current.ignoreRules.filter(({ id }) => id !== original.id),
+          }), stored?.scope === "exclude-graph-contribution" ? "regraph" : "query-only");
+        } catch (error) {
+          drafts.set(original.id, entry);
+          throw error;
+        }
+      }, context);
     });
     remove.disabled = context.writeProtected;
     remove.className = "mod-warning";
@@ -213,7 +263,7 @@ function createRuleEditor(
   }
   container.append(details);
   update();
-  if (isNew) value.focus();
+  if (focusNew) value.focus();
   return { cleanup };
 }
 

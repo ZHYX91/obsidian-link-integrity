@@ -27,6 +27,7 @@ export const JA_MESSAGES = localizedCatalog({
   "common.next": "次へ",
   "common.retry": "再試行",
   "common.undo": "元に戻す",
+  "common.undoUnavailable": "対象または設定が変更されたため、元に戻せません。現在の状態を確認してください。",
   "common.expand": "展開",
   "common.collapse": "折りたたむ",
   "common.expandAll": "すべて展開",

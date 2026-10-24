@@ -29,6 +29,7 @@ export const ZH_CN_MESSAGES = {
   "common.next": "下一页",
   "common.retry": "重试",
   "common.undo": "撤销",
+  "common.undoUnavailable": "目标或设置已变化，无法撤销。请检查当前状态。",
   "common.expand": "展开",
   "common.collapse": "收起",
   "common.expandAll": "全部展开",

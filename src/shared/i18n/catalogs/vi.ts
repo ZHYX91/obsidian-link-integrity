@@ -27,6 +27,7 @@ export const VI_MESSAGES = localizedCatalog({
   "common.next": "Sau",
   "common.retry": "Thử lại",
   "common.undo": "Hoàn tác",
+  "common.undoUnavailable": "Không thể hoàn tác vì đối tượng hoặc cài đặt đã thay đổi. Hãy kiểm tra trạng thái hiện tại.",
   "common.expand": "Mở rộng",
   "common.collapse": "Thu gọn",
   "common.expandAll": "Mở rộng tất cả",

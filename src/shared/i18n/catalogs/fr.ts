@@ -27,6 +27,7 @@ export const FR_MESSAGES = localizedCatalog({
   "common.next": "Suivant",
   "common.retry": "Réessayer",
   "common.undo": "Annuler",
+  "common.undoUnavailable": "Impossible d’annuler : la cible ou les paramètres ont changé. Vérifiez l’état actuel.",
   "common.expand": "Développer",
   "common.collapse": "Réduire",
   "common.expandAll": "Tout développer",

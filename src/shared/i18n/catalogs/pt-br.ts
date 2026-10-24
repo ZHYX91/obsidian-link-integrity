@@ -27,6 +27,7 @@ export const PT_BR_MESSAGES = localizedCatalog({
   "common.next": "Próxima",
   "common.retry": "Tentar novamente",
   "common.undo": "Desfazer",
+  "common.undoUnavailable": "Não é possível desfazer porque o destino ou as configurações mudaram. Confira o estado atual.",
   "common.expand": "Expandir",
   "common.collapse": "Recolher",
   "common.expandAll": "Expandir tudo",

@@ -23,6 +23,7 @@ export async function applySidebarIgnore(
   label: string,
   anchor: HTMLElement,
 ): Promise<void> {
+  if (!port.isActive()) return;
   const document = anchor.ownerDocument;
   const suffix = document.defaultView?.crypto.randomUUID?.() ?? Date.now().toString(36);
   const rule: IgnoreRule = {
@@ -33,6 +34,9 @@ export async function applySidebarIgnore(
   if (!port.isActive()) return;
   const current = port.getSettings();
   port.update({ ...current, ignoreRules: [...current.ignoreRules, rule] }, classifySettingChange(rule));
+  const applied = port.getSettings().ignoreRules.find(({ id }) => id === rule.id);
+  if (applied === undefined) return;
+  const receipt = JSON.stringify(applied);
   const { t } = createTranslator(current.general.locale, getLanguage());
   const fragment = document.createDocumentFragment();
   const message = document.createElement("span");
@@ -45,6 +49,13 @@ export async function applySidebarIgnore(
   undo.addEventListener("click", () => {
     if (!port.isActive()) return;
     const settings = port.getSettings();
+    const stored = settings.ignoreRules.find(({ id }) => id === rule.id);
+    if (JSON.stringify(stored) !== receipt) {
+      undo.disabled = true;
+      new Notice(t("common.undoUnavailable"));
+      notice.hide();
+      return;
+    }
     port.update({
       ...settings,
       ignoreRules: settings.ignoreRules.filter(({ id }) => id !== rule.id),

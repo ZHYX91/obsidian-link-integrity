@@ -14,6 +14,7 @@ import {
   type SettingsTabId,
   type SettingsUiContext,
 } from "../ui/settings";
+import type { IgnoreRuleDraft } from "../ui/settings/types";
 import type LinkIntegrityPlugin from "./plugin";
 
 // Declarative settings are intentionally inactive. Obsidian 1.13 bypasses
@@ -26,6 +27,7 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   private imperativeVisible = false;
   private surfaceActive = false;
   private idCounter = 0;
+  private readonly ignoreRuleDrafts = new Map<string, IgnoreRuleDraft>();
   private readonly expectedPreviews = new Map<string, ExpectedRulePreviewState>();
   private readonly expectedPreviewRequests = new PreviewRequestCoordinator<
     string,
@@ -54,12 +56,14 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
     this.expectedPreviewRequests.invalidate();
     this.cleanup?.();
     this.cleanup = null;
+    this.ignoreRuleDrafts.clear();
   }
 
   private createContext(): SettingsUiContext {
     const settings = this.owner.getSettings();
     return {
       settings,
+      ignoreRuleDrafts: this.ignoreRuleDrafts,
       getSettings: () => this.owner.getSettings(),
       translator: createTranslator(settings.general.locale, getLanguage()),
       writeProtected: this.owner.isSettingsWriteProtected(),

@@ -27,6 +27,7 @@ export const DE_MESSAGES = localizedCatalog({
   "common.next": "Weiter",
   "common.retry": "Erneut versuchen",
   "common.undo": "Rückgängig",
+  "common.undoUnavailable": "Das Ziel oder die Einstellungen haben sich geändert. Prüfe den aktuellen Zustand; die Aktion kann nicht rückgängig gemacht werden.",
   "common.expand": "Aufklappen",
   "common.collapse": "Zuklappen",
   "common.expandAll": "Alle aufklappen",

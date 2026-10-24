@@ -28,6 +28,7 @@ export const ZH_TW_MESSAGES = {
   "common.next": "下一頁",
   "common.retry": "重試",
   "common.undo": "復原",
+  "common.undoUnavailable": "目標或設定已變更，無法復原。請檢查目前狀態。",
   "common.expand": "展開",
   "common.collapse": "收合",
   "common.expandAll": "全部展開",

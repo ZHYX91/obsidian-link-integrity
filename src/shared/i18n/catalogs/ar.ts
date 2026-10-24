@@ -29,6 +29,7 @@ export const AR_MESSAGES = {
   "common.next": "التالي",
   "common.retry": "إعادة المحاولة",
   "common.undo": "تراجع",
+  "common.undoUnavailable": "لا يمكن التراجع لأن الهدف أو الإعدادات قد تغيّرت. تحقّق من الحالة الحالية.",
   "common.expand": "توسيع",
   "common.collapse": "طي",
   "common.expandAll": "توسيع الكل",

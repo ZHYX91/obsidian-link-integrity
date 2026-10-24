@@ -27,6 +27,7 @@ export const KO_MESSAGES = localizedCatalog({
   "common.next": "다음",
   "common.retry": "다시 시도",
   "common.undo": "실행 취소",
+  "common.undoUnavailable": "대상 또는 설정이 변경되어 실행 취소할 수 없습니다. 현재 상태를 확인하세요.",
   "common.expand": "펼치기",
   "common.collapse": "접기",
   "common.expandAll": "모두 펼치기",
