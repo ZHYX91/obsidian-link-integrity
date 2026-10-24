@@ -32,7 +32,7 @@ Dynamic Bases query results are not treated as links. If a target file exists bu
 ## Requirements and compatibility
 
 - Obsidian 1.12.7 or later.
-- Supports desktop and mobile Obsidian.
+- Supports desktop and mobile Obsidian. The project's formal host-acceptance plan treats desktop Obsidian and Android emulators separately; Android physical devices and iOS are outside that test scope.
 - Checks the current Vault only. It does not check external websites or remote resources.
 
 ## Installation
@@ -64,6 +64,8 @@ To see problems while reading or editing a note, turn on **Show broken links in 
 - **Broken links** controls which problems are shown and lets you create named ignore rules with a match preview.
 - **Isolated files** controls the default file types, the optional no-incoming-links view, Expected isolated files, ignore rules, and expected-isolation rules.
 - Expected-isolation rules can combine file type, an exact folder or a folder with subfolders, date formats, glob patterns, and advanced regular expressions. The periodic-notes preset supports daily, weekly, monthly, quarterly, and yearly naming patterns.
+
+**Advanced ignore-rule warning:** **Expected isolated** and ordinary result-hiding rules do not alter connection counts. The separate **Exclude matching links from connection analysis (advanced)** scope does: matching links stop contributing to connections, so files that are actually linked can appear isolated. Preview its matches and use it only when intentionally excluding those connections.
 
 Your settings and rules are saved in `data.json`. Scan results are kept only while Obsidian is running; they are rebuilt the next time they are needed.
 

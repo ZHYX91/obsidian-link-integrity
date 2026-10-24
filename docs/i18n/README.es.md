@@ -18,7 +18,7 @@ Gestiona el índice, las reglas de exclusión, los tipos de archivo y las reglas
 
 ## Funciones
 
-- Marca opcionalmente archivos, encabezados y bloques ausentes confirmados con ondas de color de advertencia en el texto.
+- Subraya opcionalmente los enlaces a archivos, encabezados o bloques cuya ausencia está confirmada con una línea ondulada de advertencia.
 - Encuentra enlaces internos a archivos, encabezados y bloques que faltan en Markdown, incrustaciones, Frontmatter, Canvas y referencias explícitas de archivo en Bases.
 - Encuentra archivos sin ninguna conexión entrante o saliente válida con otro archivo existente del Vault. Los enlaces al propio archivo y las URL externas no cuentan como conexiones del Vault.
 - Avisa cuando un archivo aislado también contiene enlaces salientes rotos, para no confundirlo con un archivo que claramente pueda eliminarse.
@@ -32,7 +32,7 @@ Los resultados dinámicos de Bases no se tratan automáticamente como enlaces. S
 ## Requisitos y compatibilidad
 
 - Obsidian 1.12.7 o posterior.
-- Compatible con Obsidian para escritorio y móvil.
+- Compatible con Obsidian para escritorio y móvil. Las pruebas formales distinguen el entorno de escritorio del emulador Android; los dispositivos Android físicos y iOS quedan fuera de ese alcance de validación.
 - Solo comprueba el Vault actual. No revisa sitios web externos ni recursos remotos.
 
 ## Instalación
@@ -52,10 +52,14 @@ Las marcas en las notas están desactivadas por defecto. Puedes activarlas al le
 
 ## Ajustes
 
+Por ejemplo, si `A.md` enlaza a `[[B]]` y existe `B.md`, `A.md` no está aislado aunque nadie lo enlace. Si solo contiene `[[Missing]]` y no tiene otras conexiones válidas, aparecerá como aislado; revísalo antes de pensar en borrarlo.
+
 - **General**: idioma, análisis al inicio, vistas predeterminadas y acciones para crear o reconstruir el índice. El idioma predeterminado es **Seguir Obsidian**.
 - **Enlaces rotos**: qué problemas se muestran y qué reglas de exclusión con nombre se aplican, con vista previa de coincidencias.
 - **Archivos aislados**: tipos de archivo predeterminados, vista opcional sin enlaces entrantes, Aislamiento esperado, reglas de exclusión y reglas de aislamiento esperado.
 - Las reglas de aislamiento esperado pueden combinar tipo de archivo, una carpeta o una carpeta con subcarpetas, formatos de fecha, patrones glob y expresiones regulares avanzadas. El ajuste de notas periódicas admite día, semana, mes, trimestre y año.
+
+**Atención a las reglas avanzadas de exclusión:** «Aislamiento esperado» y las reglas que solo ocultan resultados no modifican las conexiones. La opción avanzada para excluir enlaces coincidentes del análisis de conexiones sí deja de contarlos; así, un archivo realmente conectado puede aparecer como aislado. Revisa las coincidencias antes de aplicarla.
 
 Los ajustes y las reglas del usuario se guardan en `data.json`. El índice de enlaces calculado se mantiene en memoria y se vuelve a crear después de reiniciar.
 

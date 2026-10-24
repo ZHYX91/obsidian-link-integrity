@@ -22,6 +22,23 @@ const localizedProductTerms = {
   ar: ["الروابط المعطّلة", "الملفات المنعزلة"],
 };
 
+// Confirm key user-facing safety statements survive across every translation.
+// These excerpts are exact language-specific meanings, not just generic keywords.
+const connectionWarningByLocale = {
+  en: "Exclude matching links from connection analysis (advanced)",
+  "zh-CN": "从连接分析中排除匹配链接（高级）",
+  "zh-TW": "從連結分析排除符合條件的連結（進階）",
+  ja: "接続分析から一致するリンクを除外",
+  ko: "연결 분석에서 일치하는 링크를 제외",
+  de: "Ausschließen passender Links aus der Verbindungsanalyse",
+  fr: "exclut les liens correspondants de l’analyse des connexions",
+  es: "excluir enlaces coincidentes del análisis de conexiones",
+  "pt-BR": "excluir links correspondentes da análise de conexões",
+  ru: "исключения подходящих ссылок из анализа связей",
+  vi: "loại các liên kết khớp khỏi phép tính kết nối",
+  ar: "لاستبعاد الروابط المطابقة من",
+};
+
 function readmeLocale(filePath) {
   return filePath === "README.md" ? "en" : path.basename(filePath).slice("README.".length, -".md".length);
 }
@@ -83,7 +100,7 @@ const config = {
       label: "Deutsch",
       path: "docs/i18n/README.de.md",
       sections: [
-        "Screenshots",
+        "Bildschirmfotos",
         "Funktionen",
         "Anforderungen und Kompatibilität",
         "Installation",
@@ -458,6 +475,16 @@ export function checkReadmeI18n(projectRoot = defaultProjectRoot) {
       if (!source.includes(productToken)) {
         errors.push(`${filePath} is missing required product term: ${productToken}`);
       }
+    }
+    const localeId = readmeLocale(filePath);
+    if (!source.includes(connectionWarningByLocale[localeId])) {
+      errors.push(`${filePath} lacks the warning that advanced rules can change connection counts`);
+    }
+    if (!source.includes("[[B]]") || !source.includes("[[Missing]]")) {
+      errors.push(`${filePath} must distinguish no incoming links from isolation with actual examples`);
+    }
+    if (!source.includes("Android") || !source.includes("iOS")) {
+      errors.push(`${filePath} must distinguish mobile support from formal acceptance scope`);
     }
     if (/Orphan files|孤儿文件/iu.test(source)) {
       errors.push(`${filePath} contains retired orphan-file terminology`);
