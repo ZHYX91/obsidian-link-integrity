@@ -7,6 +7,11 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Keep ignore-rule edits in drafts until a current preview is reviewed and saved; cancel obsolete previews when the rule or index changes.
+- Label all rule controls and show affected files and distinct connections before advanced exclusions are applied.
+- Explain the rule workflow in all twelve README languages, restore missing setup and diagnostic-command steps, and correct misleading body-hint translations.
+- Separate ignore-rule editing and preview ownership from the general settings renderer.
+
 ## [0.4.3] - 2026-10-24
 
 - Preserve real links between escaped Markdown backticks while keeping actual code spans excluded.

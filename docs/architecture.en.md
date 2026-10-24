@@ -18,7 +18,8 @@ The code is layered by responsibility:
 - `src/adapters/`: host boundaries for the Vault, Metadata Cache, link resolution, Canvas, Bases, and navigation;
 - `src/ui/`: sidebar, settings, and accessible interaction;
 - `src/ui/sidebar/mount.ts`: owns the sidebar DOM lifecycle, retains search and unchanged toolbar controls, and updates status and result regions; `render.ts` renders regions, while disclosure choices belong to the current mount;
-- `src/app/`: plugin lifecycle, dependency composition, and status coordination;
+- `src/ui/settings/ignore-rule-editor.ts`: owns ignore drafts, field validation, preview requests and cancellation, and checks draft, source-rule, and index identity before saving;
+- `src/app/`: plugin lifecycle, dependency composition, and status coordination; `sidebar-ignore-actions.ts` owns shortcut ignores and exact-rule Undo, with no commits after unload;
 - `src/shared/`: settings, i18n, the save queue, and shared rule services.
 - `src/scheduling/`: browser task yields, shared time budgets, and sliced sorting without business-layer dependencies.
 
@@ -55,7 +56,7 @@ Markdown destination and title boundaries are indexed once, including failed att
 
 When Metadata Cache contains body links/embeds, each source snapshot reads current text once and reuses the fallback parser's same-length non-content mask. An entry is excluded only when cached line/column coordinates exactly match its original reference and its opening is masked; unreliable coordinates retain host semantics without guessing. Reference-style links and code inside labels retain host recognition, while frontmatterLinks remain independent; property-only caches cause no additional body read. This read is confined to the source being built, without additional registry enumeration or referer rebuilding.
 
-Ignore previews use the execution matcher, visit stored occurrences in scheduled batches, cancel superseded drafts, and restart if the authoritative index changes while counting. Single-source and occurrence rules restrict enumeration to the source snapshot.
+Ignore previews use the execution matcher, visit stored occurrences in scheduled batches, cancel superseded drafts, and restart if the authoritative index changes while counting. Single-source and occurrence rules restrict enumeration to the source snapshot. Settings do not cache previews by rule ID alone: each draft editor checks normalized rule content, index publication generation, index version, and readiness together. Editor cleanup releases index diagnostics/status subscriptions. Impact counts are collected in the same scheduled traversal, with source/target pairs deduplicated, without a second Vault scan.
 
 Core lookup-key normalization is used only for conservative revalidation after namespace changes. It neither replaces the official resolver nor decides the final target.
 

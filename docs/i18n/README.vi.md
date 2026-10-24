@@ -39,7 +39,7 @@ Kết quả động từ truy vấn Bases không tự động được xem là l
 
 Mở **Cài đặt → Plugin cộng đồng → Duyệt**, tìm **Link Integrity** và cài đặt. Nếu plugin chưa xuất hiện trong danh mục, hãy tải `link-integrity-<version>.zip` từ [bản phát hành GitHub mới nhất](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
-Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css` vào `Vault/.obsidian/plugins/link-integrity/`. Khi nâng cấp, chỉ thay ba tệp này và giữ `data.json`, trừ khi bạn muốn đặt lại cài đặt.
+Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css` vào `Vault/.obsidian/plugins/link-integrity/`. Sau đó tải lại Obsidian và bật Link Integrity. Khi nâng cấp, chỉ thay ba tệp này và giữ `data.json`, trừ khi bạn muốn đặt lại cài đặt.
 
 ## Cách dùng
 
@@ -48,9 +48,11 @@ Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css`
 3. Chọn một kết quả để mở tệp nguồn. Bộ lọc tệp cô lập chỉ thay đổi chế độ xem hiện tại, không thay đổi giá trị mặc định đã lưu.
 4. Quét khi khởi động mặc định bị tắt. Khi mở thanh bên, chỉ mục sẽ được tạo khi cần; bạn cũng có thể dùng **Tạo chỉ mục** hoặc **Tạo lại chỉ mục** trong phần Chung. Sau lần tạo đầu tiên thành công, thay đổi trong Vault sẽ tự động cập nhật kết quả.
 
-Gạch chân cảnh báo trong nội dung ghi chú mặc định tắt. Bạn có thể bật khi đọc hoặc chỉnh sửa mà vẫn mở liên kết như bình thường. Nếu chưa xác định được vị trí liên kết một cách chắc chắn, hãy xem kết quả trong thanh bên.
+Bật **Hiển thị liên kết hỏng trong nội dung** trong **Liên kết hỏng** để thấy cảnh báo khi đọc hoặc chỉnh sửa. Tùy chọn này mặc định tắt và không thay đổi cách mở liên kết. Chạy **Chẩn đoán liên kết hỏng trong ghi chú hiện tại** từ bảng lệnh để xem nguyên nhân và chuyển đến nguồn. Liên kết đang cập nhật hoặc chưa xác định được vị trí chính xác sẽ không được đánh dấu; hãy kiểm tra trong thanh bên.
 
 ## Cài đặt
+
+**Hướng dẫn sử dụng** và **Báo cáo sự cố** nằm trong **Chung → Trợ giúp và hỗ trợ**. Hướng dẫn mở bằng ngôn ngữ giao diện hiện tại.
 
 Ví dụ, `A.md` liên kết tới `[[B]]` và `B.md` tồn tại thì `A.md` không cô lập dù không có liên kết nào trỏ vào nó. Nếu chỉ có `[[Missing]]` mà không có kết nối hợp lệ khác, tệp vẫn được xem là cô lập nhưng phải kiểm tra trước khi xóa.
 
@@ -63,9 +65,11 @@ Ví dụ, `A.md` liên kết tới `[[B]]` và `B.md` tồn tại thì `A.md` kh
 
 Cài đặt và quy tắc của người dùng được lưu trong `data.json`. Chỉ mục liên kết đã tính chỉ được giữ trong bộ nhớ và sẽ được tạo lại sau khi khởi động lại.
 
+Mở rộng một quy tắc bỏ qua hoặc chọn **Thêm quy tắc bỏ qua**. Đặt **Phạm vi**, **Cách so khớp** và **Giá trị cần khớp**, rồi chọn **Xem trước**. Kiểm tra số mục khớp, ví dụ, số tệp và kết nối liên quan trước khi chọn **Lưu**. Thay đổi chỉ nằm trong bản nháp; **Hủy** sẽ bỏ các thay đổi đó. Khi quy tắc hoặc chỉ mục thay đổi, bạn cần xem trước lại. Nếu chưa có chỉ mục mới nhất, hãy tạo trong **Chung** trước. Bạn cũng có thể xem trước quy tắc đang tắt để biết phạm vi ảnh hưởng khi bật.
+
 ## Giới hạn
 
-- Link Integrity không xóa tệp hay viết lại liên kết. Nội dung không chắc chắn được bỏ qua; xem thanh bên để có chẩn đoán khác.
+- Link Integrity không xóa tệp hay viết lại liên kết. Liên kết chưa xác định được vị trí sẽ không có gạch chân; xem thanh bên để kiểm tra thêm.
 - URL bên ngoài được cố ý loại khỏi phạm vi kiểm tra và không bao giờ được yêu cầu qua mạng.
 - Kết quả động của Bases không được tính là kết nối trực tiếp giữa các tệp; chỉ các tham chiếu tệp được ghi rõ mới được tính.
 - Quy tắc cô lập dự kiến chỉ thay đổi cách phân loại những tệp vốn đã cô lập. Chúng không ẩn liên kết hỏng và không loại bỏ kết nối thật giữa các tệp.

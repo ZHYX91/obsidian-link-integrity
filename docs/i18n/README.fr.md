@@ -39,7 +39,7 @@ Les résultats dynamiques des requêtes Bases ne sont pas automatiquement consid
 
 Ouvrez **Paramètres → Modules complémentaires → Parcourir**, recherchez **Link Integrity** et installez-le. S’il n’apparaît pas dans le catalogue, téléchargez `link-integrity-<version>.zip` depuis la [dernière version GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
-Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css` dans `Vault/.obsidian/plugins/link-integrity/`. Lors d’une mise à niveau, remplacez seulement ces trois fichiers et conservez `data.json`, sauf si vous souhaitez réinitialiser les paramètres.
+Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css` dans `Vault/.obsidian/plugins/link-integrity/`. Rechargez ensuite Obsidian et activez Link Integrity. Lors d’une mise à niveau, remplacez seulement ces trois fichiers et conservez `data.json`, sauf si vous souhaitez réinitialiser les paramètres.
 
 ## Utilisation
 
@@ -48,9 +48,11 @@ Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css
 3. Sélectionnez un résultat pour ouvrir sa source. Les filtres de fichiers isolés ne changent que la vue courante, pas vos valeurs par défaut enregistrées.
 4. L’analyse au démarrage est désactivée par défaut. L’ouverture de la barre latérale construit l’index lorsque nécessaire ; vous pouvez aussi utiliser **Construire l’index** ou **Reconstruire l’index** dans Général. Après la première construction réussie, les changements du Vault mettent les résultats à jour automatiquement.
 
-Les marques dans les notes sont désactivées par défaut. Vous pouvez les activer en lecture ou en édition tout en continuant à ouvrir les liens normalement. Si la position d’un lien est incertaine, vérifiez-le dans la barre latérale.
+Activez **Signaler les liens cassés dans le texte** dans **Liens rompus** pour afficher les indications en lecture et en édition. Cette option est désactivée par défaut et ne change pas l’ouverture des liens. Lancez **Diagnostiquer les liens cassés de la note actuelle** dans la palette de commandes pour consulter les causes et rejoindre leur source. Les liens en cours de mise à jour ou sans position précise restent non marqués ; consultez la barre latérale.
 
 ## Paramètres
+
+**Guide d’utilisation** et **Signaler un problème** se trouvent dans **Général → Aide et assistance**. Le guide s’ouvre dans la langue de l’interface.
 
 Exemple : si `A.md` contient un lien vers `[[B]]` et que `B.md` existe, `A.md` n’est pas isolé même sans lien entrant. S’il ne contient que `[[Missing]]` sans autre connexion valide, il reste isolé, mais cela ne signifie pas qu’il faut le supprimer.
 
@@ -62,6 +64,8 @@ Exemple : si `A.md` contient un lien vers `[[B]]` et que `B.md` existe, `A.md` n
 **Attention aux règles d’exclusion avancées :** « Isolation attendue » et les règles qui masquent seulement des résultats ne changent pas les connexions entre fichiers. L’option avancée qui exclut les liens correspondants de l’analyse des connexions les retire du comptage ; des fichiers réellement reliés peuvent alors paraître isolés. Vérifiez l’aperçu des correspondances avant de l’activer.
 
 Les paramètres et règles utilisateur sont stockés dans `data.json`. L’index de liens calculé reste en mémoire et est reconstruit après un redémarrage.
+
+Dépliez une règle d’exclusion ou choisissez **Ajouter une règle d’exclusion**. Renseignez **Portée**, **Critère de correspondance** et **Valeur à rechercher**, puis choisissez **Aperçu**. Vérifiez les correspondances, les exemples et le nombre de fichiers et de connexions concernés avant de choisir **Enregistrer**. Les modifications restent dans le brouillon ; **Annuler** les abandonne. Toute modification de la règle ou de l’index exige un nouvel aperçu. Si l’index n’est pas à jour, créez-le d’abord dans **Général**. Une règle désactivée peut aussi être prévisualisée pour connaître les éléments concernés par son activation.
 
 ## Limitations
 

@@ -1,5 +1,6 @@
 import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
 import { IgnorePreviewService } from "./ignore-preview-service";
+import { applySidebarIgnore } from "./sidebar-ignore-actions";
 import { BodyLinkRuntime } from "./body-link-runtime";
 import {
   MarkdownView,
@@ -46,7 +47,6 @@ import {
 import {
   loadSettings,
   normalizeSettings,
-  classifySettingChange,
   type LinkIntegritySettings,
   type SettingsChangeImpact,
 } from "../shared/settings";
@@ -224,6 +224,10 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   public previewIgnoreRule(rule: IgnoreRule, signal?: AbortSignal): Promise<IgnoreRulePreview> {
     return new IgnorePreviewService(() => this.coordinator.index).preview(rule, signal);
+  }
+
+  public getIndexRevision(): string {
+    return `${this.coordinator.store.generation}:${this.coordinator.index.version}`;
   }
 
   public updateSettings(
@@ -852,49 +856,12 @@ export default class LinkIntegrityPlugin extends Plugin {
     label: string,
     anchor: HTMLElement,
   ): Promise<void> {
-    const suffix = anchor.ownerDocument.defaultView?.crypto.randomUUID?.() ??
-      Date.now().toString(36);
-    const rule: IgnoreRule = {
-      id: `ignore-rule:${suffix}`,
-      enabled: true,
-      scope,
-      matcher: { kind, value },
-      createdAt: Date.now(),
-      note: `Added from sidebar: ${label}`,
-    };
-    const preview = await this.previewIgnoreRule(rule);
-    if (this.unloaded) return;
-    this.updateSettings({
-      ...this.settings,
-      ignoreRules: [...this.settings.ignoreRules, rule],
-    }, classifySettingChange(rule));
-    this.showIgnoreUndoNotice(rule, label, preview, anchor.ownerDocument);
-  }
-
-  private showIgnoreUndoNotice(
-    rule: IgnoreRule,
-    label: string,
-    preview: IgnoreRulePreview,
-    document: Document,
-  ): void {
-    const translator = createTranslator(this.settings.general.locale, getLanguage());
-    const fragment = document.createDocumentFragment();
-    const message = document.createElement("span");
-    message.textContent = `${label} · ${translator.t("settings.ignore.matchCount", {
-      count: preview.matchCount,
-    })}`;
-    const undo = document.createElement("button");
-    undo.type = "button";
-    undo.textContent = translator.t("common.undo");
-    fragment.append(message, document.createTextNode(" "), undo);
-    const notice = new Notice(fragment, 8_000);
-    undo.addEventListener("click", () => {
-      this.updateSettings({
-        ...this.settings,
-        ignoreRules: this.settings.ignoreRules.filter(({ id }) => id !== rule.id),
-      }, classifySettingChange(rule));
-      notice.hide();
-    }, { once: true });
+    await applySidebarIgnore({
+      getSettings: () => this.settings,
+      isActive: () => !this.unloaded,
+      preview: (rule) => this.previewIgnoreRule(rule),
+      update: (settings, impact) => this.updateSettings(settings, impact),
+    }, scope, kind, value, label, anchor);
   }
 
   private persistViewState(

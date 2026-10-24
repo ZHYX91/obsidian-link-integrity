@@ -61,6 +61,8 @@ export interface IgnoreEvaluation {
 export interface IgnoreRulePreview {
   readonly matchCount: number;
   readonly samples: readonly string[];
+  readonly affectedFileCount?: number;
+  readonly affectedConnectionCount?: number;
 }
 
 export function createOccurrenceIgnoreContext(

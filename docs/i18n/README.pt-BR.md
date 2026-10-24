@@ -22,7 +22,7 @@ Gerencie índice, regras de exclusão, tipos de arquivo e regras de isolamento e
 - Encontra links internos para arquivos, títulos e blocos ausentes em Markdown, incorporações, Frontmatter, Canvas e referências explícitas de arquivo em Bases.
 - Encontra arquivos sem conexão válida de entrada ou saída com outro arquivo existente no Vault. Links para o próprio arquivo e URLs externas não contam como conexões do Vault.
 - Avisa quando um arquivo isolado também contém links de saída quebrados, evitando que ele pareça um arquivo obviamente seguro para remover.
-- Notas periódicas, modelos, arquivos arquivados e itens semelhantes podem ser marcados como Isolamento esperado. Isso muda apenas a classificação nos resultados, sem alterar os links reais.
+- Notas periódicas, modelos, notas arquivadas e itens semelhantes podem ser marcados como Isolamento esperado. Isso muda apenas a classificação nos resultados, sem alterar os links reais.
 - Filtra arquivos isolados por arquivos do Obsidian, formatos de imagem, áudio, vídeo, PDF e extensões de anexos configuradas.
 - Cria um índice completo quando necessário e o mantém atualizado automaticamente conforme o Vault muda.
 - Abre cada problema na origem quando há navegação precisa disponível. A análise e a indexação permanecem locais.
@@ -39,7 +39,7 @@ Resultados dinâmicos de consultas Bases não são tratados automaticamente como
 
 Abra **Configurações → Plugins da comunidade → Explorar**, procure **Link Integrity** e instale. Se ainda não aparecer no catálogo, baixe `link-integrity-<version>.zip` da [versão mais recente no GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
-Na instalação manual, coloque `main.js`, `manifest.json` e `styles.css` em `Vault/.obsidian/plugins/link-integrity/`. Nas atualizações, substitua apenas esses três arquivos e preserve `data.json`, a menos que queira redefinir as configurações.
+Na instalação manual, coloque `main.js`, `manifest.json` e `styles.css` em `Vault/.obsidian/plugins/link-integrity/`. Depois, recarregue o Obsidian e ative o Link Integrity. Nas atualizações, substitua apenas esses três arquivos e preserve `data.json`, a menos que queira redefinir as configurações.
 
 ## Uso
 
@@ -48,9 +48,11 @@ Na instalação manual, coloque `main.js`, `manifest.json` e `styles.css` em `Va
 3. Selecione um resultado para abrir a origem. Os filtros de arquivos isolados alteram apenas a visualização atual, sem mudar os padrões salvos.
 4. A varredura na inicialização vem desativada. Ao abrir a barra lateral, o índice é criado quando necessário; também é possível usar **Criar índice** ou **Reconstruir índice** em Geral. Depois da primeira criação bem-sucedida, mudanças no Vault atualizam os resultados automaticamente.
 
-As marcas no texto das notas ficam desativadas por padrão. Você pode ativá-las na edição ou leitura e continuar abrindo os links normalmente. Se a posição de um link for incerta, ele não será marcado; confira-o na barra lateral.
+Ative **Mostrar links quebrados no texto** em **Links quebrados** para ver indicações durante a leitura e a edição. A opção vem desativada e não muda a abertura dos links. Execute **Diagnosticar links quebrados na nota atual** na paleta de comandos para consultar as causas e ir até a origem. Links ainda em atualização ou sem posição precisa ficam sem marcação; confira-os na barra lateral.
 
 ## Configurações
+
+**Guia de uso** e **Relatar um problema** ficam em **Geral → Ajuda e suporte**. O guia abre no idioma atual da interface.
 
 Por exemplo, se `A.md` contém `[[B]]` e `B.md` existe, `A.md` não está isolado mesmo sem links de entrada. Se contém apenas `[[Missing]]` e não há outras conexões válidas, continua isolado; revise-o antes de considerar a exclusão.
 
@@ -62,6 +64,8 @@ Por exemplo, se `A.md` contém `[[B]]` e `B.md` existe, `A.md` não está isolad
 **Atenção às regras avançadas de exclusão:** o «Isolamento esperado» e as regras que apenas ocultam resultados não mudam as conexões entre arquivos. A opção avançada para excluir links correspondentes da análise de conexões remove esses links da contagem e pode fazer um arquivo conectado parecer isolado. Confira as correspondências antes de aplicar.
 
 Configurações e regras do usuário ficam em `data.json`. O índice de links calculado permanece na memória e é recriado após reiniciar.
+
+Expanda uma regra de exclusão ou escolha **Adicionar regra de exclusão**. Defina **Âmbito**, **Critério de correspondência** e **Valor a procurar** e selecione **Prévia**. Confira as correspondências, os exemplos e a quantidade de arquivos e conexões envolvidos antes de escolher **Salvar**. As alterações ficam no rascunho; **Cancelar** descarta os ajustes. Se a regra ou o índice mudar, será preciso gerar outra prévia. Se não houver um índice atualizado, crie um em **Geral** primeiro. Regras desativadas também podem ser visualizadas para mostrar o que sua ativação afetaria.
 
 ## Limitações
 

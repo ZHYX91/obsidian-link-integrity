@@ -39,7 +39,7 @@ Dynamische Ergebnisse von Bases-Abfragen werden nicht automatisch als Links gewe
 
 Öffnen Sie **Einstellungen → Community-Erweiterungen → Durchsuchen**, suchen Sie nach **Link Integrity** und installieren Sie es. Falls es im Katalog nicht angezeigt wird, laden Sie `link-integrity-<version>.zip` aus dem [neuesten GitHub-Release](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest) herunter.
 
-Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` nach `Vault/.obsidian/plugins/link-integrity/`. Beim Aktualisieren werden nur diese drei Dateien ersetzt; `data.json` bleibt erhalten, sofern die Einstellungen nicht ausdrücklich zurückgesetzt werden sollen.
+Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` nach `Vault/.obsidian/plugins/link-integrity/`. Laden Sie Obsidian anschließend neu und aktivieren Sie Link Integrity. Beim Aktualisieren werden nur diese drei Dateien ersetzt; `data.json` bleibt erhalten, sofern die Einstellungen nicht ausdrücklich zurückgesetzt werden sollen.
 
 ## Verwendung
 
@@ -48,9 +48,11 @@ Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` na
 3. Einen Eintrag auswählen, um seine Quelle zu öffnen. Filter für isolierte Dateien ändern nur die aktuelle Ansicht und nicht die gespeicherten Standardwerte.
 4. Der Startscan ist standardmäßig aus. Beim Öffnen der Seitenleiste wird der Index bei Bedarf erstellt; alternativ stehen **Index erstellen** und **Index neu erstellen** in den allgemeinen Einstellungen bereit. Nach dem ersten erfolgreichen Aufbau werden Änderungen im Vault automatisch übernommen.
 
-Markierungen im Notiztext sind standardmäßig aus. Sie können sie beim Lesen oder Bearbeiten aktivieren und Links weiterhin normal öffnen. Wenn die Position eines Links noch nicht sicher feststeht, bleibt die Markierung aus; prüfen Sie ihn stattdessen in der Seitenleiste.
+Aktivieren Sie **Defekte Links im Notiztext markieren** unter **Defekte Links**, um Hinweise beim Lesen und Bearbeiten zu sehen. Die Option ist standardmäßig aus und ändert nicht, wie sich Links öffnen. Mit **Defekte Links in der aktuellen Notiz prüfen** in der Befehlspalette sehen Sie die Gründe und gelangen zur Quelle. Noch nicht aktualisierte oder nicht präzise lokalisierbare Links bleiben unmarkiert; prüfen Sie diese in der Seitenleiste.
 
 ## Einstellungen
+
+**Benutzerhandbuch** und **Problem melden** finden Sie unter **Allgemein → Hilfe und Support**. Die Anleitung öffnet sich in der aktuellen Oberflächensprache.
 
 Beispiel: `A.md` verweist auf die vorhandene Datei `[[B]]`. Auch ohne eingehende Links ist `A.md` deshalb nicht isoliert. Enthält es nur `[[Missing]]` und sonst keine gültige Verbindung, gilt es als isoliert – prüfen Sie es trotzdem, statt es ungeprüft zu löschen.
 
@@ -62,6 +64,8 @@ Beispiel: `A.md` verweist auf die vorhandene Datei `[[B]]`. Auch ohne eingehende
 **Vorsicht bei erweiterten Ignorierregeln:** „Erwartet isoliert“ und Regeln, die nur Ergebnisse ausblenden, ändern keine Verbindungen. Die erweiterte Option zum Ausschließen passender Links aus der Verbindungsanalyse tut dies: Diese Links zählen nicht mehr mit, und tatsächlich verknüpfte Dateien können als isoliert erscheinen. Prüfen Sie die Treffer vor dem Aktivieren.
 
 Einstellungen und benutzerdefinierte Regeln stehen in `data.json`. Der berechnete Link-Index bleibt im Arbeitsspeicher und wird nach einem Neustart neu erstellt.
+
+Klappen Sie eine vorhandene Ignorierregel auf oder wählen Sie **Ignorierregel hinzufügen**. Legen Sie **Wirkungsbereich**, **Abgleichen nach** und **Suchwert** fest und wählen Sie **Vorschau**. Prüfen Sie Treffer, Beispiele sowie die betroffenen Dateien und Verbindungen, bevor Sie **Speichern** wählen. Änderungen bleiben bis zum Speichern im Entwurf; **Abbrechen** verwirft sie. Nach einer Änderung der Regel oder des Index ist eine neue Vorschau nötig. Erstellen Sie bei Bedarf zuerst unter **Allgemein** einen aktuellen Index. Auch deaktivierte Regeln lassen sich prüfen; die Vorschau zeigt, was ihre Aktivierung betreffen würde.
 
 ## Einschränkungen
 

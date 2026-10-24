@@ -10,12 +10,6 @@ import {
   type FormatFamilyId,
 } from "../../core/file-types";
 import {
-  IGNORE_MATCHER_KINDS,
-  type IgnoreMatcherKind,
-  type IgnoreRule,
-  type IgnoreRuleScope,
-} from "../../shared/ignore-rules";
-import {
   normalizeSettings,
   type IsolatedFileSettings,
   type LinkIntegritySettings,
@@ -37,6 +31,7 @@ import {
   summaryCheckboxTarget,
   textElement,
 } from "./dom-controls";
+import { renderIgnoreRules } from "./ignore-rule-editor";
 import type {
   ExpectedRulePreviewState,
   SettingsCustomSectionId,
@@ -913,111 +908,6 @@ function renderPeriodicEntry(
   return details;
 }
 
-function renderIgnoreRules(
-  container: HTMLElement,
-  context: SettingsUiContext,
-  domain: "broken" | "isolated",
-): void {
-  const settings = currentSettings(context);
-  const rules = settings.ignoreRules.filter(({ scope }) => scopeBelongsToDomain(scope, domain));
-  if (rules.length === 0) {
-    container.append(textElement(container, "p", context.translator.t("settings.ignore.empty")));
-  }
-  for (const rule of rules) container.append(renderIgnoreRule(container.ownerDocument, rule, context));
-  const add = button(container, context.translator.t("settings.ignore.addRule"), () => {
-    const current = currentSettings(context);
-    const rule: IgnoreRule = {
-      id: context.createId("ignore-rule"),
-      enabled: false,
-      scope: domain === "broken" ? "hide-broken-result" : "exclude-isolated-candidate",
-      matcher: { kind: "path-prefix", value: "_archive" },
-      createdAt: Date.now(),
-      note: "",
-    };
-    commitSettings(context, { ...current, ignoreRules: [...current.ignoreRules, rule] }, "query-only");
-  });
-  add.disabled = context.writeProtected;
-}
-
-function renderIgnoreRule(
-  document: Document,
-  rule: IgnoreRule,
-  context: SettingsUiContext,
-): HTMLElement {
-  const { t } = context.translator;
-  const details = document.createElement("details");
-  details.className = `link-integrity-settings-rule${
-    rule.scope === "exclude-graph-contribution" ? " is-graph-risk" : ""}`;
-  const summary = document.createElement("summary");
-  const enabled = document.createElement("input");
-  enabled.type = "checkbox";
-  enabled.checked = rule.enabled;
-  enabled.disabled = context.writeProtected;
-  const enabledLabel = rule.note || rule.matcher.value || t("settings.ignore.title");
-  enabled.setAttribute("aria-label", enabledLabel);
-  enabled.addEventListener("click", (event) => event.stopPropagation());
-  enabled.addEventListener("change", () => replaceIgnoreRule(context, {
-    ...rule,
-    enabled: enabled.checked,
-  }));
-  summary.append(
-    summaryCheckboxTarget(document, enabled, enabledLabel),
-    document.createTextNode(rule.note || rule.matcher.value),
-  );
-  details.append(summary);
-
-  const scope = select(document, scopeOptions(t), rule.scope);
-  const matcherKind = select(document, matcherOptions(t), rule.matcher.kind);
-  const matcherValue = document.createElement("input");
-  matcherValue.type = "text";
-  matcherValue.value = rule.matcher.value;
-  const note = labeledInput(details, t("settings.ignore.ruleNote"), rule.note);
-  const update = (): void => replaceIgnoreRule(context, {
-    ...rule,
-    scope: scope.value as IgnoreRuleScope,
-    matcher: {
-      kind: matcherKind.value as IgnoreMatcherKind,
-      value: matcherValue.value,
-    },
-    note: note.input.value,
-  });
-  scope.addEventListener("change", update);
-  matcherKind.addEventListener("change", update);
-  matcherValue.addEventListener("change", update);
-  note.input.addEventListener("change", update);
-  details.append(scope, matcherKind, matcherValue);
-  if (rule.scope === "exclude-graph-contribution") {
-    const warning = textElement(details, "p", t("settings.ignore.graphWarning"));
-    warning.className = "link-integrity-warning";
-    details.append(warning);
-  }
-  const preview = context.getIgnoreRulePreview?.(rule.id);
-  if (preview !== null && preview !== undefined) {
-    const previewElement = textElement(details, "p", t("settings.ignore.matchCount", {
-      count: preview.matchCount,
-    }));
-    previewElement.className = "link-integrity-settings-rule-preview";
-    if (preview.samples.length > 0) previewElement.append(` · ${preview.samples.join(", ")}`);
-    details.append(previewElement);
-  }
-  if (context.requestIgnoreRulePreview !== undefined) {
-    button(details, t("common.preview"), () => runAction(
-      () => context.requestIgnoreRulePreview?.(rule),
-      context,
-    ));
-  }
-  const remove = button(details, t("common.delete"), () => {
-    const current = currentSettings(context);
-    commitSettings(context, {
-      ...current,
-      ignoreRules: current.ignoreRules.filter(({ id }) => id !== rule.id),
-    }, rule.scope === "exclude-graph-contribution" ? "regraph" : "query-only");
-  });
-  remove.className = "mod-warning";
-  disableControls(details, context.writeProtected);
-  return details;
-}
-
 function replaceExpectedRule(context: SettingsUiContext, rule: ExpectedIsolationRule): void {
   const settings = currentSettings(context);
   commitIsolated(context, {
@@ -1025,17 +915,6 @@ function replaceExpectedRule(context: SettingsUiContext, rule: ExpectedIsolation
     expectedRules: settings.isolatedFiles.expectedRules.map((candidate) =>
       candidate.id === rule.id ? rule : candidate),
   }, "query-only");
-}
-
-function replaceIgnoreRule(context: SettingsUiContext, rule: IgnoreRule): void {
-  const settings = currentSettings(context);
-  const original = settings.ignoreRules.find(({ id }) => id === rule.id);
-  const graphChanged = original?.scope === "exclude-graph-contribution" ||
-    rule.scope === "exclude-graph-contribution";
-  commitSettings(context, {
-    ...settings,
-    ignoreRules: settings.ignoreRules.map((candidate) => candidate.id === rule.id ? rule : candidate),
-  }, graphChanged ? "regraph" : "query-only");
 }
 
 function updatePeriodicPreset(
@@ -1122,37 +1001,4 @@ function splitExtensions(value: string): string[] {
 
 function lines(value: string): string[] {
   return value.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean);
-}
-
-function scopeBelongsToDomain(scope: IgnoreRuleScope, domain: "broken" | "isolated"): boolean {
-  if (scope === "exclude-graph-contribution") return true;
-  return domain === "broken"
-    ? scope === "hide-broken-result" || scope === "ignore-target" || scope === "ignore-occurrence"
-    : scope === "exclude-isolated-candidate";
-}
-
-function scopeOptions(
-  t: SettingsUiContext["translator"]["t"],
-): readonly (readonly [string, string])[] {
-  return [
-    ["hide-broken-result", t("ignore.scope.hideBroken")],
-    ["exclude-isolated-candidate", t("ignore.scope.excludeIsolated")],
-    ["ignore-target", t("ignore.scope.ignoreTarget")],
-    ["ignore-occurrence", t("ignore.scope.ignoreOccurrence")],
-    ["exclude-graph-contribution", t("ignore.scope.excludeGraph")],
-  ];
-}
-
-function matcherOptions(
-  t: SettingsUiContext["translator"]["t"],
-): readonly (readonly [string, string])[] {
-  const labels = {
-    "source-path": "settings.ignore.matcher.sourcePath",
-    "path-prefix": "settings.ignore.matcher.pathPrefix",
-    "target-path": "settings.ignore.matcher.targetPath",
-    "occurrence-id": "settings.ignore.matcher.occurrenceId",
-    "format-family": "settings.ignore.matcher.formatFamily",
-    extension: "settings.ignore.matcher.extension",
-  } as const;
-  return IGNORE_MATCHER_KINDS.map((kind) => [kind, t(labels[kind])]);
 }

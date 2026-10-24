@@ -23,10 +23,10 @@ describe("LinkIntegritySettingTab", () => {
         errors: [],
       })),
       previewIgnoreRule: vi.fn(() => ({
-        matchedCount: 1,
+        matchCount: 1,
         samples: ["A.md"],
-        invalidReason: null,
       })),
+      getIndexRevision: vi.fn(() => "1:2"),
       getSettingsSaveStatus: vi.fn(() => ({ state: "saved", error: null })),
       subscribeToSettingsSaveStatus: vi.fn(() => () => undefined),
       retrySettingsSave: vi.fn(async () => undefined),
@@ -52,7 +52,7 @@ describe("LinkIntegritySettingTab", () => {
     context.onSettingsChange!(createDefaultSettings(), "query-only");
     expect(owner.updateSettings).toHaveBeenCalled();
     expect(context.getExpectedRulePreview!("missing")).toEqual({ state: "idle", stats: null });
-    expect(context.getIgnoreRulePreview!("missing")).toBeNull();
+    expect(context.getIndexRevision!()).toBe("1:2");
     expect(context.getSaveStatus!()).toEqual({ state: "saved", error: null });
     expect(typeof context.subscribeSaveStatus!(() => undefined)).toBe("function");
     await context.retrySave!();
@@ -77,7 +77,7 @@ describe("LinkIntegritySettingTab", () => {
       matcher: { kind: "source-path", value: "A.md" },
       createdAt: 1,
       note: "",
-    });
+    }, new AbortController().signal);
     await vi.waitFor(() => expect(owner.previewIgnoreRule).toHaveBeenCalled());
 
     tab.hide();

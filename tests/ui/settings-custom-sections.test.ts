@@ -255,7 +255,7 @@ describe("custom settings sections", () => {
     save?.click();
     expect(onSettingsChange).not.toHaveBeenCalled();
   });
-  it("shows a separate high-risk warning and preview for graph contribution rules", () => {
+  it("shows a separate high-risk warning and explicit preview for graph contribution drafts", async () => {
     const graphRule: IgnoreRule = {
       id: "generated",
       enabled: true,
@@ -268,21 +268,20 @@ describe("custom settings sections", () => {
     const settings = { ...defaults, ignoreRules: [graphRule] };
     const container = document.createElement("div");
     renderCustomSetting(container, "isolated-ignore-rules", context(settings, {
-      getIgnoreRulePreview: () => ({
+      requestIgnoreRulePreview: async () => ({
         matchCount: 3,
         samples: ["Generated/a.md"],
       }),
     }));
     expect(container.textContent).toContain("connected files appear isolated");
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Preview")?.click();
+    await vi.waitFor(() => expect(container.textContent).toContain("Matches 3 items"));
     expect(container.textContent).toContain("Matches 3 items");
     expect(container.textContent).toContain("Generated/a.md");
     expect(container.querySelector(".is-graph-risk")).not.toBeNull();
-    const summaryCheckbox = container.querySelector<HTMLInputElement>(
-      ".is-graph-risk > summary input[type=checkbox]",
-    );
-    expect(summaryCheckbox?.getAttribute("aria-label")).toBe("Generated files");
-    summaryCheckbox?.click();
-    expect(summaryCheckbox?.closest("details")?.open).toBe(false);
+    const enabled = container.querySelector<HTMLInputElement>(".is-graph-risk input[type=checkbox]");
+    expect(enabled?.closest("label")?.textContent).toBe("Enabled");
   });
 
   it("offers five independent periodic-note presets without a runtime integration", () => {

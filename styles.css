@@ -628,6 +628,7 @@
 }
 
 .link-integrity-rule-field > input,
+.link-integrity-rule-field > select,
 .link-integrity-rule-field > textarea,
 .link-integrity-rule-condition > input,
 .link-integrity-rule-pattern > input {
