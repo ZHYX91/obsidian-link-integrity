@@ -10,6 +10,7 @@ import { canonicalBodyDestination } from "../../src/adapters/obsidian/body-link-
 import { mapBodyReadingHints } from "../../src/adapters/obsidian/body-link-reading";
 import type { BodyLinkSource } from "../../src/features/body-links/body-link-service";
 import { bodySetup } from "../helpers/body-links";
+import { makeOccurrenceLookupKey } from "../../src/core";
 
 const views: EditorView[] = [];
 const markSelector = ".link-integrity-broken-body-hint";
@@ -49,6 +50,28 @@ async function settleRefresh(): Promise<void> {
 }
 
 describe("literal percent body destinations", () => {
+  it.each([
+    ["Missing%20file.md", "Missing file.md", "Missing file"],
+    ["Encoded%25%20Missing.md", "Encoded% Missing.md", "Encoded% Missing"],
+    ["%E4%B8%AD%E6%96%87.md", "中文.md", "中文"],
+  ])("confirms encoded Markdown %s against the host's decoded destination", async (encoded, linkpath, key) => {
+    const test = bodySetup(`[Label](${encoded})`);
+    const previous = test.index.getSourceSnapshot(test.path)!;
+    test.index.replaceSourceSnapshot(test.path, { ...previous, occurrences: previous.occurrences.map((occurrence) => ({
+      ...occurrence, linkpath, lookupKey: makeOccurrenceLookupKey(linkpath, test.path),
+    })) });
+    test.app.metadataCache.unresolvedLinks[test.path] = { [key]: 1 };
+    const source = await test.service.source(test.path, test.text);
+    expect(source.links).toHaveLength(1);
+    expect(source.hints).toHaveLength(1);
+    const link = source.links[0]!;
+    test.app.metadataCache.unresolvedLinks[test.path] = {};
+    expect(test.port.isConfirmed(link)).toBe(false);
+    test.app.metadataCache.unresolvedLinks[test.path] = { [key]: 1 };
+    test.files.set(`${linkpath}.md`, test.files.get("Target.md")!);
+    expect(test.port.isConfirmed(link)).toBe(false);
+  });
+
   it.each([
     ["100% Missing", "100% Missing", ""],
     ["Missing%ZZ", "Missing%ZZ", ""],
