@@ -31,6 +31,23 @@ describe("extractMarkdownExplicitReferences", () => {
     ]);
   });
 
+  it("does not hide explicit links between escaped backticks, while real code stays masked", () => {
+    const source = [
+      "\\` [broken](Missing.md) \\`",
+      "\\` [[Missing wiki]] \\`",
+      "\\\\\\` [also broken](Second.md) \\\\\\`",
+      "\\\\` [hidden](InCode.md) ` [visible](Visible.md)",
+    ].join("\n");
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "Missing.md", "Missing wiki", "Second.md", "Visible.md",
+    ]);
+  });
+
+  it("can start a shorter code delimiter after an escaped first backtick", () => {
+    const source = "\\``` [[masked]] `` [[shown]]";
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["shown"]);
+  });
+
   it("supports arbitrarily nested balanced parentheses in Markdown destinations", () => {
     const source = "[nested](A(B(C(D))).md)";
 
