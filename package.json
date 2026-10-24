@@ -9,6 +9,7 @@
     "build:bundle": "node esbuild.config.mjs production",
     "build": "npm run typecheck && npm run build:bundle && npm run check:production",
     "check:runtime": "node scripts/check-runtime.mjs",
+    "audit:deps": "npm audit --audit-level=high",
     "format:check": "node scripts/check-format.mjs",
     "lint": "eslint main.ts src tests benchmarks scripts esbuild.config.mjs eslint.config.mjs vitest.config.mts --max-warnings 0",
     "typecheck": "tsc --noEmit",
@@ -29,7 +30,7 @@
     "clean": "node scripts/clean.mjs",
     "clean:deps": "node scripts/clean.mjs --deps",
     "check": "npm run check:runtime && npm run lint && npm run format:check && npm run check:readme-i18n && npm run check:docs-i18n && npm run check:repo-hygiene && npm run typecheck && npm run test:coverage && npm run build:bundle && npm run check:production && npm run release:validate",
-    "release:check": "npm run check && npm run bench:index && npm run bench:index:large && npm run release:validate-tag",
+    "release:check": "npm run check && npm run bench:index && npm run bench:index:large && npm run audit:deps && npm run release:validate-tag",
     "check:repo-hygiene": "node scripts/check-repository-hygiene.mjs"
   },
   "keywords": [
@@ -50,15 +51,15 @@
     "@codemirror/view": "6.38.6",
     "@eslint/js": "10.0.1",
     "@types/node": "24.19.0",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "esbuild": "0.28.2",
-    "eslint": "10.11.0",
+    "eslint": "10.13.0",
     "eslint-plugin-obsidianmd": "0.4.2",
-    "happy-dom": "20.14.5",
+    "happy-dom": "21.0.4",
     "obsidian": "1.13.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.70.1",
-    "vitest": "4.1.11"
+    "typescript-eslint": "8.72.0",
+    "vitest": "4.1.12"
   },
   "allowScripts": {
     "esbuild": true
