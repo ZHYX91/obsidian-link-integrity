@@ -115,7 +115,9 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
     if (occurrence.fileStatus === "missing") {
       // Public source resolution maps also work when the initial global event preceded enablement.
       const unresolved = this.app.metadataCache.unresolvedLinks?.[occurrence.sourcePath];
-      return target === null && (unresolved?.[bodyUnresolvedKey(link.linktext)] ?? 0) > 0;
+      // Cache destinations are already decoded by the host; the source Markdown
+      // may still contain URI escapes, so use the same path as the resolver.
+      return target === null && (unresolved?.[bodyUnresolvedKey(occurrence.linkpath)] ?? 0) > 0;
     }
     if (occurrence.fileStatus !== "resolved" || target === null || !this.metadataReady(target.path) || target.path !== occurrence.targetPath ||
       target.extension !== "md" || occurrence.subpath === null) return false;

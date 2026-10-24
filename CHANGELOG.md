@@ -11,6 +11,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 - Preserve real links between escaped Markdown backticks while keeping actual code spans excluded.
 - Keep confirmed body diagnostics for Vault targets containing literal percent signs.
+- Confirm URI-encoded Markdown destinations against the host's decoded missing-file keys so their body hints agree with sidebar diagnostics.
 - Clear and revalidate body hints when the current source changes without changing its text, including renames and cancelled asynchronous proofs.
 - Clarify advanced connection-exclusion rules, isolation examples and mobile testing boundaries across all twelve README languages.
 - Patch development dependencies and include a fresh dependency audit in the release check.
