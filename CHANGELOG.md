@@ -7,8 +7,14 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-25
+
 - Keep ignore-rule edits in drafts until a current preview is reviewed and saved; cancel obsolete previews when the rule or index changes.
 - Label all rule controls and show affected files and distinct connections before advanced exclusions are applied.
+- Preserve unsaved, invalid, and newly added rule drafts across settings redraws and pagination; refuse saves when the underlying rule changed or was removed.
+- Expire rule Undo after subsequent edits and recompute graph connections when an effective graph-exclusion rule changes, including query-only rules.
+- Follow the original file when undoing expected-isolation changes after a rename, preserve unrelated markers, and refuse a replacement file at the old path.
+- Stop accepting new settings writes after unload while settling saves already accepted before closure.
 - Explain the rule workflow in all twelve README languages, restore missing setup and diagnostic-command steps, and correct misleading body-hint translations.
 - Separate ignore-rule editing and preview ownership from the general settings renderer.
 
@@ -223,7 +229,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.3...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.3...0.5.0
 [0.4.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.2...0.4.3
 [0.2.10]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...0.2.10
 [0.2.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...0.2.9
