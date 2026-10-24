@@ -13,6 +13,32 @@
   },
   "scenarios": [
     {
+      "id": "escaped-percent-and-source-context",
+      "title": "Escaped delimiters, literal percent destinations and same-text source changes",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline, then explicitly run create-context-regression-fixtures in this disposable Vault",
+        "Inspect Escaped.md: escaped-backtick prose links remain diagnostic while actual inline code and the shortened code span remain excluded",
+        "Enable body hints and inspect Percent.md in editing and reading views: missing literal/encoded percent files and the missing percent heading are marked, while the existing percent target is unmarked",
+        "Open A/Source.md and B/Source.md alternately in the same pane; their identical text resolves the explicit relative link only in A and marks it only in B",
+        "Switch B to A and back, rename the active source, and confirm hints belong to the current source; turn hints Off and confirm owned marks disappear",
+        "Rebuild and compare the selected source diagnostics with the incremental results; confirm source Markdown remains unchanged except the deliberate rename"
+      ],
+      "expected": [
+        "Escaped.md has exactly two broken diagnostics and no Protected code or Protected shorter code diagnostic",
+        "Percent.md has four confirmed broken diagnostics; native link navigation and the existing percent target remain intact",
+        "Same-text file changes, rename and Off do not retain marks from a previous source; A remains resolved and B remains missing",
+        "The clean rebuild agrees with incremental results; preparation alone is not product evidence"
+      ]
+    },
+    {
       "id": "graph-classification-and-navigation",
       "title": "Broken-link and isolated-file classification",
       "surfaces": [

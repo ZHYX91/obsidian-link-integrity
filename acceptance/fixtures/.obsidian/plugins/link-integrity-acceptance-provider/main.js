@@ -9,6 +9,7 @@ module.exports = class extends Plugin {
   onload() {
     for (const [id, name, action] of [
       ["create-body-hint-fixtures", "Create body-hint fixtures in this disposable acceptance Vault", () => this.createFixtures()],
+      ["create-context-regression-fixtures", "Create escaped, percent and source-context regression fixtures", () => this.createContextRegressionFixtures()],
       ["repair-body-hint-fixtures", "Repair body-hint fixtures in this disposable acceptance Vault", () => this.repair()],
       ["restore-body-hint-fixtures", "Restore broken body-hint fixtures in this disposable acceptance Vault", () => this.restore()],
     ]) this.addCommand({ id, name, callback: () => action().catch((error) => new Notice(String(error))) });
@@ -32,6 +33,27 @@ module.exports = class extends Plugin {
     await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${PREFIX}/Source.md`));
   }
   async verifyCommon() { this.guard(); await this.assertFile("Source.md", SOURCE); await this.assertFile("Virtual-only.md", VIRTUAL); }
+  async createContextRegressionFixtures() {
+    this.guard();
+    const vault = this.app.vault;
+    const root = "Context Regression Acceptance";
+    if (vault.getAbstractFileByPath(root) !== null) throw new Error("Context fixtures already exist; use a fresh disposable Vault.");
+    for (const folder of [root, `${root}/A`, `${root}/B`]) await vault.createFolder(folder);
+    const backtick = "`";
+    const escaped = `\\${backtick} [Escaped missing](Escaped%20Missing.md) \\${backtick}\n\n${backtick}[[Protected code]]${backtick}\n\n\\${backtick.repeat(3)} [[Protected shorter code]] ${backtick.repeat(2)} [[Visible missing]]\n`;
+    const percent = "[[100% Missing|Percent missing]]\n\n[[Missing%ZZ|Literal percent missing]]\n\n[Encoded missing](Encoded%25%20Missing.md)\n\n[[Context Regression Acceptance/Target%#100%|Percent heading]]\n\n[[Context Regression Acceptance/Target%|Percent valid]]\n";
+    const sameText = "[Sibling](./Sibling.md)\n";
+    for (const [name, text] of [
+      ["Escaped.md", escaped],
+      ["Percent.md", percent],
+      ["Target%.md", "# Existing heading\n"],
+      ["A/Source.md", sameText],
+      ["B/Source.md", sameText],
+      ["A/Sibling.md", "# Existing sibling\n"],
+    ]) await vault.create(`${root}/${name}`, text);
+    new Notice("Context fixtures created. Observe native links and Link Integrity results separately.");
+    await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${root}/Escaped.md`));
+  }
   async repair() {
     await this.verifyCommon(); const vault = this.app.vault; const target = await this.assertFile("Target.md", TARGET);
     if (vault.getAbstractFileByPath(`${PREFIX}/Missing.md`) !== null) throw new Error("Missing fixture already exists.");
