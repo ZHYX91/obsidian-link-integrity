@@ -146,7 +146,7 @@ describe("README marketplace link contract", () => {
     );
     await replaceInReadme(
       "docs/i18n/README.pt-BR.md",
-      "arquivos arquivados",
+      "notas arquivadas",
       "arquivos de arquivo",
     );
 

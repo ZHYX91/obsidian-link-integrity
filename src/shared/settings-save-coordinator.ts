@@ -32,6 +32,8 @@ export class SettingsSaveCoordinator<T> {
   private readonly listeners = new Set<(status: SettingsSaveStatus) => void>();
   private pendingSnapshot: T | null = null;
   private timer: number | null = null;
+  private closed = false;
+  private closePromise: Promise<void> | null = null;
   private queue: Promise<void> = Promise.resolve();
   private status: SettingsSaveStatus = { state: "saved", error: null };
 
@@ -45,6 +47,7 @@ export class SettingsSaveCoordinator<T> {
   }
 
   schedule(snapshot: T): void {
+    if (this.closed) return;
     this.pendingSnapshot = snapshot;
     this.cancelTimer();
     this.setStatus("scheduled", this.status.error);
@@ -55,12 +58,18 @@ export class SettingsSaveCoordinator<T> {
   }
 
   save(snapshot: T): Promise<void> {
+    if (this.closed) return this.closePromise ?? this.queue;
     this.pendingSnapshot = snapshot;
     return this.saveNow();
   }
 
   saveNow(): Promise<void> {
+    if (this.closed) return this.closePromise ?? this.queue;
     this.cancelTimer();
+    return this.enqueuePending();
+  }
+
+  private enqueuePending(): Promise<void> {
     const operation = this.queue.then(() => this.persistPendingSnapshot());
     // Keep the internal tail fulfilled so one failed write cannot poison later retries,
     // while returning the original operation to the caller for honest error reporting.
@@ -69,18 +78,24 @@ export class SettingsSaveCoordinator<T> {
   }
 
   flush(): Promise<void> {
+    if (this.closed) return this.closePromise ?? this.queue;
     this.cancelTimer();
     if (this.pendingSnapshot !== null) return this.saveNow();
     return this.queue;
   }
 
   retry(): Promise<void> {
+    if (this.closed) return this.closePromise ?? this.queue;
     if (this.pendingSnapshot === null) return Promise.resolve();
     return this.saveNow();
   }
 
   close(): Promise<void> {
-    return this.flush();
+    if (this.closePromise !== null) return this.closePromise;
+    this.closed = true;
+    this.cancelTimer();
+    this.closePromise = this.enqueuePending();
+    return this.closePromise;
   }
 
   getStatus(): SettingsSaveStatus {

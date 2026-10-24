@@ -29,7 +29,7 @@ The ready state consumes no permanent status row. Progress appears only while sc
 
 Result DOM is bounded to 100 problem rows or files per page. Previous/next controls preserve access to the complete filtered and sorted result set; badges show full-result counts and the range label identifies the current page. After an index change, an inactive tab whose results have not refreshed shows a pending marker instead of presenting an old count as current. Changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
-The search input keeps its DOM identity, focus, and caret during typing, selection replacement, and index notifications. IME composition retains unfinished text and publishes the query after composition ends. Unchanged toolbar controls survive index notifications. Expansion choices for isolated folders, broken-link groups, and file-type filters belong to the sidebar session: they survive refreshes and temporary filtering, are released when the sidebar closes, and are not saved in settings.
+The search input keeps its DOM identity, focus, and caret during typing, selection replacement, and index notifications. IME composition retains unfinished text and publishes the query after composition ends. Unchanged toolbar controls survive index notifications. Expansion choices for isolated folders, target/source groups, and file-type filters belong to the sidebar session: they survive refreshes and temporary filtering and are released when the sidebar closes. Broken-link source-folder expansion paths are stored separately as interface preferences.
 
 Empty states distinguish no search matches, no results after filtering, and no findings in the check scope. A search query shows “No matching broken links / isolated files” with a Clear search action; it clears only the query, returns to the first page and restores search focus while preserving filters and expansion state. Empty results caused by file-type filters or hidden expected isolated files suggest adjusting filters. The advanced no-incoming mode refers to files or filtered results, never an absence of isolated files. A no-findings state requires a completed check and a known projection; it does not claim that every link resolves or every file is connected.
 
@@ -44,7 +44,7 @@ The source-folder tree collapses deeper hierarchy by default, offers Expand all 
 - Missing files, headings, and blocks have distinct labels.
 - When a file exists but its subpath is missing, the target file can still be opened while retaining the subpath diagnostic.
 - Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID and line/column; merely opening the file must not masquerade as precise navigation.
-- A row menu can create an ignore rule for the current reference, target, or source. It shows the scope and match preview before saving, then offers one immediate undo action.
+- A row menu creates a result-hiding shortcut rule for its explicitly named current reference, entire target, or source. Completion shows the match count and offers immediate Undo; this menu has no graph-contribution exclusion action. Custom matching scopes use the settings draft editor and its preview-before-save workflow.
 
 Search, grouping, sorting, and “show ignored” affect only the current projection, never the graph.
 
@@ -88,7 +88,7 @@ Settings use the plugin-rendered top-tab surface on every supported Obsidian ver
 - Default sidebar tab and optional scan on startup. Startup scanning is off by default; before the sidebar is first opened, indexing and listeners remain dormant.
 - Link-index status and a manual rebuild action for recovery or complete verification, not routine refresh. The status summary stays compact, while a collapsed-by-default Index details disclosure shows Vault files, analyzed sources, link references, pending updates, and completion time plus duration for the latest full rebuild and incremental batch. A failure may expose its latest error inside the details, but never a Vault name, file path, or note content. Disclosure state is not persisted.
 
-A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings search, keyboard navigation, and status text use the selected locale. All 12 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
+A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings labels, keyboard navigation, and status text use the selected locale. All 12 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
 
 Language choices and README navigation use the same native-name order: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português (Brasil), Русский, Tiếng Việt, العربية. Localized guides use their actual sidebar labels rather than requiring the English names. Ordinary controls respect the host cursor preference.
 
@@ -110,7 +110,9 @@ Language choices and README navigation use the same native-name order: English, 
 
 ## 5. Rule editing and previews
 
-Ignore and expected-isolation rules are previewed before saving. A preview contains a match count and bounded samples and is tied to the current draft and index revision; an older asynchronous result must not overwrite a newer edit.
+Ignore rules use expandable draft editors; expected-isolation rules use modal draft editors. Both provide a match count and bounded samples, and an older asynchronous result must not overwrite a newer edit.
+
+Ignore-rule scope, matcher, and value controls have visible associated labels. Unsaved raw input and expanded state survive another rule’s Save and settings-tab changes. A redraw invalidates previews without discarding drafts. Closing the settings surface ends the draft session. Edits and enablement changes affect only the draft. A successful preview binds the complete normalized draft to a ready index revision before Save becomes available. Any field change, index change, or settings closure cancels obsolete work and invalidates old counts; Save also rechecks that another action has not changed the persisted source rule. Cancel restores the current saved rule, and cancelling a new rule leaves no settings entry. Without a ready index, the editor directs users to build one in General settings. Advanced exclusions show their warning immediately. The preview distinguishes hidden results, excluded candidates, and changed graph connections, with affected files and distinct directed connections. A disabled rule’s preview describes potential matches, not an active effect.
 
 Saved expected-isolation rules default to compact summary cards with enablement, name, scope summary, and an edit entry instead of exposing the complete rule engine inline. The add entry first offers periodic-notes, folder, naming-pattern, and advanced-custom intents; periodic notes moves to the dedicated preset, while the others open a modal draft editor. The editor automatically debounces previews for the draft and commits settings only on Save; Cancel, Escape, or dismissing the backdrop discards the draft. Rule deletion lives inside the editor and is not presented as a peer primary action beside preview controls.
 
@@ -131,7 +133,7 @@ Settings use a serialized, coalescing save queue. The ordinary saved state does 
 - Rapid edits may coalesce, but a write that already started is not silently cancelled.
 - A failed save retains pending in-memory settings and exposes Retry.
 - A future-schema `data.json` is write-protected so an older plugin cannot overwrite a newer format.
-- Undo applies only to the rule just created and never implies that Vault content changed.
+- Rule Undo applies only while the stored rule still matches that action’s applied receipt; later edits expire the old Undo. Expected-file Undo follows a legitimate rename of the original TFile and refuses changed identity or current marking state. Undo changes only the corresponding settings entry and never implies that Vault content changed.
 
 Scan errors and settings-save errors are separate states and are presented independently. Error text offers a next step instead of exposing only an internal stack.
 

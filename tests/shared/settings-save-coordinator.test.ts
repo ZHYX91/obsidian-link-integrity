@@ -6,6 +6,47 @@ import {
 } from "../../src/shared/settings-save-coordinator";
 
 describe("SettingsSaveCoordinator", () => {
+  it("closes new entry points immediately while draining accepted snapshots", async () => {
+    const first = deferred();
+    const second = deferred();
+    const persisted: number[] = [];
+    const coordinator = new SettingsSaveCoordinator<number>(async (snapshot) => {
+      persisted.push(snapshot);
+      await (snapshot === 1 ? first.promise : second.promise);
+    });
+    const initial = coordinator.save(1);
+    await Promise.resolve();
+    coordinator.schedule(2);
+    const closing = coordinator.close();
+    expect(coordinator.close()).toBe(closing);
+    coordinator.schedule(3);
+    const stale = coordinator.save(4);
+    const retry = coordinator.retry();
+    let closed = false;
+    void closing.then(() => { closed = true; });
+    first.resolve();
+    await initial;
+    await vi.waitFor(() => expect(persisted).toEqual([1, 2]));
+    expect(closed).toBe(false);
+    second.resolve();
+    await Promise.all([closing, stale, retry, coordinator.flush()]);
+    expect(persisted).toEqual([1, 2]);
+    expect(coordinator.getStatus().state).toBe("saved");
+  });
+
+  it("keeps a failed close pending without allowing a late retry to restart it", async () => {
+    const persist = vi.fn(async () => { throw new Error("disk full"); });
+    const coordinator = new SettingsSaveCoordinator<number>(persist);
+    coordinator.schedule(1);
+    await expect(coordinator.close()).rejects.toThrow("disk full");
+    coordinator.schedule(2);
+    await expect(coordinator.retry()).rejects.toThrow("disk full");
+    await expect(coordinator.save(3)).rejects.toThrow("disk full");
+    await expect(coordinator.saveNow()).rejects.toThrow("disk full");
+    expect(persist).toHaveBeenCalledOnce();
+    expect(coordinator.getStatus().state).toBe("pending");
+  });
+
   it("debounces and coalesces scheduled snapshots", async () => {
     const clock = new FakeClock();
     const persisted: number[] = [];

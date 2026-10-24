@@ -74,7 +74,15 @@ Failure tests should assert more than an exception: they must verify whether a t
 
 ## UI, settings, and localization tests
 
-Automated UI tests should cover the two business tabs, three settings tabs, absence of a fixed sidebar title/refresh/settings row, first-index build, contextual recovery rebuild, the permanent settings-page rebuild entry and its collapsed-by-default index details, search, equal-width view segments, immediate grouped-main switching, the native target/source-file/source-folder grouping select, contextual native sorting shown or hidden by view, fixed list/tree ordering contracts, source-tree counts and lazy DOM for collapsed branches, temporary format filters, advanced expected-isolation display, individual expected-isolation actions, exact/recursive expected-folder rules with Undo, low-confidence markers, and fixed 100-result pagination with reachable first and final pages. Index-detail tests also prove that counts come from an O(1) diagnostics snapshot, subscriptions detach when settings close, failures expose aggregate error text only, and expanding details causes neither Vault reads nor a complete-graph export.
+Group automated UI tests by the operation they verify:
+
+- Navigation and recovery: two business tabs, three settings tabs, no permanent sidebar title/refresh/settings row, first-index build, contextual Retry, and the rebuild entry in settings.
+- Queries and layout: search, equal-width view segments, immediate grouped-main switching, native target/source-file/source-folder selection, contextual sorting, list/tree ordering, source-tree counts, and lazy DOM for collapsed branches.
+- Scope and classification: temporary format filters, advanced expected-isolation display, individual and exact/recursive folder marking, Undo, and low-confidence states.
+- Pagination: fixed 100-result pages with reachable first and final pages; badges retain complete-result counts.
+- Index details: collapsed by default, O(1) diagnostic counts, subscriptions released when settings close, and aggregate errors only; expanding details causes no Vault reads or full-graph export.
+
+Ignore-rule regressions cover edits and Cancel without commits, Save enabled only by a current preview, cancellation on input/index publication/settings closure, late results unable to restore old counts, rejection of concurrent saved-rule changes, empty values, disabled drafts, cancelled new rules, and future-schema write protection. DOM checks verify accessible names for scope, matcher, and value; preview tests distinguish repeated references, distinct file connections, and self-links.
 
 The canonical `npm run check` gate must enforce coverage thresholds. The release gate must execute both the quick and 50,000-file scale benchmarks. Large-source parsing benchmarks cover explicit-link position mapping and inline-code masking so neither path may regress quadratically with link or backtick count.
 

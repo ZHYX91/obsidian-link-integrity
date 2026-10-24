@@ -47,7 +47,16 @@ export interface ExpectedRulePreviewState {
   readonly stats: ExpectedRuleStats | null;
 }
 
+/** Unsaved input survives surface redraws; preview authority belongs to each renderer. */
+export interface IgnoreRuleDraft {
+  original: IgnoreRule | null;
+  draft: IgnoreRule;
+  domain: "broken" | "isolated";
+  open: boolean;
+}
+
 export interface SettingsUiContext {
+  readonly ignoreRuleDrafts?: Map<string, IgnoreRuleDraft>;
   readonly settings: LinkIntegritySettings;
   readonly getSettings?: () => LinkIntegritySettings;
   readonly translator: Translator;
@@ -62,8 +71,11 @@ export interface SettingsUiContext {
     rule: ExpectedIsolationRule,
     publish?: (state: ExpectedRulePreviewState) => void,
   ) => void | Promise<void>;
-  readonly getIgnoreRulePreview?: (ruleId: string) => IgnoreRulePreview | null;
-  readonly requestIgnoreRulePreview?: (rule: IgnoreRule) => void | Promise<void>;
+  readonly requestIgnoreRulePreview?: (
+    rule: IgnoreRule,
+    signal: AbortSignal,
+  ) => Promise<IgnoreRulePreview>;
+  readonly getIndexRevision?: () => string;
   readonly getSaveStatus?: () => SettingsSaveStatus;
   readonly subscribeSaveStatus?: (
     listener: (status: SettingsSaveStatus) => void,

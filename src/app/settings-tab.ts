@@ -7,7 +7,6 @@ import {
 
 import type { ExpectedIsolationRule } from "../core";
 import { createTranslator } from "../shared/i18n";
-import type { IgnoreRule, IgnoreRulePreview } from "../shared/ignore-rules";
 import {
   PreviewRequestCoordinator,
   renderImperativeSettings,
@@ -15,6 +14,7 @@ import {
   type SettingsTabId,
   type SettingsUiContext,
 } from "../ui/settings";
+import type { IgnoreRuleDraft } from "../ui/settings/types";
 import type LinkIntegrityPlugin from "./plugin";
 
 // Declarative settings are intentionally inactive. Obsidian 1.13 bypasses
@@ -27,15 +27,11 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   private imperativeVisible = false;
   private surfaceActive = false;
   private idCounter = 0;
+  private readonly ignoreRuleDrafts = new Map<string, IgnoreRuleDraft>();
   private readonly expectedPreviews = new Map<string, ExpectedRulePreviewState>();
-  private readonly ignorePreviews = new Map<string, IgnoreRulePreview>();
   private readonly expectedPreviewRequests = new PreviewRequestCoordinator<
     string,
     ReturnType<LinkIntegrityPlugin["previewExpectedRule"]>
-  >();
-  private readonly ignorePreviewRequests = new PreviewRequestCoordinator<
-    string,
-    IgnoreRulePreview
   >();
 
   public constructor(app: App, private readonly owner: LinkIntegrityPlugin) {
@@ -58,15 +54,16 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
     this.imperativeVisible = false;
     this.surfaceActive = false;
     this.expectedPreviewRequests.invalidate();
-    this.ignorePreviewRequests.invalidate();
     this.cleanup?.();
     this.cleanup = null;
+    this.ignoreRuleDrafts.clear();
   }
 
   private createContext(): SettingsUiContext {
     const settings = this.owner.getSettings();
     return {
       settings,
+      ignoreRuleDrafts: this.ignoreRuleDrafts,
       getSettings: () => this.owner.getSettings(),
       translator: createTranslator(settings.general.locale, getLanguage()),
       writeProtected: this.owner.isSettingsWriteProtected(),
@@ -78,8 +75,8 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       getExpectedRulePreview: (ruleId) =>
         this.expectedPreviews.get(ruleId) ?? { state: "idle", stats: null },
       requestExpectedRulePreview: (rule, publish) => this.refreshExpectedPreview(rule, publish),
-      getIgnoreRulePreview: (ruleId) => this.ignorePreviews.get(ruleId) ?? null,
-      requestIgnoreRulePreview: (rule) => this.refreshIgnorePreview(rule),
+      requestIgnoreRulePreview: (rule, signal) => this.owner.previewIgnoreRule(rule, signal),
+      getIndexRevision: () => this.owner.getIndexRevision(),
       getSaveStatus: () => this.owner.getSettingsSaveStatus(),
       subscribeSaveStatus: (listener) => this.owner.subscribeToSettingsSaveStatus(listener),
       retrySave: () => this.owner.retrySettingsSave(),
@@ -139,24 +136,10 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
     );
   }
 
-  private refreshIgnorePreview(rule: IgnoreRule): void {
-    void this.ignorePreviewRequests.request(
-      rule.id,
-      (signal) => Promise.resolve(this.owner.previewIgnoreRule(rule, signal)),
-      (state) => {
-        if (state.state === "ready") this.ignorePreviews.set(rule.id, state.value);
-        else this.ignorePreviews.delete(rule.id);
-        if (state.state === "failed") this.owner.reportSettingsError(state.error);
-        this.refreshSurface();
-      },
-    );
-  }
-
   private activateSurface(): void {
     if (this.surfaceActive) return;
     this.surfaceActive = true;
     this.expectedPreviewRequests.beginGeneration();
-    this.ignorePreviewRequests.beginGeneration();
   }
 
   private createId(kind: "expected-rule" | "expected-pattern" | "ignore-rule"): string {

@@ -39,7 +39,7 @@ Los resultados dinámicos de Bases no se tratan automáticamente como enlaces. S
 
 Abre **Ajustes → Complementos de la comunidad → Explorar**, busca **Link Integrity** e instálalo. Si todavía no aparece en el catálogo, descarga `link-integrity-<version>.zip` desde la [última versión de GitHub](https://github.com/ZHYX91/obsidian-link-integrity/releases/latest).
 
-Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` en `Vault/.obsidian/plugins/link-integrity/`. Al actualizar, sustituye solo esos tres archivos y conserva `data.json`, salvo que quieras restablecer la configuración.
+Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` en `Vault/.obsidian/plugins/link-integrity/`. Después, recarga Obsidian y activa Link Integrity. Al actualizar, sustituye solo esos tres archivos y conserva `data.json`, salvo que quieras restablecer la configuración.
 
 ## Uso
 
@@ -48,9 +48,11 @@ Para una instalación manual, coloca `main.js`, `manifest.json` y `styles.css` e
 3. Selecciona un resultado para abrir su origen. Los filtros de archivos aislados solo cambian la vista actual y no modifican los valores predeterminados guardados.
 4. El análisis al iniciar está desactivado de forma predeterminada. Al abrir la barra lateral, el índice se crea cuando es necesario; también puedes usar **Crear índice** o **Reconstruir índice** en General. Después de la primera creación correcta, los cambios del Vault actualizan los resultados automáticamente.
 
-Las marcas en las notas están desactivadas por defecto. Puedes activarlas al leer o editar y seguir abriendo los enlaces normalmente. Si la ubicación de un enlace aún no es segura, no se marca; revísalo en la barra lateral.
+Activa **Mostrar enlaces rotos en el texto** en **Enlaces rotos** para ver las marcas al leer o editar. La opción está desactivada por defecto y no cambia cómo se abren los enlaces. Ejecuta **Diagnosticar enlaces rotos de la nota actual** desde la paleta de comandos para ver las causas e ir al origen. Los enlaces que aún se están actualizando o cuya posición no es precisa quedan sin marcar; revísalos en la barra lateral.
 
 ## Ajustes
+
+Encontrarás **Guía de uso** y **Informar de un problema** en **General → Ayuda y soporte**. La guía se abre en el idioma de la interfaz.
 
 Por ejemplo, si `A.md` enlaza a `[[B]]` y existe `B.md`, `A.md` no está aislado aunque nadie lo enlace. Si solo contiene `[[Missing]]` y no tiene otras conexiones válidas, aparecerá como aislado; revísalo antes de pensar en borrarlo.
 
@@ -63,9 +65,11 @@ Por ejemplo, si `A.md` enlaza a `[[B]]` y existe `B.md`, `A.md` no está aislado
 
 Los ajustes y las reglas del usuario se guardan en `data.json`. El índice de enlaces calculado se mantiene en memoria y se vuelve a crear después de reiniciar.
 
+Despliega una regla de exclusión o elige **Añadir regla de exclusión**. Configura **Ámbito**, **Criterio de coincidencia** y **Valor que buscar**, y pulsa **Vista previa**. Revisa las coincidencias, los ejemplos y el número de archivos y conexiones afectados antes de pulsar **Guardar**. Los cambios quedan en el borrador; **Cancelar** los descarta. Si cambia la regla o el índice, debes generar otra vista previa. Si no hay un índice actualizado, créalo primero en **General**. También puedes previsualizar una regla desactivada para ver qué afectaría al activarla.
+
 ## Limitaciones
 
-- Link Integrity no elimina archivos ni reescribe enlaces. El texto incierto o ambiguo queda sin marcar; consulte la barra lateral para otros diagnósticos.
+- Link Integrity no elimina archivos ni reescribe enlaces. El texto incierto o ambiguo queda sin marcar; consulta la barra lateral para otros diagnósticos.
 - Las URL externas están fuera de alcance y nunca se consultan por la red.
 - Los resultados dinámicos de Bases no cuentan como conexiones directas entre archivos; solo cuentan las referencias explícitas.
 - Las reglas de aislamiento esperado solo cambian la clasificación de archivos que ya están aislados. No ocultan enlaces rotos ni eliminan conexiones reales.

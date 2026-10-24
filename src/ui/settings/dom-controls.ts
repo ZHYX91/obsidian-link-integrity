@@ -78,6 +78,7 @@ export function select(
     option.selected = value === selected;
     element.append(option);
   }
+  element.value = selected;
   return element;
 }
 

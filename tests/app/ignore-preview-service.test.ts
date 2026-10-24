@@ -33,7 +33,9 @@ describe("scheduled ignore previews", () => {
         if (!swapped) { swapped = true; index = fixture(false); }
       },
     });
-    expect(await service.preview(rule)).toEqual({ matchCount: 0, samples: [] });
+    expect(await service.preview(rule)).toEqual({
+      matchCount: 0, samples: [], affectedFileCount: 0, affectedConnectionCount: 0,
+    });
     expect(swapped).toBe(true);
   });
 
@@ -53,5 +55,18 @@ describe("scheduled ignore previews", () => {
     const service = new IgnorePreviewService(() => index);
     expect((await service.preview({ ...rule, matcher: { kind: "source-path", value: "A.md" } })).matchCount)
       .toBe(256);
+  });
+
+  it("counts distinct file connections and endpoints, excluding self-links", async () => {
+    const index = new LinkIndex([createFileRecord("A.md"), createFileRecord("Target.md")]);
+    index.replaceSourceSnapshot("A.md", snapshot("A.md", [
+      occurrence("one", "A.md", { fileStatus: "resolved", targetPath: "Target.md" }),
+      occurrence("two", "A.md", { fileStatus: "resolved", targetPath: "Target.md" }),
+      occurrence("self", "A.md", { fileStatus: "resolved", targetPath: "A.md" }),
+    ]));
+    const preview = await new IgnorePreviewService(() => index).preview({
+      ...rule, scope: "exclude-graph-contribution",
+    });
+    expect(preview).toMatchObject({ matchCount: 2, affectedFileCount: 2, affectedConnectionCount: 1 });
   });
 });

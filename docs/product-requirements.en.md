@@ -6,7 +6,7 @@ translation_status: synced
 
 # Link Integrity — Product requirements
 
-This document defines the current product behavior of Link Integrity. It describes diagnostic semantics that users can rely on, not a progress checklist or a future roadmap.
+This document defines Link Integrity’s diagnostic results, interactions, and data boundaries.
 
 ## Product position
 
@@ -73,6 +73,8 @@ Link Integrity keeps three scopes strictly separate:
 - contribution scope: which valid references participate in graph calculations.
 
 Unselected candidate types and ordinary hide rules continue to contribute valid connections. Only the separate advanced “exclude graph contribution” rule changes the graph, and the interface must warn that it can create false isolated results.
+
+Ignore rules in settings are edited as drafts; changing a control does not immediately change diagnostics or connection counts. Saving requires a preview against the current ready index. A changed draft, index, or persisted source rule invalidates permission to commit from the old preview. Cancel discards the draft. Advanced exclusion previews show matching references, distinct files involved, and directed file connections. Repeated references from one source to one target count as one connection; self-links do not count. A disabled rule can be previewed to show its potential matches when enabled.
 
 Isolated candidates use one shared file-type registry: Obsidian files (Markdown, Bases, and Canvas), images, audio, video, fixed-layout files (PDF), and other attachments. Images, media, and attachments are subdivided into format families, with common extension aliases grouped together. Matching is case-insensitive. An unknown attachment extension enters candidate scope only when that extension is explicitly configured as custom; selecting the custom family with an empty extension list does not silently include every unknown file. Settings store the default candidate scope; sidebar filters are temporary query conditions.
 
