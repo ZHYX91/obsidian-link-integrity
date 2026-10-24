@@ -28,7 +28,7 @@ describe("self-contained explicit body fixture provider", () => {
   it("preserves base bytes and verifies prepare/repair/restore transitions without filesystem writes", async () => {
     const source = await readFile("acceptance/fixtures/.obsidian/plugins/link-integrity-acceptance-provider/main.js", "utf8");
     const files = new Map([["Standalone.md", "baseline standalone"], ["Broken-only.md", "baseline broken"]]); const folders = new Set<string>();
-    const module = { exports: null as unknown as new() => { app: unknown; onload: () => void; createFixtures: () => Promise<void>; repair: () => Promise<void>; restore: () => Promise<void> } };
+    const module = { exports: null as unknown as new() => { app: unknown; onload: () => void; createFixtures: () => Promise<void>; createContextRegressionFixtures: () => Promise<void>; repair: () => Promise<void>; restore: () => Promise<void> } };
     const commands: string[] = [];
     runInNewContext(source, { module, require: () => ({ Plugin: class { addCommand(command: { id: string }) { commands.push(command.id); } }, Notice: class {} }) }, { timeout: 1_000 });
     const provider = new module.exports();
@@ -38,11 +38,22 @@ describe("self-contained explicit body fixture provider", () => {
       cachedRead: async (file: { path: string }) => files.get(file.path), createFolder: async (path: string) => { folders.add(path); },
       create: async (path: string, text: string) => { files.set(path, text); }, modify: async (file: { path: string }, text: string) => { files.set(file.path, text); }, delete: async (file: { path: string }) => { files.delete(file.path); },
     }, workspace: { getLeaf: () => ({ openFile: async () => {} }) } };
-    provider.onload(); expect(commands).toEqual(["create-body-hint-fixtures", "repair-body-hint-fixtures", "restore-body-hint-fixtures"]);
+    provider.onload(); expect(commands).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "repair-body-hint-fixtures", "restore-body-hint-fixtures"]);
     await provider.createFixtures(); expect(projection(files)).toEqual({ broken: 5, isolated: 1 });
     await expect(provider.createFixtures()).rejects.toThrow("already exist");
     await provider.repair(); expect(projection(files)).toEqual({ broken: 0, isolated: 1 });
     await provider.restore(); expect(projection(files)).toEqual({ broken: 5, isolated: 1 });
+    await provider.createContextRegressionFixtures();
+    const context = "Context Regression Acceptance";
+    expect(extractMarkdownExplicitReferences(files.get(`${context}/Escaped.md`)!).map(({ linktext }) => linktext))
+      .toEqual(["Escaped%20Missing.md", "Visible missing"]);
+    expect(extractMarkdownExplicitReferences(files.get(`${context}/Percent.md`)!).map(({ linktext }) => linktext))
+      .toEqual(["100% Missing", "Missing%ZZ", "Encoded%25%20Missing.md", `${context}/Target%#100%`, `${context}/Target%`]);
+    expect(files.get(`${context}/A/Source.md`)).toBe(files.get(`${context}/B/Source.md`));
+    expect(files.has(`${context}/A/Sibling.md`)).toBe(true); expect(files.has(`${context}/B/Sibling.md`)).toBe(false);
+    const originalContext = new Map(files);
+    await expect(provider.createContextRegressionFixtures()).rejects.toThrow("already exist");
+    expect(files).toEqual(originalContext);
     expect(files.get("Standalone.md")).toBe("baseline standalone"); expect(files.get("Broken-only.md")).toBe("baseline broken");
     files.set(`${prefix}/Source.md`, "user modification"); await expect(provider.repair()).rejects.toThrow("Unexpected fixture bytes");
     files.delete("Standalone.md"); await expect(provider.createFixtures()).rejects.toThrow("disposable acceptance fixture");

@@ -19,6 +19,13 @@ The review regression also exercises CRLF/empty/adjacent Canvas fences, Bases dy
 
 ## Body diagnostic scenarios
 
+The focused `escaped-percent-and-source-context` scenario uses the explicit
+`create-context-regression-fixtures` provider command in a disposable Vault. It creates
+`Context Regression Acceptance/` only when absent: escaped delimiters and protected code,
+literal and encoded percent targets, and identical relative-link sources in two folders.
+Observe sidebar diagnostics, editing/reading hints, source switches, rename, Off and rebuild
+through the real host. Fixture creation does not issue a verdict.
+
 The `body-link-hints` and `body-link-hints-fakelink` scenarios preserve the untouched five broken/four isolated baseline. Only in the identified disposable Vault, explicitly run the provider commands `create-body-hint-fixtures`, `repair-body-hint-fixtures` and `restore-body-hint-fixtures`. They create three notes under `Body Hints Acceptance/`, verify exact known fixture bytes before repair/restore, and refuse overwrites. After indexing the transitions are ten broken/five isolated, five/five, and ten/five. Setup is not product acceptance.
 
 Broken body hints default Off. Legacy potential settings must not enable them, and retired potential commands/actions must be absent. Check three confirmed reasons, valid and protected negatives, read-only diagnostic navigation, native clicks, metadata refresh and Off/unload cleanup. Reading skips duplicate or third-party ambiguous destinations rather than guessing.

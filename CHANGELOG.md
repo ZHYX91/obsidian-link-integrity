@@ -7,6 +7,14 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-24
+
+- Preserve real links between escaped Markdown backticks while keeping actual code spans excluded.
+- Keep confirmed body diagnostics for Vault targets containing literal percent signs.
+- Clear and revalidate body hints when the current source changes without changing its text, including renames and cancelled asynchronous proofs.
+- Clarify advanced connection-exclusion rules, isolation examples and mobile testing boundaries across all twelve README languages.
+- Patch development dependencies and include a fresh dependency audit in the release check.
+
 ## [0.4.2] - 2026-10-21
 
 - Remove the unused direct js-yaml development dependency while retaining its patched version for ESLint's transitive dependency.
@@ -209,7 +217,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.2...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.3...HEAD
+[0.4.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.2...0.4.3
 [0.2.10]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...0.2.10
 [0.2.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.8...0.2.9
 [0.2.8]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.7...0.2.8
