@@ -1,5 +1,12 @@
 export interface BodyRange { readonly from: number; readonly to: number; }
 import { WorkScheduler } from "../../scheduling/work-scheduler";
+import {
+  expandMarkdownTabs as expandTabs,
+  normalizeMarkdownContainerLine as normalizeBodyContainerLine,
+  stripMarkdownContainers as stripKnownBodyContainers,
+  type MarkdownContainer as BodyContainer,
+  type MarkdownContainerLine as BodyContainerLine,
+} from "./markdown-containers";
 
 /** Conservative current-source syntax guard; complete explicit links remain eligible. */
 export async function extractMarkdownNonLinkExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly BodyRange[]> {
@@ -301,58 +308,3 @@ function htmlOpeningEnd(text: string, initialQuote: string | null): { end: numbe
   }
   return { end: undefined, quote };
 }
-
-type BodyContainer = "quote" | number;
-
-interface BodyContainerLine {
-  readonly text: string;
-  readonly containers: readonly BodyContainer[];
-}
-
-function expandTabs(line: string): string {
-  let column = 0; let previous = 0;
-  return line.replace(/\t/gu, (_tab, index: number) => {
-    column += index - previous;
-    const spaces = 4 - column % 4;
-    column += spaces;
-    previous = index + 1;
-    return " ".repeat(spaces);
-  });
-}
-
-function stripKnownBodyContainers(line: string, containers: readonly BodyContainer[]): {
-  text: string | null;
-  remainder: string;
-  consumed: readonly BodyContainer[];
-} {
-  let text = line;
-  const consumed: BodyContainer[] = [];
-  for (const container of containers) {
-    const prefix = container === "quote" ? /^ {0,3}> ?/u.exec(text)?.[0] :
-      text.startsWith(" ".repeat(container)) ? " ".repeat(container) : undefined;
-    if (prefix === undefined) return { text: null, remainder: text, consumed };
-    text = text.slice(prefix.length);
-    consumed.push(container);
-  }
-  return { text, remainder: text, consumed };
-}
-
-function normalizeBodyContainerLine(line: string, previous: readonly BodyContainer[]): BodyContainerLine {
-  const stripped = stripKnownBodyContainers(expandTabs(line), previous);
-  let text = stripped.remainder;
-  const containers = [...stripped.consumed];
-  // New containers are recognized only outside protected blocks. Their continuation indentation
-  // is retained individually so nested lists and lists containing quotes can be stripped in order.
-  while (text.length > 0) {
-    const quote = /^ {0,3}> ?/u.exec(text)?.[0];
-    if (quote !== undefined) { containers.push("quote"); text = text.slice(quote.length); continue; }
-    const marker = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?: +|$)/u.exec(text)?.[0];
-    if (marker === undefined) break;
-    const spacing = / *$/u.exec(marker)?.[0].length ?? 0;
-    const indent = marker.length - spacing + (spacing > 4 || spacing === 0 ? 1 : spacing);
-    containers.push(indent);
-    text = text.slice(Math.min(indent, marker.length));
-  }
-  return { text, containers: text.trim().length === 0 && containers.length === stripped.consumed.length ? previous : containers };
-}
-

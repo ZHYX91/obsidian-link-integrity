@@ -29,7 +29,7 @@ Pure fixtures should cover:
 - successful, missing, pending, and unsupported heading or block states;
 - retention of a file-level edge when the file exists but its subpath is missing;
 - Markdown, embed, Frontmatter, Canvas, and Bases explicit source kinds;
-- fallback-parser exclusion of fenced and indented code plus frontmatter YAML comments, while retaining links in frontmatter values and paragraph continuations; fenced-code regressions cover LF/CRLF, empty and adjacent blocks, both fence characters, variable lengths, unclosed blocks, and UTF-16 offsets after astral prefixes;
+- fallback-parser exclusion of fenced and indented code, HTML comments, raw HTML code, and frontmatter YAML comments, while retaining links in frontmatter values and paragraph continuations; regressions cover LF/CRLF/CR, empty and adjacent blocks, both fence characters, variable lengths, nested quote/list containers, unclosed blocks and container termination, and UTF-16 offsets after astral prefixes; HTML literals inside code, fences inside HTML, quoted attributes, and tag-like Markdown destinations must not affect adjacent prose;
 - self-links, external URLs, and repeated occurrences;
 - absence of explicit edges from dynamic Bases results; semantic tests allow static explicit references only from `filters`, `formulas`, custom `summaries`, and view `filters`, with view names, `properties` display strings, ordinary formula string literals, and dynamic first link arguments as negative cases; escaped/folded YAML must never fabricate link coordinates or collapse repeated occurrences;
 - separation of candidate, diagnostic, and contribution scopes.
@@ -51,7 +51,7 @@ Expected-isolation tests cover:
 - AND between file-type, folder, and naming conditions, with OR between multiple naming patterns;
 - exact/recursive folders, date formats, globs, safe-subset regular expressions, match counts, and samples; regex tests reject overlong patterns, excessive repetition/state counts, invalid flags, backreferences, and lookaround; differential tests compare the supported subset with native Unicode regex semantics on short inputs, and adversarial benchmarks cover nested/ambiguous groups and adjacent repetitions without native backtracking;
 - daily, weekly, monthly, quarterly, and yearly periodic-note presets with configurable paths and formats;
-- prevention of an invalid rule from silently matching every file; an invalid persisted naming condition remains available for diagnosis and disables its whole rule instead of being normalized away and broadening the match.
+- prevention of an invalid rule from silently matching every file; invalid persisted naming conditions, including explicit non-array `namingPatterns` or legacy `patterns`, remain available for diagnosis and disable their whole rule instead of being removed during normalization or saving and broadening the match; omitted conditions and empty arrays remain valid rules without a naming restriction.
 - exact-file path normalization, deduplication, main-count exclusion, rename following, and visible removal of missing paths in settings.
 
 ## Full and incremental equivalence
@@ -61,6 +61,8 @@ A clean rebuild is the correctness reference for the incremental implementation.
 1. let the incremental controller process the event and reach idle;
 2. rebuild a clean index from the current virtual Vault;
 3. compare normalized files, snapshots, occurrence statuses, edge counts, and self-links.
+
+Protected-range regressions for Markdown fallback and Canvas text must use the real adapter and full/incremental controllers. Move valid and missing targets from prose into comments/code and back, then verify that occurrences, broken links, valid edges, and isolation update together and match a clean rebuild.
 
 Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, absorption of pre-scan event storms by the new complete initial index without duplicate snapshot work, buffered replay of create/modify/delete/rename after a scan has begun, one late host-wide `resolved` correction after a Metadata Cache timeout, and bounded concurrency. Graph-contribution rule tests use the same normalized state as a stable differential fingerprint to prove that regraph equals a clean materialization under the new policy without increasing adapter-read or source-parse counts.
 

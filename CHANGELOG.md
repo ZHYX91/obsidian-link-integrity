@@ -7,6 +7,13 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-25
+
+- Exclude HTML comments, raw HTML code and fences inside quotes or lists from Canvas and fallback Markdown indexing, including their graph connections and isolation results.
+- Disable expected-isolation rules with malformed naming-condition containers instead of broadening their matches; keep the invalid condition available for correction.
+- Serialize and coalesce development static-asset synchronization, use unique temporary files, and wait for accepted writes during shutdown.
+- Align architecture documentation with change-scoped desktop and Android acceptance.
+
 ## [0.5.0] - 2026-10-25
 
 - Keep ignore-rule edits in drafts until a current preview is reviewed and saved; cancel obsolete previews when the rule or index changes.
@@ -229,7 +236,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.1...HEAD
+[0.5.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.3...0.5.0
 [0.4.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.2...0.4.3
 [0.2.10]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.2.9...0.2.10

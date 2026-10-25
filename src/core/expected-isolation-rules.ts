@@ -327,6 +327,9 @@ function normalizeExpectedIsolationRule(value: unknown): ExpectedIsolationRule |
   const id = normalizeIdentifier(value.id);
   const name = normalizeLabel(value.name);
   if (id === null || name === null) return null;
+  const rawPatterns = Object.hasOwn(value, "namingPatterns")
+    ? value.namingPatterns
+    : Object.hasOwn(value, "patterns") ? value.patterns : [];
   const rule: ExpectedIsolationRule = {
     id,
     name,
@@ -341,9 +344,8 @@ function normalizeExpectedIsolationRule(value: unknown): ExpectedIsolationRule |
       value.fileExtensions ?? nestedValue(value.fileType, "extensions"),
     ),
     folder: normalizeFolderCondition(value.folder),
-    namingPatterns: normalizeNamingPatterns(value.namingPatterns ?? value.patterns),
+    namingPatterns: normalizeNamingPatterns(rawPatterns),
   };
-  const rawPatterns = value.namingPatterns ?? value.patterns;
   const malformedPatterns = Array.isArray(rawPatterns) &&
     rawPatterns.some((candidate) => !isNormalizableNamingPattern(candidate));
   const malformedFolder = value.folder !== undefined && value.folder !== null && rule.folder === null;
@@ -353,7 +355,17 @@ function normalizeExpectedIsolationRule(value: unknown): ExpectedIsolationRule |
 }
 
 function normalizeNamingPatterns(value: unknown): ExpectedNamingPattern[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    // Keep an invalid, editable condition so cloning or saving cannot erase the
+    // load error and let the remaining folder/type conditions widen the rule.
+    return [{
+      id: "invalid-patterns",
+      kind: "glob",
+      pattern: "",
+      flags: "u",
+      target: "basename",
+    }];
+  }
   const result: ExpectedNamingPattern[] = [];
   const ids = new Set<string>();
   for (const [index, candidate] of value.entries()) {

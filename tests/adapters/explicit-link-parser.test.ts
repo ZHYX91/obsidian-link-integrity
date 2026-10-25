@@ -9,6 +9,83 @@ import {
 } from "../../src/adapters/obsidian/explicit-link-parser";
 
 describe("extractMarkdownExplicitReferences", () => {
+  it.each(["\n", "\r\n", "\r"])("excludes HTML comments and raw code while retaining text offsets with %j", (newline) => {
+    const source = [
+      "😀 <!-- [[Ghost]] [ghost](Missing.md) --> [[Shown]]",
+      "<pre class=\"x > y\">[[Hidden pre]]</pre> [[After pre]]",
+      "<SCRIPT>[[Hidden script]]</SCRIPT>",
+      "<style>[[Hidden style]]</style>",
+      "<textarea>[[Hidden textarea]]</textarea>",
+      "<span>[[Inline prose]]</span>",
+      "`<!--` [[Literal comment token]] `<pre>` [[Literal tag]]",
+      "<!-- unclosed [[Hidden end]]",
+    ].join(newline);
+    expect(extractMarkdownExplicitReferences(source)).toEqual(
+      ["Shown", "After pre", "Inline prose", "Literal comment token", "Literal tag"].map((linktext) =>
+        expect.objectContaining({ linktext, startOffset: source.indexOf(`[[${linktext}]]`) })),
+    );
+  });
+
+  it.each([
+    "> ~~~md\n> [[Ghost]]\n> ~~~\n[[Shown]]",
+    "- ~~~md\n  [[Ghost]]\n  ~~~\n[[Shown]]",
+    "> 1. ~~~~md\n>    [[Ghost]]\n>    ~~~~\n> [[Shown]]",
+    "- > ```md\n  > [[Ghost]]\n  > ```\n  [[Shown]]",
+    "> ~~~md\n> [[Ghost]]\n[[Shown]]",
+    "- ~~~md\n  [[Ghost]]\n\n[[Shown]]",
+    "> ~~~md\n> - ~~~\n> [[Ghost]]\n> ~~~\n[[Shown]]",
+  ])("recognizes nested fences and their container boundary: %s", (source) => {
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["Shown"]);
+  });
+
+  it("keeps invalid backtick fences and escaped HTML openers as content", () => {
+    const source = "```bad`info [[Shown]]\n\\<!-- [[Escaped comment]]\n\\<pre>[[Escaped tag]]";
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
+      "Shown", "Escaped comment", "Escaped tag",
+    ]);
+  });
+
+  it("masks raw HTML with multiline quoted attributes or no closing tag", () => {
+    const source = '<pre data-value=" >\n[[Hidden attribute]]">\n[[Hidden body]]\n</pre> [[Shown]]\n<pre>[[Hidden end]]';
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["Shown"]);
+  });
+
+  it.each(["<pre>", "<!--", "<script>"])("keeps HTML-like frontmatter values separate from body syntax: %s", (literal) => {
+    const source = `---\nnote: "${literal}"\nlink: "[[Property]]"\n---\n[[Shown]]`;
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["Property", "Shown"]);
+  });
+
+  it.each([
+    "<!--\n```md\n[[Hidden]]\n-->\n[[Shown]]",
+    "<pre>\n```md\n[[Hidden]]\n</pre>\n[[Shown]]",
+    "%%\n```md\n[[Hidden]]\n%%\n[[Shown]]",
+    "> <pre>\n> [[Hidden]]\n\n[[Shown]]",
+    "> <!--\n> [[Hidden]]\n\n[[Shown]]",
+    "> ~~~\n> [[Hidden]]\n\n> [[Shown]]",
+    "before `<!--\n[[Hidden]]` after [[Shown]]",
+    "    <!--\n\n[[Shown]]",
+    "    <pre>\n\n[[Shown]]",
+    "before `\n<!-- [[Ghost]] -->\n~~~\ncode\n~~~\nafter ` [[Shown]]",
+    "before `\n<pre>[[Ghost]]</pre>\n~~~\ncode\n~~~\nafter ` [[Shown]]",
+    '<span data-value="<pre>">[[Shown]]</span>',
+    '<span data-value="\n<pre>\n">[[Shown]]</span>',
+    '<span data-value="\n<!--\n">[[Shown]]</span>',
+    '<broken\n<!-- [[Ghost]] -->\n[[Shown]]',
+    '<broken\n<span data-value="<!--">[[Shown]]</span>',
+    '<span data-value="\n<!-- [[Ghost]] -->\n[[Shown]]',
+    '<pre\n>\n[[Ghost]]\n</pre>\n[[Shown]]',
+    'before <!--> [[Shown]]',
+    'before <!---> [[Shown]]',
+    '<broken a=\'\n<span data-value="\n<!--\n">[[Shown]]</span>',
+  ])("keeps nested opaque syntax within its original block: %s", (source) => {
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["Shown"]);
+  });
+
+  it("retains an angle-bracket destination whose filename resembles a raw tag", () => {
+    expect(extractMarkdownExplicitReferences("[label](<pre>) [[Shown]]").map(({ linktext }) => linktext))
+      .toEqual(["pre", "Shown"]);
+  });
+
   it("extracts wiki links, embeds, aliases, and Markdown destinations in source order", () => {
     const source = "[[Note#Part|label]] ![[image.png]] [other](Folder/Other.md#Block)";
 

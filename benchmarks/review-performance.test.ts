@@ -36,6 +36,19 @@ it("bounds failed destination scanning across explicit input sizes", () => {
   }
 });
 
+it("bounds unclosed HTML blocks and tag attributes across container boundaries", () => {
+  for (const repeats of [2000, 4000, 8000]) {
+    for (const unit of ["> <pre>\n> [[Ghost]]\n\n", "> <!--\n> [[Ghost]]\n\n", "> <pre data-value=\"\n> [[Ghost]]\n\n", "<x\n"]) {
+      const source = `${unit.repeat(repeats)}\n<!-- [[Ghost]] -->\n[[Shown]]`;
+      const start = performance.now();
+      expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["Shown"]);
+      const elapsed = performance.now() - start;
+      expect(elapsed).toBeLessThan(1000);
+      console.log(`Unclosed HTML parse: ${source.length} characters, ${elapsed.toFixed(1)} ms`);
+    }
+  }
+});
+
 it(`slices policy regraph and broad preview for ${count} files`, async () => {
   const files = Array.from({ length: count }, (_, n) => createFileRecord(`Notes/N${n}.md`));
   const index = new LinkIndex(files);

@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { FORMAT_FAMILY_IDS } from "../../src/core/file-types";
 import {
+  getExpectedRuleStats,
+  matchesExpectedIsolationRule,
+  validateExpectedIsolationRule,
+} from "../../src/core/expected-isolation-rules";
+import { LinkIndex } from "../../src/core/link-index";
+import { createFileRecord } from "../../src/core/model";
+import { createIsolatedFileProjection } from "../../src/features/queries/isolated-files";
+import {
   SETTINGS_SCHEMA_VERSION,
   applySettingValue,
   classifySettingChange,
@@ -84,6 +92,89 @@ describe("settings", () => {
     expect(settings.ignoreRules).toHaveLength(1);
   });
 
+  it.each(["namingPatterns", "patterns"])(
+    "keeps malformed %s containers disabled and diagnosable across settings saves",
+    (field) => {
+      const files = [
+        createFileRecord("Projects/Template-One.md"),
+        createFileRecord("Projects/Unrelated.md"),
+      ];
+      const index = new LinkIndex(files);
+      for (const value of [{ pattern: "Template-*" }, "Template-*", null, false, 1]) {
+        const loaded = loadTemplateRuleSettings({ [field]: value });
+        // Settings are normalized again for ordinary preference edits and on restart.
+        const reloaded = loadSettings(JSON.parse(JSON.stringify(loaded.settings))).settings;
+        for (const settings of [loaded.settings, reloaded]) {
+          const rules = settings.isolatedFiles.expectedRules;
+          const rule = rules[0]!;
+          expect(rule.enabled).toBe(false);
+          expect(validateExpectedIsolationRule(rule)).toContain("Pattern required.");
+          expect(matchesExpectedIsolationRule(files[1]!, rule)).toBe(false);
+          expect(matchesExpectedIsolationRule(files[1]!, { ...rule, enabled: true })).toBe(false);
+          expect(getExpectedRuleStats(files, rules)[0]).toMatchObject({
+            matchCount: 0,
+            samples: [],
+            errors: expect.arrayContaining(["Pattern required."]),
+          });
+          const projection = createIsolatedFileProjection(index, { expectedRules: rules });
+          expect(projection.mainCount).toBe(2);
+          expect(projection.expectedExcludedCount).toBe(0);
+          expect(projection.items.map(({ classification }) => classification)).toEqual([
+            "isolated", "isolated",
+          ]);
+        }
+      }
+      expect(index.toCanonicalState().edges).toEqual([]);
+    },
+  );
+
+  it("does not fall back to a legacy pattern when the primary container is malformed", () => {
+    const pattern = { id: "name", kind: "glob", pattern: "Template-*" };
+    for (const namingPatterns of [null, undefined, "Template-*", {}]) {
+      const { settings } = loadTemplateRuleSettings({ namingPatterns, patterns: [pattern] });
+      const rule = settings.isolatedFiles.expectedRules[0]!;
+      expect(rule.enabled).toBe(false);
+      expect(validateExpectedIsolationRule(rule)).toContain("Pattern required.");
+    }
+  });
+
+  it("preserves valid primary, legacy, and intentionally absent naming conditions", () => {
+    const pattern = { id: "name", kind: "glob", pattern: "Template-*" };
+    const files = [
+      createFileRecord("Projects/Template-One.md"),
+      createFileRecord("Projects/Unrelated.md"),
+      createFileRecord("Elsewhere/Template-One.md"),
+    ];
+    for (const conditions of [
+      { namingPatterns: [pattern] },
+      { patterns: [pattern] },
+      { namingPatterns: [pattern], patterns: null },
+    ]) {
+      const { settings } = loadTemplateRuleSettings(conditions);
+      const rule = settings.isolatedFiles.expectedRules[0]!;
+      expect(rule.enabled).toBe(true);
+      expect(validateExpectedIsolationRule(rule)).toEqual([]);
+      expect(files.map((file) => matchesExpectedIsolationRule(file, rule))).toEqual([
+        true, false, false,
+      ]);
+      const projection = createIsolatedFileProjection(new LinkIndex(files), {
+        expectedRules: [rule],
+      });
+      expect(projection.mainCount).toBe(2);
+      expect(projection.expectedExcludedCount).toBe(1);
+    }
+    for (const conditions of [{}, { namingPatterns: [] }, { patterns: [] }]) {
+      const { settings } = loadTemplateRuleSettings(conditions);
+      const rule = settings.isolatedFiles.expectedRules[0]!;
+      expect(rule.enabled).toBe(true);
+      expect(files.map((file) => matchesExpectedIsolationRule(file, rule))).toEqual([
+        true, true, false,
+      ]);
+    }
+    const { settings } = loadTemplateRuleSettings({ namingPatterns: [false] });
+    expect(settings.isolatedFiles.expectedRules[0]?.enabled).toBe(false);
+  });
+
   it("migrates schema one settings with empty exact expected paths", () => {
     const result = loadSettings({
       schemaVersion: 1,
@@ -135,3 +226,19 @@ describe("settings", () => {
       .toThrow(TypeError);
   });
 });
+
+function loadTemplateRuleSettings(conditions: Readonly<Record<string, unknown>>) {
+  return loadSettings({
+    schemaVersion: SETTINGS_SCHEMA_VERSION,
+    isolatedFiles: {
+      expectedRules: [{
+        id: "project-templates",
+        name: "Project templates",
+        enabled: true,
+        fileTypeFamilyIds: ["markdown"],
+        folder: { path: "Projects", mode: "recursive" },
+        ...conditions,
+      }],
+    },
+  });
+}
