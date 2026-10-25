@@ -5,7 +5,7 @@ import path from "node:path";
 import esbuild from "esbuild";
 
 import { createEsbuildOptions } from "./scripts/esbuild-options.mjs";
-import { STATIC_ASSETS, syncStaticAssets } from "./scripts/static-assets.mjs";
+import { createStaticAssetSync, syncStaticAssets } from "./scripts/static-assets.mjs";
 
 const production = process.argv.includes("production");
 const projectRoot = process.cwd();
@@ -20,16 +20,31 @@ if (production) {
 } else {
   await syncStaticAssets({ projectRoot, outputDirectory });
   await context.watch();
+  const assetSync = createStaticAssetSync({ projectRoot, outputDirectory });
   const watcher = watch(projectRoot, (_event, filename) => {
-    if (filename != null && STATIC_ASSETS.includes(filename.toString())) {
-      void syncStaticAssets({ projectRoot, outputDirectory });
-    }
+    assetSync.schedule(filename);
   });
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     watcher.close();
-    await context.dispose();
+    let exitCode = 0;
+    try {
+      await assetSync.close();
+    } catch (error) {
+      console.error("Failed to flush static assets during shutdown", error);
+      exitCode = 1;
+    }
+    try {
+      await context.dispose();
+    } catch (error) {
+      console.error("Failed to dispose the esbuild context", error);
+      exitCode = 1;
+    }
+    process.exit(exitCode);
   };
-  process.once("SIGINT", () => void shutdown().finally(() => process.exit(0)));
-  process.once("SIGTERM", () => void shutdown().finally(() => process.exit(0)));
+  process.once("SIGINT", () => void shutdown());
+  process.once("SIGTERM", () => void shutdown());
   process.stdout.write("Watching TypeScript and static assets for changes...\n");
 }
