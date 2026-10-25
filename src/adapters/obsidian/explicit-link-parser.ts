@@ -2,6 +2,12 @@ import { isMap, isScalar, isSeq, parseDocument } from "yaml";
 
 import { WorkScheduler } from "../../scheduling/work-scheduler";
 import { indexMarkdownDestinations, type MarkdownDestinationIndex } from "./markdown-destination-index";
+import {
+  expandMarkdownTabs,
+  normalizeMarkdownContainerLine,
+  stripMarkdownContainers,
+  type MarkdownContainer,
+} from "./markdown-containers";
 
 export interface ParsedExplicitReference {
   readonly raw: string;
@@ -430,8 +436,9 @@ export function maskMarkdownNonContent(source: string): string {
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.
   const characters = source.split("");
-  const fencedRanges = maskDelimitedBlocks(characters, source);
   const frontmatterRange = findMarkdownFrontmatterRange(source);
+  maskIndentedCodeBlocks(characters, source, frontmatterRange === null ? [] : [frontmatterRange]);
+  const blockRanges = maskDelimitedBlocks(characters, source, frontmatterRange);
   if (frontmatterRange !== null) {
     maskYamlCommentRanges(
       characters,
@@ -440,11 +447,7 @@ export function maskMarkdownNonContent(source: string): string {
       frontmatterRange.end,
     );
   }
-  maskIndentedCodeBlocks(characters, source, [
-    ...fencedRanges,
-    ...(frontmatterRange === null ? [] : [frontmatterRange]),
-  ]);
-  maskInlineCodeAndComments(characters, source, fencedRanges);
+  maskInlineCodeAndComments(characters, source, blockRanges);
   return characters.join("");
 }
 
@@ -456,38 +459,167 @@ interface MaskedRange {
 function maskDelimitedBlocks(
   characters: string[],
   source: string,
+  frontmatter: MaskedRange | null,
 ): MaskedRange[] {
   const ranges: MaskedRange[] = [];
-  let opening: { readonly character: string; readonly length: number; readonly start: number } | null = null;
-  for (const line of sourceLineRanges(source)) {
-    const content = source.slice(line.start, line.contentEnd);
-    if (opening === null) {
-      const match = /^[ \t]{0,3}(`{3,}|~{3,})[^\r\n]*$/u.exec(content);
-      const fence = match?.[1];
-      if (fence !== undefined) {
-        opening = {
-          character: fence[0] ?? "",
-          length: fence.length,
-          start: line.start,
-        };
+  let fence: {
+    readonly character: string;
+    readonly length: number;
+    readonly start: number;
+    readonly containers: readonly MarkdownContainer[];
+  } | null = null;
+  let opaque: { readonly start: number; readonly end: number; readonly containers: readonly MarkdownContainer[] } | null = null;
+  let containers: readonly MarkdownContainer[] = [];
+  let inlineEnd = 0;
+  let literalTagEnd = 0;
+  const lines = sourceLineRanges(source);
+  const linesByStart = new Map(lines.map((line) => [line.start, line]));
+  const inlineClosers = indexInlineCodeClosers(source, lines);
+  const opaqueClosers = indexOpaqueClosers(source);
+  const rawOpening = /<(pre|script|style|textarea)(?=[\s>])/iyu;
+  const mask = (start: number, end: number) => {
+    maskRange(characters, start, end);
+    ranges.push({ start, end });
+  };
+  for (const line of lines) {
+    if (frontmatter !== null && line.start < frontmatter.end) continue;
+    const text = source.slice(line.start, line.contentEnd);
+    let cursor = line.start;
+    if (opaque !== null) {
+      if (!continuesContainers(text, opaque.containers)) {
+        mask(opaque.start, line.start);
+        opaque = null;
+      } else if (opaque.end > line.end) continue;
+      else {
+        cursor = opaque.end;
+        mask(opaque.start, opaque.end);
+        opaque = null;
       }
+    }
+    if (fence !== null) {
+      if (continuesContainers(text, fence.containers)) {
+        const content = stripMarkdownContainers(expandMarkdownTabs(text), fence.containers).text;
+        const closing = content === null ? undefined : /^ {0,3}(`+|~+)[ \t]*$/u.exec(content)?.[1];
+        if (closing !== undefined && closing[0] === fence.character && closing.length >= fence.length) {
+          mask(fence.start, line.end);
+          fence = null;
+        }
+        continue;
+      }
+      mask(fence.start, line.start);
+      fence = null;
+    }
+    if (!continuesContainers(text, containers)) inlineEnd = 0;
+    cursor = Math.max(cursor, literalTagEnd);
+    const normalized = normalizeMarkdownContainerLine(text, containers);
+    containers = normalized.containers;
+    const rawStart = /^ {0,3}<(?:pre|script|style|textarea)(?=[\s>]|$)/iu.test(normalized.text)
+      ? line.start + text.indexOf("<") : -1;
+    const opening = cursor === line.start ? /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/u.exec(normalized.text) : null;
+    const delimiter = opening?.[1];
+    if (delimiter !== undefined && !(delimiter[0] === "`" && opening?.[2]?.includes("`"))) {
+      fence = { character: delimiter[0] ?? "", length: delimiter.length, start: line.start, containers };
+      inlineEnd = 0;
       continue;
     }
-    const escaped = escapeRegExp(opening.character);
-    const closing = new RegExp(
-      `^[ \\t]{0,3}${escaped}{${opening.length},}[ \\t]*$`,
-      "u",
-    );
-    if (!closing.test(content)) continue;
-    maskRange(characters, opening.start, line.end);
-    ranges.push({ start: opening.start, end: line.end });
-    opening = null;
+    // Recognize opaque syntax in source order so fences inside comments/raw HTML
+    // and HTML openers inside code spans never become a second active block.
+    while (cursor < line.contentEnd) {
+      if (cursor < inlineEnd) { cursor = inlineEnd; continue; }
+      if (characters[cursor] !== source[cursor]) { cursor += 1; continue; }
+      let end: number | null = null;
+      if (source.startsWith("<!--", cursor) && !isEscaped(source, cursor)) {
+        end = source.startsWith("<!-->", cursor) ? cursor + 5
+          : source.startsWith("<!--->", cursor) ? cursor + 6
+            : nextOpaqueEnd(opaqueClosers.get("-->"), cursor + 4) ?? source.length;
+      } else if (source.startsWith("%%", cursor)) {
+        end = nextOpaqueEnd(opaqueClosers.get("%%"), cursor + 2);
+      } else if (source[cursor] === "<" && !isEscaped(source, cursor)) {
+        rawOpening.lastIndex = cursor;
+        const name = cursor === rawStart ? rawOpening.exec(source)?.[1]?.toLowerCase() : undefined;
+        if (name !== undefined) {
+          const openingEnd = htmlTagEnd(source, rawOpening.lastIndex, containers, linesByStart);
+          end = nextOpaqueEnd(opaqueClosers.get(name), openingEnd) ?? source.length;
+        } else if (/^\/?[A-Za-z]/u.test(source.slice(cursor + 1, cursor + 3))) {
+          // Attributes are literal HTML, not new raw tags/comments. Keep their
+          // bytes for the link parser, which also recognizes angle destinations.
+          const tag = scanLiteralHtmlTag(source, cursor, containers, linesByStart);
+          if (tag.valid) {
+            literalTagEnd = tag.end;
+            cursor = literalTagEnd;
+            continue;
+          }
+        }
+      }
+      if (end !== null) {
+        if (end > line.end) { opaque = { start: cursor, end, containers }; break; }
+        mask(cursor, end);
+        cursor = end;
+        continue;
+      }
+      inlineEnd = inlineClosers.get(cursor) ?? 0;
+      cursor = inlineEnd > cursor ? inlineEnd : cursor + 1;
+    }
   }
-  if (opening !== null) {
-    maskRange(characters, opening.start, source.length);
-    ranges.push({ start: opening.start, end: source.length });
-  }
+  if (fence !== null) mask(fence.start, source.length);
+  if (opaque !== null) mask(opaque.start, source.length);
   return ranges;
+}
+
+function continuesContainers(text: string, containers: readonly MarkdownContainer[]): boolean {
+  const stripped = stripMarkdownContainers(expandMarkdownTabs(text), containers);
+  if (stripped.text !== null) return true;
+  // A blank list continuation may omit indentation; a quote must retain its marker.
+  return text.trim().length === 0 && !containers.slice(stripped.consumed.length).includes("quote");
+}
+
+function indexInlineCodeClosers(source: string, lines: readonly SourceLineRange[]): ReadonlyMap<number, number> {
+  const runs = [...source.matchAll(/`+/gu)];
+  const nextByLength = new Map<number, number>();
+  const result = new Map<number, number>();
+  const barriers: number[] = [];
+  let containers: readonly MarkdownContainer[] = [];
+  for (const line of lines) {
+    const normalized = normalizeMarkdownContainerLine(source.slice(line.start, line.contentEnd), containers);
+    containers = normalized.containers;
+    if (/^ {0,3}(?:`{3,}[^`]*|~{3,}.*)$/u.test(normalized.text)) barriers.push(line.start);
+  }
+  let barrier = barriers.length - 1;
+  for (let index = runs.length - 1; index >= 0; index -= 1) {
+    const run = runs[index]!;
+    while (barrier >= 0 && barriers[barrier]! > run.index) {
+      nextByLength.clear();
+      barrier -= 1;
+    }
+    const effectiveLength = run[0].length - (isEscaped(source, run.index) ? 1 : 0);
+    const end = nextByLength.get(effectiveLength);
+    if (effectiveLength > 0 && end !== undefined) result.set(run.index, end);
+    nextByLength.set(run[0].length, run.index + run[0].length);
+  }
+  return result;
+}
+
+function indexOpaqueClosers(source: string): ReadonlyMap<string, readonly MaskedRange[]> {
+  const result = new Map<string, MaskedRange[]>();
+  for (const match of source.matchAll(/-->|%%|<\/(pre|script|style|textarea)\s*>/giu)) {
+    const key = match[1]?.toLowerCase() ?? match[0];
+    const ranges = result.get(key) ?? [];
+    ranges.push({ start: match.index, end: match.index + match[0].length });
+    result.set(key, ranges);
+  }
+  return result;
+}
+
+function nextOpaqueEnd(ranges: readonly MaskedRange[] | undefined, start: number): number | null {
+  if (ranges === undefined) return null;
+  let low = 0;
+  let high = ranges.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (ranges[middle]!.start < start) low = middle + 1;
+    else high = middle;
+  }
+  return ranges[low]?.end ?? null;
 }
 
 function findUnmaskedDelimiter(
@@ -516,23 +648,23 @@ function findUnmaskedDelimiter(
 function maskInlineCodeAndComments(
   characters: string[],
   source: string,
-  fencedRanges: readonly MaskedRange[],
+  blockRanges: readonly MaskedRange[],
 ): void {
   const runs = [...source.matchAll(/`+/gu)].filter((run) => {
     const start = run.index;
     return start !== undefined && characters[start] === "`";
   });
   const runSegments: number[] = [];
-  let fencedRangeIndex = 0;
+  let blockRangeIndex = 0;
   for (const run of runs) {
     const start = run.index;
     if (start === undefined) continue;
     while (true) {
-      const fencedRange = fencedRanges[fencedRangeIndex];
-      if (fencedRange === undefined || fencedRange.end > start) break;
-      fencedRangeIndex += 1;
+      const blockRange = blockRanges[blockRangeIndex];
+      if (blockRange === undefined || blockRange.end > start) break;
+      blockRangeIndex += 1;
     }
-    runSegments.push(fencedRangeIndex);
+    runSegments.push(blockRangeIndex);
   }
   const nextMatchingRun: Array<number | null> = Array.from({ length: runs.length }, () => null);
   // An escaped first backtick is literal outside code. A longer run can
@@ -609,6 +741,83 @@ function maskInlineCodeAndComments(
     maskRange(characters, cursor + (escapedFirst ? 1 : 0), end);
     cursor = end;
   }
+}
+
+function scanLiteralHtmlTag(
+  source: string,
+  start: number,
+  containers: readonly MarkdownContainer[],
+  linesByStart: ReadonlyMap<number, SourceLineRange>,
+): { readonly end: number; readonly valid: boolean } {
+  let cursor = start + 1;
+  const closing = source[cursor] === "/";
+  if (closing) cursor += 1;
+  while (/[A-Za-z0-9-]/u.test(source[cursor] ?? "")) cursor += 1;
+  const inContainer = (): boolean => {
+    const character = source[cursor];
+    if (character !== "\n" && character !== "\r") return true;
+    const nextStart = cursor + (character === "\r" && source[cursor + 1] === "\n" ? 2 : 1);
+    const next = linesByStart.get(nextStart);
+    return next === undefined || continuesContainers(source.slice(next.start, next.contentEnd), containers);
+  };
+  const whitespace = (): boolean => {
+    while (/\s/u.test(source[cursor] ?? "")) {
+      if (!inContainer()) return false;
+      cursor += 1;
+    }
+    return true;
+  };
+  const invalid = () => ({ end: cursor, valid: false });
+  while (cursor < source.length) {
+    const beforeSpace = cursor;
+    if (!whitespace()) return invalid();
+    if (source[cursor] === ">") return { end: cursor + 1, valid: true };
+    if (!closing && source.startsWith("/>", cursor)) return { end: cursor + 2, valid: true };
+    if (closing || cursor === beforeSpace || !/[A-Za-z_:]/u.test(source[cursor] ?? "")) return invalid();
+    cursor += 1;
+    while (/[A-Za-z0-9_.:-]/u.test(source[cursor] ?? "")) cursor += 1;
+    const afterName = cursor;
+    if (!whitespace()) return invalid();
+    if (source[cursor] !== "=") { cursor = afterName; continue; }
+    cursor += 1;
+    if (!whitespace()) return invalid();
+    const quote = source[cursor];
+    if (quote === "\"" || quote === "'") {
+      cursor += 1;
+      while (cursor < source.length && source[cursor] !== quote) {
+        if (!inContainer()) return invalid();
+        cursor += 1;
+      }
+      if (source[cursor] !== quote) return invalid();
+      cursor += 1;
+    } else {
+      const valueStart = cursor;
+      while (cursor < source.length && !/[\s"'=<>`]/u.test(source[cursor] ?? "")) cursor += 1;
+      if (cursor === valueStart) return invalid();
+    }
+  }
+  return invalid();
+}
+
+function htmlTagEnd(
+  source: string,
+  start: number,
+  containers: readonly MarkdownContainer[],
+  linesByStart: ReadonlyMap<number, SourceLineRange>,
+): number {
+  let quote: string | null = null;
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index];
+    if (quote !== null) { if (character === quote) quote = null; }
+    else if (character === "\"" || character === "'") quote = character;
+    else if (character === ">") return index + 1;
+    if (character === "\n" || character === "\r") {
+      const nextStart = index + (character === "\r" && source[index + 1] === "\n" ? 2 : 1);
+      const next = linesByStart.get(nextStart);
+      if (next !== undefined && !continuesContainers(source.slice(next.start, next.contentEnd), containers)) return nextStart;
+    }
+  }
+  return source.length;
 }
 
 function maskYamlCommentRanges(
@@ -742,9 +951,4 @@ function maskRange(characters: string[], start: number, end: number): void {
 
 function unescapeMarkdownDestination(value: string): string {
   return value.replace(/\\([()<>\\])/gu, "$1");
-}
-
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }

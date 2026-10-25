@@ -9,6 +9,8 @@ import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
 import { occurrenceIdMatches } from "../../src/core/occurrence-identity";
 import { createFileRecord, LinkIndex } from "../../src/core";
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
+import { AtomicLinkIndexStore, FullRebuildController, IncrementalIndexController } from "../../src/features/index";
+import { queryBrokenLinks, queryIsolatedFiles } from "../../src/features/queries";
 
 interface FakeFile {
   readonly path: string;
@@ -17,6 +19,53 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["Source.md", "Board.canvas"])("removes non-content links from graph queries and incremental rebuilds in %s", async (path) => {
+    const sourceFile = fakeFile(path);
+    const target = fakeFile("Target.md");
+    const files = [sourceFile, target];
+    const encode = (text: string) => sourceFile.extension === "canvas"
+      ? JSON.stringify({ nodes: [{ id: "node-1", type: "text", text }] }) : text;
+    const content = { [path]: encode("[[Target]] [[Missing]]") };
+    const { port } = createPort(files, {
+      content, caches: new Map(), destinations: new Map([["Target", target]]),
+    });
+    const store = new AtomicLinkIndexStore();
+    await new FullRebuildController(port, store).rebuild();
+    expect(queryBrokenLinks(store.current)).toHaveLength(1);
+    expect(store.current.getOutgoingContributionCount(path)).toBe(1);
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      for (const protectedText of [
+        "<!-- [[Target]] [[Missing]] -->",
+        "<pre>[[Target]] [[Missing]]</pre>",
+        "> ~~~md\r\n> [[Target]] [[Missing]]\r\n> ~~~",
+        "> - ```md\r\n>   [[Target]] [[Missing]]\r\n>   ```",
+        "<!-- unclosed [[Target]] [[Missing]]",
+        "<pre>unclosed [[Target]] [[Missing]]",
+      ]) {
+        content[path] = encode(`😀\r\n${protectedText}`);
+        incremental.enqueue({ type: "modify", path });
+        await incremental.whenIdle();
+        const clean = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(store.current.toCanonicalState()).toEqual(clean.toCanonicalState());
+        expect(store.current.getSourceSnapshot(path)?.occurrences).toEqual([]);
+        expect(queryBrokenLinks(store.current)).toEqual([]);
+        expect(store.current.getOutgoingEdges(path)).toEqual([]);
+        expect(queryIsolatedFiles(store.current).map(({ path: isolatedPath }) => isolatedPath).sort())
+          .toEqual(files.map(({ path: filePath }) => filePath).sort());
+      }
+      content[path] = encode("😀 [[Target]] [[Missing]]");
+      incremental.enqueue({ type: "modify", path });
+      await incremental.whenIdle();
+      expect(store.current.getSourceSnapshot(path)?.occurrences[0]?.position?.column).toBe(3);
+      expect(queryBrokenLinks(store.current)).toHaveLength(1);
+      expect(store.current.getOutgoingContributionCount(path)).toBe(1);
+      expect(queryIsolatedFiles(store.current)).toEqual([]);
+    } finally {
+      incremental.stop();
+    }
+  });
   it.each(["\n", "\r\n", "\r"])("filters cached comment links and embeds like fallback with %j line endings", async (newline) => {
     const file = fakeFile("Source.md");
     const source = ["😀 [[Real]]", "%% [[Protected ghost]] ![[Ghost.png]] %%", "[[Other]]"].join(newline);
@@ -58,6 +107,9 @@ describe("ObsidianLinkIndexPort", () => {
     "~~~\n[[Ghost]]",
     "\n    [[Ghost]]",
     "---\nrelated: '[[Property]]' # [[Ghost]]\n---",
+    "<!-- [[Ghost]] -->",
+    "<pre>[[Ghost]]</pre>",
+    "> ~~~\n> [[Ghost]]\n> ~~~",
   ])("shares the existing non-content boundary for positioned cache entries: %s", async (protectedText) => {
     const file = fakeFile("Source.md");
     const source = `${protectedText}\n`;

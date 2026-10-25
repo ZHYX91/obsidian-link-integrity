@@ -28,7 +28,7 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 - 标题和块成功、缺失、等待或无法验证状态；
 - 文件存在但子路径缺失时仍保留文件级边；
 - Markdown、嵌入、Frontmatter、Canvas 和 Bases 显式来源类型；
-- 降级解析器屏蔽 fenced/indented code 和 frontmatter YAML comment，同时保留 frontmatter value 与 paragraph continuation 中的链接；fenced code 回归必须覆盖 LF/CRLF、空块、相邻块、两种围栏字符、不同长度、未闭合块和 astral 字符前缀下的 UTF-16 offset；
+- 降级解析器屏蔽 fenced/indented code、HTML comment、原始 HTML code 和 frontmatter YAML comment，同时保留 frontmatter value 与 paragraph continuation 中的链接；回归覆盖 LF/CRLF/CR、空块、相邻块、两种围栏字符、不同长度、引用/列表嵌套、未闭合块及容器终止，以及 astral 字符前缀下的 UTF-16 offset；代码中的 HTML 字面、HTML 中的围栏、带引号的属性与类似标签的 Markdown 目标不能污染相邻正文；
 - 自链接、外部 URL 和重复引用；
 - Bases 动态结果不形成显式边；语义测试只允许 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 中的静态显式引用，并用视图名称、`properties` 展示字符串、公式内部普通字符串和 link 的动态第一参数作为负例；转义或折叠 YAML 不得伪造链接坐标或合并重复引用；
 - 候选、诊断和贡献范围互不污染。
@@ -50,7 +50,7 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 - 文件类型、文件夹和命名条件使用 AND，多个命名模式使用 OR；
 - exact/recursive 文件夹、日期格式、glob、安全子集 regex、匹配数和样例；regex 测试必须覆盖超长模式、重复次数或状态数超限、非法 flag、反向引用和 lookaround 的拒绝；差分测试用短输入对比支持子集与原生 Unicode 正则的语义，对抗基准覆盖嵌套或歧义分组和相邻重复，证明不执行原生回溯；
 - 日、周、月、季、年周期笔记预设及可配置路径和格式；
-- 无效规则不静默匹配所有文件；持久化的无效命名条件必须保留用于诊断并整体停用规则，不能因归一化删除条件而扩大匹配。
+- 无效规则不静默匹配所有文件；持久化的无效命名条件（包括显式非数组的 `namingPatterns` 或旧版 `patterns`）必须保留用于诊断并整体停用规则，不能因归一化或再次保存删除条件而扩大匹配；未提供命名条件和空数组仍是有效的无命名限制规则。
 - 精确文件路径的规范化、去重、主计数排除、rename 跟随，以及缺失路径在设置中的可见移除。
 
 ## 全量与增量一致性
@@ -60,6 +60,8 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 1. 让增量控制器处理事件并等待 idle；
 2. 从当前虚拟 Vault 重新构建干净索引；
 3. 比较文件、快照、引用状态、边计数和自链接的规范化状态。
+
+Markdown 降级与 Canvas 文本的受保护范围回归必须经过真实 adapter、全量和增量控制器，验证有效与缺失目标从正文移入注释/代码再移回时，引用、无效链接、有效边和孤立结果同时更新，并与干净重建一致。
 
 固定种子的随机事件序列用于重复验证差分等价。专项竞态测试覆盖同名文件出现后的有效与无效引用重验证、旧异步快照不能覆盖新 revision、重复事件合并、扫描前事件风暴由新的完整初始索引吸收且不重复建快照、扫描开始后的 create/modify/delete/rename 缓冲重放、Metadata Cache 超时后的 late `resolved` 单次全局纠偏和有限并发。图贡献规则测试使用同一规范化状态作为稳定差分指纹，证明 regraph 与新 policy 下的干净物化结果相同，同时不增加 adapter 读取或来源解析计数。
 
