@@ -68,6 +68,8 @@ Fixed-seed random event sequences repeatedly verify differential equality. Focus
 
 Block-context regressions follow CommonMark 0.31.2 list-interruption rules and examples 97, 207, 213, 216, 280 and 285. They cover non-1 ordered markers and empty list markers after paragraphs, setext with and without a preceding paragraph, the second blank line of an empty item, and valid, invalid and multiline reference definitions. Each case separately asserts occurrences, missing targets, valid-edge contributions and isolated files; equality between incremental and clean rebuilds alone does not prove correct semantics.
 
+`node scripts/generate-commonmark-block-oracle.mjs --check` verifies `tests/fixtures/commonmark-block-oracle.json` using SHA-256-pinned official CommonMark.js 0.31.2 distribution bytes; only explicit `--write` updates the snapshot. This optional reproduction command uses the network. Normal tests read the snapshot offline without a new runtime or test-framework dependency. Each of its 35 prefixes has a 48-digit `0`/`2` occurrence-count vector, ordered by extra blank lines, quote prefix and indentation. The readable generator reconstructs all 1,680 inputs; 48 named examples also retain official HTML. The parser checks the complete matrix and UTF-16 offsets with three newline forms. All three real-adapter inputs assert final diagnostics and graph semantics for the named examples, distinguishing unbroken definition continuations, code after a blank line, and non-1 markers after definitions.
+
 ## Rebuild and failure tests
 
 Transactional tests verify that staging is invisible before completion and is published atomically only after success. On build failure, the store retains the same most-recent trustworthy object and generation.

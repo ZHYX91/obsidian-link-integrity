@@ -471,6 +471,7 @@ function maskDelimitedBlocks(
   let containers: readonly MarkdownContainer[] = [];
   let indentedCode = false;
   let paragraph = false;
+  let paragraphBody = false;
   let emptyItemDepth = 0;
   let definitionEnd = 0;
   let inlineEnd = 0;
@@ -529,6 +530,7 @@ function maskDelimitedBlocks(
     if ((!continues && !lazy) || normalized.opensContainer) {
       indentedCode = false;
       paragraph = false;
+      paragraphBody = false;
       emptyItemDepth = 0;
     }
     if (!lazy) containers = normalized.containers;
@@ -536,6 +538,7 @@ function maskDelimitedBlocks(
     if (!blank && indented && (indentedCode || !paragraph) && cursor === line.start) {
       indentedCode = true;
       paragraph = false;
+      paragraphBody = false;
       emptyItemDepth = 0;
       mask(line.start, line.contentEnd);
       continue;
@@ -548,18 +551,23 @@ function maskDelimitedBlocks(
       else if (emptyItemDepth > 0) { containers = containers.slice(0, emptyItemDepth - 1); emptyItemDepth = 0; }
     } else emptyItemDepth = 0;
     let definitionLines = 0;
-    if (!paragraph && !blank && /^ {0,3}\[/u.test(normalized.text)) {
+    if (!paragraphBody && !blank && /^ {0,3}\[/u.test(normalized.text)) {
       let next = lineIndex + 1;
       definitionLines = referenceDefinitionLines(normalized.text, () => {
         const following = lines[next++];
         if (following === undefined) return null;
-        const content = normalizeMarkdownContainerLine(source.slice(following.start, following.contentEnd), containers, true);
-        return content.opensContainer || startsMarkdownBlock(content.text) ? null : content.text;
+        const text = source.slice(following.start, following.contentEnd);
+        const content = normalizeMarkdownContainerLine(text, containers, true);
+        return content.opensContainer || startsMarkdownBlock(content.text) ||
+          continuesContainers(text, containers) && isSetextUnderline(content.text) ? null : content.text;
       });
       if (definitionLines > 0) definitionEnd = lines[lineIndex + definitionLines - 1]!.end;
     }
-    paragraph = definitionLines === 0 && !blank && !startsMarkdownBlock(normalized.text) &&
-      !(paragraph && continues && /^ {0,3}(?:=+|-+) *$/u.test(normalized.text));
+    // Definitions remain in the open paragraph until it closes. Only the body
+    // left after stripping its leading definitions can become a setext heading.
+    paragraph = !blank && !startsMarkdownBlock(normalized.text) &&
+      !(paragraph && paragraphBody && continues && isSetextUnderline(normalized.text));
+    paragraphBody = paragraph && definitionLines === 0;
     const rawStart = /^ {0,3}<(?:pre|script|style|textarea)(?=[\s>]|$)/iu.test(normalized.text)
       ? line.start + text.indexOf("<") : -1;
     const opening = cursor === line.start ? /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/u.exec(normalized.text) : null;
@@ -618,7 +626,11 @@ function startsMarkdownBlock(text: string): boolean {
   return /^ {0,3}(?:#{1,6}(?:\s|$)|`{3,}[^`]*$|~{3,}|(?:\* *){3,}$|(?:_ *){3,}$|(?:- *){3,}$|<(?:pre|script|style|textarea)(?=[\s>]|$)|<!--)/iu.test(text);
 }
 
-/** A definition is a block only at a paragraph start. Read only its needed lines. */
+function isSetextUnderline(text: string): boolean {
+  return /^ {0,3}(?:=+|-+) *$/u.test(text);
+}
+
+/** Leading definitions supply no setext body. Read only their needed lines. */
 function referenceDefinitionLines(first: string, readLine: () => string | null): number {
   let text = first;
   let lines = 1;

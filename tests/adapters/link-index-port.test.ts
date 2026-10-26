@@ -11,6 +11,7 @@ import { createFileRecord, LinkIndex } from "../../src/core";
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { AtomicLinkIndexStore, FullRebuildController, IncrementalIndexController } from "../../src/features/index";
 import { queryBrokenLinks, queryIsolatedFiles } from "../../src/features/queries";
+import { commonmarkBlockOracle } from "../helpers/commonmark-block-oracle";
 
 interface FakeFile {
   readonly path: string;
@@ -38,34 +39,7 @@ describe("ObsidianLinkIndexPort", () => {
       ["- item\n  - nested\n\n      [[Target]] [[Missing]]", true],
       ["10. item\n\n        [[Target]] [[Missing]]", false],
       ["-   \n\n      [[Target]] [[Missing]]", false],
-      ["paragraph\n2. item\n\n    [[Target]] [[Missing]]", false],
-      ["paragraph\n-\n\n    [[Target]] [[Missing]]", false],
-      ["-   \n\n    [[Target]] [[Missing]]", false],
-      ["==\n    [[Target]] [[Missing]]", true],
-      ["[id]: /url\n    [[Target]] [[Missing]]", false],
-      ["paragraph\n1. item\n\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n01. item\n\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n+\n\n    [[Target]] [[Missing]]", false],
-      ["-   \n    [[Target]] [[Missing]]", true],
-      ["- item\n\n\n    [[Target]] [[Missing]]", true],
-      ["-\n      code\n\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n==\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url\n==\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n[id]: /url\n    [[Target]] [[Missing]]", true],
-      ["> paragraph\n> 2. item\n>\n>     [[Target]] [[Missing]]", false],
-      ["- paragraph\n  2. item\n\n      [[Target]] [[Missing]]", false],
-      ["> -\n>\n>     [[Target]] [[Missing]]", false],
-      ["> -\n\n>     [[Target]] [[Missing]]", false],
-      ["- >\n\n    [[Target]] [[Missing]]", true],
-      ["1. first\n2. second\n\n    [[Target]] [[Missing]]", true],
-      ["[id]:\n    /url\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url\n    \"title\"\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url 'multi\n    line'\n    [[Target]] [[Missing]]", false],
-      ["> [id]:\n/url\n>     [[Target]] [[Missing]]", false],
-      ["[id]: /url \"title\" prose\n    [[Target]] [[Missing]]", true],
-      ["[id]: foo(bar\n    [[Target]] [[Missing]]", true],
-      ["[id]: <url\\>\n    [[Target]] [[Missing]]", true],
-      ["[id]: url\u00a0part\n    [[Target]] [[Missing]]", false],
+      ...commonmarkBlockOracle.examples.map(({ markdown, count }): [string, boolean] => [markdown, count === 2]),
       ["> * * *\n>     [[Target]] [[Missing]]", false],
       ["-\titem\n\n\t  [[Target]] [[Missing]]", true],
       ["-\titem\n\n\t\t[[Target]] [[Missing]]", false],

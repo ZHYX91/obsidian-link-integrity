@@ -1,3 +1,5 @@
+import { commonmarkBlockCases, commonmarkBlockOracle } from "../helpers/commonmark-block-oracle";
+
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { describe, expect, it } from "vitest";
 
@@ -284,47 +286,21 @@ describe("extractMarkdownExplicitReferences", () => {
   });
 
   it.each(["\n", "\r\n", "\r"])("uses block context before accepting list markers, setext and definitions with %j", (newline) => {
-    // CommonMark 0.31.2: list interruption exceptions, examples 97, 207, 213,
-    // 216, 280 and 285. An empty item's marker line is its first blank line.
-    const cases: readonly [string, boolean][] = [
-      ["paragraph\n2. item\n\n    [[Target]] [[Missing]]", false],
-      ["paragraph\n-\n\n    [[Target]] [[Missing]]", false],
-      ["-   \n\n    [[Target]] [[Missing]]", false],
-      ["==\n    [[Target]] [[Missing]]", true],
-      ["[id]: /url\n    [[Target]] [[Missing]]", false],
-      ["paragraph\n1. item\n\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n01. item\n\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n+\n\n    [[Target]] [[Missing]]", false],
-      ["paragraph\n1.\n\n    [[Target]] [[Missing]]", false],
-      ["-   \n    [[Target]] [[Missing]]", true],
-      ["- item\n\n\n    [[Target]] [[Missing]]", true],
-      ["-\n      code\n\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n==\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url\n==\n    [[Target]] [[Missing]]", true],
-      ["paragraph\n[id]: /url\n    [[Target]] [[Missing]]", true],
-      ["[id]: /url \"title\"\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url \"title\" prose\n    [[Target]] [[Missing]]", true],
-      ["> paragraph\n> 2. item\n>\n>     [[Target]] [[Missing]]", false],
-      ["- paragraph\n  2. item\n\n      [[Target]] [[Missing]]", false],
-      ["> -\n>\n>     [[Target]] [[Missing]]", false],
-      ["> -\n\n>     [[Target]] [[Missing]]", false],
-      ["- >\n\n    [[Target]] [[Missing]]", true],
-      ["1. first\n2. second\n\n    [[Target]] [[Missing]]", true],
-      ["[id]:\n    /url\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url\n    \"title\"\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url 'multi\n    line'\n    [[Target]] [[Missing]]", false],
-      ["> [id]:\n/url\n>     [[Target]] [[Missing]]", false],
-      ["[id]:\n    [[Target]] [[Missing]]", true],
-      ["[id]: <my url> (title)\n    [[Target]] [[Missing]]", false],
-      ["[id]: foo(bar)\n    [[Target]] [[Missing]]", false],
-      ["[id]: foo(bar\n    [[Target]] [[Missing]]", true],
-      ["[id]: <url\\>\n    [[Target]] [[Missing]]", true],
-      ["[id]: url\u00a0part\n    [[Target]] [[Missing]]", false],
-      ["[id]: /url \"unclosed\n    [[Target]] [[Missing]]", true],
-    ];
-    for (const [example, visible] of cases) {
+    for (const { markdown: example, count } of commonmarkBlockOracle.examples) {
       const source = `😀${newline}${newline}${example.replaceAll("\n", newline)}`;
-      expect(extractMarkdownExplicitReferences(source), example).toEqual(visible ? ["Target", "Missing"].map((linktext) =>
+      expect(extractMarkdownExplicitReferences(source), example).toEqual(count === 2 ? ["Target", "Missing"].map((linktext) =>
+        expect.objectContaining({ linktext, startOffset: source.indexOf(`[[${linktext}]]`) })) : []);
+    }
+  });
+
+  it.each(["\n", "\r\n", "\r"])("matches the frozen official CommonMark block matrix with %j", (newline) => {
+    const cases = [...commonmarkBlockCases()];
+    expect(cases).toHaveLength(1680);
+    expect(commonmarkBlockOracle.oracle.implementation).toBe("Official CommonMark.js");
+    expect(commonmarkBlockOracle.oracle.version).toBe("0.31.2");
+    for (const { source: original, count } of cases) {
+      const source = original.replaceAll("\n", newline);
+      expect(extractMarkdownExplicitReferences(source), original).toEqual(count === 2 ? ["Target", "Missing"].map((linktext) =>
         expect.objectContaining({ linktext, startOffset: source.indexOf(`[[${linktext}]]`) })) : []);
     }
   });
