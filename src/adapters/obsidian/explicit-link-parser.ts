@@ -437,7 +437,6 @@ export function maskMarkdownNonContent(source: string): string {
   // collapses surrogate pairs and shifts every later mask range.
   const characters = source.split("");
   const frontmatterRange = findMarkdownFrontmatterRange(source);
-  maskIndentedCodeBlocks(characters, source, frontmatterRange === null ? [] : [frontmatterRange]);
   const blockRanges = maskDelimitedBlocks(characters, source, frontmatterRange);
   if (frontmatterRange !== null) {
     maskYamlCommentRanges(
@@ -470,6 +469,8 @@ function maskDelimitedBlocks(
   } | null = null;
   let opaque: { readonly start: number; readonly end: number; readonly containers: readonly MarkdownContainer[] } | null = null;
   let containers: readonly MarkdownContainer[] = [];
+  let indentedCode = false;
+  let paragraph = false;
   let inlineEnd = 0;
   let literalTagEnd = 0;
   const lines = sourceLineRanges(source);
@@ -509,10 +510,33 @@ function maskDelimitedBlocks(
       mask(fence.start, line.start);
       fence = null;
     }
-    if (!continuesContainers(text, containers)) inlineEnd = 0;
+    const continues = continuesContainers(text, containers);
+    if (!continues) inlineEnd = 0;
     cursor = Math.max(cursor, literalTagEnd);
+    // A closing opaque block or literal attribute is not a new paragraph. Keep
+    // the state from its opener unless actual prose follows the closing token.
+    if (cursor > line.start && source.slice(cursor, line.contentEnd).trim().length === 0) continue;
     const normalized = normalizeMarkdownContainerLine(text, containers);
-    containers = normalized.containers;
+    const blank = normalized.text.trim().length === 0;
+    // A lazy paragraph continuation can omit its quote/list prefixes. Keep that
+    // stack for a later indented continuation, but never carry it across a blank
+    // or a new block. Code cannot interrupt the paragraph itself.
+    const lazy = !continues && paragraph && !blank && !normalized.opensContainer &&
+      !startsMarkdownBlock(normalized.text);
+    if ((!continues && !lazy) || normalized.opensContainer) {
+      indentedCode = false;
+      paragraph = false;
+    }
+    if (!lazy) containers = normalized.containers;
+    const indented = normalized.text.startsWith("    ");
+    if (!blank && indented && (indentedCode || !paragraph) && cursor === line.start) {
+      indentedCode = true;
+      paragraph = false;
+      mask(line.start, line.contentEnd);
+      continue;
+    }
+    if (!blank) indentedCode = false;
+    paragraph = !blank && !startsMarkdownBlock(normalized.text);
     const rawStart = /^ {0,3}<(?:pre|script|style|textarea)(?=[\s>]|$)/iu.test(normalized.text)
       ? line.start + text.indexOf("<") : -1;
     const opening = cursor === line.start ? /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/u.exec(normalized.text) : null;
@@ -520,6 +544,7 @@ function maskDelimitedBlocks(
     if (delimiter !== undefined && !(delimiter[0] === "`" && opening?.[2]?.includes("`"))) {
       fence = { character: delimiter[0] ?? "", length: delimiter.length, start: line.start, containers };
       inlineEnd = 0;
+      paragraph = false;
       continue;
     }
     // Recognize opaque syntax in source order so fences inside comments/raw HTML
@@ -564,6 +589,10 @@ function maskDelimitedBlocks(
   if (fence !== null) mask(fence.start, source.length);
   if (opaque !== null) mask(opaque.start, source.length);
   return ranges;
+}
+
+function startsMarkdownBlock(text: string): boolean {
+  return /^ {0,3}(?:#{1,6}(?:\s|$)|`{3,}[^`]*$|~{3,}|(?:\* *){3,}$|(?:_ *){3,}$|(?:- *){3,}$|(?:=+|-+) *$|<(?:pre|script|style|textarea)(?=[\s>]|$)|<!--)/iu.test(text);
 }
 
 function continuesContainers(text: string, containers: readonly MarkdownContainer[]): boolean {
@@ -873,36 +902,6 @@ function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
     }
   }
   return { start: first.start, end: source.length };
-}
-
-function maskIndentedCodeBlocks(
-  characters: string[],
-  source: string,
-  excludedRanges: readonly MaskedRange[],
-): void {
-  let inBlock = false;
-  let previousBlank = true;
-  let excludedRangeIndex = 0;
-  const ranges = [...excludedRanges].sort((left, right) => left.start - right.start);
-  for (const line of sourceLineRanges(source)) {
-    while (ranges[excludedRangeIndex] !== undefined &&
-      (ranges[excludedRangeIndex]?.end ?? 0) <= line.start) excludedRangeIndex += 1;
-    const range = ranges[excludedRangeIndex];
-    const excluded = range !== undefined && line.start >= range.start && line.start < range.end;
-    const content = source.slice(line.start, line.contentEnd);
-    const blank = content.trim().length === 0;
-    const indented = /^(?: {4,}| {0,3}\t)/u.test(content);
-    if (excluded) {
-      inBlock = false;
-    } else if (inBlock) {
-      if (indented) maskRange(characters, line.start, line.contentEnd);
-      else if (!blank) inBlock = false;
-    } else if (indented && previousBlank) {
-      inBlock = true;
-      maskRange(characters, line.start, line.contentEnd);
-    }
-    previousBlank = blank;
-  }
 }
 
 interface SourceLineRange {

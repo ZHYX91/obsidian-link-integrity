@@ -49,7 +49,7 @@ Obsidian 语义只在 adapter 中解析。当前 adapter 使用官方 `parseLink
 
 adapter 为每个可作为显式来源的文件构建完整快照：Markdown 和 Frontmatter 使用 Metadata Cache 并在必要时从文本降级提取；Canvas 读取显式文件节点、背景文件和文本内部链接；Bases 先解析 YAML，只从 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 的公式标量提取可静态识别的显式引用。视图名称、`properties` 展示配置和公式内部普通字符串不会形成边，动态 Bases 查询结果也不会传入图模型；Bases YAML 无效时，本批次保持保守失败，不发布部分结果。link() 的第一个参数必须是完整字符串字面量，拼接和其他动态表达式不形成边。只有解码后公式在 YAML 标量中保持原样时才记录精确位置，否则保留引用但不声称具有行列坐标；两种情况下都保留重复引用。无效 Canvas JSON 采用同样策略：当前批次不替换文件元数据或快照，最近一次可信索引以过期状态继续可见，而不会把该来源错报为高置信孤立文件。
 
-Markdown 降级解析器在保留 UTF-16 源 offset 的同时屏蔽 fenced/indented code、inline code、Obsidian/HTML comment、原始 HTML 代码，以及支持 BOM 和 `---`/`...` 边界的 frontmatter 内 YAML comment；fenced code 使用逐行状态机处理 LF/CRLF、空块、相邻块、不同围栏字符与长度以及未闭合围栏，不通过换行归一化改变导航 offset。引用和列表前缀复用正文提示的容器行扫描器；容器结束也会终止其中未闭合的围栏。索引不继承提示层额外的保守排除规则。frontmatter value 和普通 Markdown 文本中的显式链接继续保留。Canvas 文本节点使用同一降级路径，因此启动期临时解析和 Canvas 诊断具有一致的误报边界。
+Markdown 降级解析器在保留 UTF-16 源 offset 的同时屏蔽 fenced/indented code、inline code、Obsidian/HTML comment、原始 HTML 代码，以及支持 BOM 和 `---`/`...` 边界的 frontmatter 内 YAML comment；fenced code 使用逐行状态机处理 LF/CRLF、空块、相邻块、不同围栏字符与长度以及未闭合围栏，不通过换行归一化改变导航 offset。引用和列表前缀复用正文提示的容器行扫描器；容器结束也会终止其中未闭合的围栏。缩进代码在同一块扫描中按扣除容器前缀后的列数判断，工作行展开 tab，但原始 offset 不变；列表标记宽度、嵌套容器和空行决定后续缩进，已有段落（含省略容器前缀的惰性续行）不能被缩进代码打断。代码内的注释、HTML 和围栏字面量不会改变外部块状态。索引不继承提示层额外的保守排除规则。frontmatter value 和普通 Markdown 文本中的显式链接继续保留。Canvas 文本节点使用同一降级路径，因此启动期临时解析和 Canvas 诊断具有一致的误报边界。
 
 Markdown 目的地址和标题边界只索引一次，包括匹配失败的情况；解析检查点通过共享调度器让出执行时间。Frontmatter 导航依据 YAML 语法节点的源码范围匹配完整属性路径；语法错误或路径歧义时不进行精确定位。
 

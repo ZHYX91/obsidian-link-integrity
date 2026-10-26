@@ -19,6 +19,72 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["fallback", "cached", "canvas"])("updates container-relative code diagnostics, graph and isolation via %s", async (mode) => {
+    const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
+    const target = fakeFile("Target.md");
+    const files = [sourceFile, target];
+    const content: Record<string, string> = {};
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort(files, { content, caches, destinations: new Map([["Target", target]]) });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    const cases: readonly [string, boolean][] = [
+      ["[[Target]] [[Missing]]", true],
+      [">     [[Target]] [[Missing]]", false],
+      ["- item\n\n    😀 [[Target]] [[Missing]]", true],
+      ["- item\n\n      [[Target]] [[Missing]]", false],
+      ["> paragraph\n>     [[Target]] [[Missing]]", true],
+      ["> >     [[Target]] [[Missing]]", false],
+      ["- item\n  - nested\n\n      [[Target]] [[Missing]]", true],
+      ["10. item\n\n        [[Target]] [[Missing]]", false],
+      ["-   \n\n      [[Target]] [[Missing]]", false],
+      ["> * * *\n>     [[Target]] [[Missing]]", false],
+      ["-\titem\n\n\t  [[Target]] [[Missing]]", true],
+      ["-\titem\n\n\t\t[[Target]] [[Missing]]", false],
+      ["- item\nlazy continuation\n\n    [[Target]] [[Missing]]", true],
+      [">     <!--\n\n[[Target]] [[Missing]]", true],
+      [">     <pre>\n\n[[Target]] [[Missing]]", true],
+      ["> ~~~\n> [[Target]] [[Missing]]\n> ~~~", false],
+      ["<!--\n~~~\n[[Target]] [[Missing]]\n-->", false],
+      ["<pre>\n~~~\n[[Target]] [[Missing]]\n</pre>", false],
+      [">    [[Target]] [[Missing]]", true],
+    ];
+    incremental.start();
+    try {
+      for (const newline of ["\n", "\r\n"]) {
+        for (const [example, visible] of cases) {
+          const text = `😀${newline}${newline}${example.replaceAll("\n", newline)}`;
+          content[sourceFile.path] = mode === "canvas"
+            ? JSON.stringify({ nodes: [{ id: "container-node", type: "text", text }] }) : text;
+          if (mode === "cached") caches.set(sourceFile.path, { links: [
+            positioned(text, "Target", "[[Target]]"), positioned(text, "Missing", "[[Missing]]"),
+          ] });
+          if (store.current.files.length === 0) await new FullRebuildController(port, store).rebuild();
+          else {
+            incremental.enqueue({ type: "modify", path: sourceFile.path });
+            await incremental.whenIdle();
+          }
+          const clean = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+          expect(store.current.toCanonicalState(), example).toEqual(clean.toCanonicalState());
+          const occurrences = store.current.getSourceSnapshot(sourceFile.path)!.occurrences;
+          expect(occurrences.map(({ linkpath }) => linkpath), example).toEqual(visible ? ["Target", "Missing"] : []);
+          if (visible) {
+            const start = positioned(text, "Target", "[[Target]]").position.start;
+            expect(occurrences[0]?.position).toMatchObject({ line: start.line, column: start.col });
+          }
+          expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText), example)
+            .toEqual(visible ? ["Missing"] : []);
+          expect(store.current.getOutgoingContributionCount(sourceFile.path), example).toBe(visible ? 1 : 0);
+          expect(store.current.getIncomingContributionCount(target.path), example).toBe(visible ? 1 : 0);
+          expect(queryIsolatedFiles(store.current).map(({ path }) => path).sort(), example)
+            .toEqual(visible ? [] : files.map(({ path }) => path).sort());
+        }
+      }
+    } finally {
+      incremental.stop();
+    }
+  });
+
   it.each(["Source.md", "Board.canvas"])("removes non-content links from graph queries and incremental rebuilds in %s", async (path) => {
     const sourceFile = fakeFile(path);
     const target = fakeFile("Target.md");

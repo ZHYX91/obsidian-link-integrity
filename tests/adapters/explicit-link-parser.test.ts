@@ -232,6 +232,57 @@ describe("extractMarkdownExplicitReferences", () => {
     ]);
   });
 
+  it.each(["\n", "\r\n", "\r"])("measures indented code inside its containers without shifting offsets with %j", (newline) => {
+    const cases = [
+      ">     [[Ghost]]",
+      "> >     [[Ghost]]",
+      "- item\n\n      [[Ghost]]",
+      "10. item\n\n        [[Ghost]]",
+      "1000. item\n\n          [[Ghost]]",
+      "-   \n\n      [[Ghost]]",
+      "10.   \n\n        [[Ghost]]",
+      "- > item\n  >\n  >     [[Ghost]]",
+      "> - item\n>\n>       [[Ghost]]",
+      "-\titem\n\n\t\t[[Ghost]]",
+      ">\t\t[[Ghost]]",
+      "-     [[Ghost]]",
+      "- first\n-     [[Ghost]]",
+      "paragraph\n>     [[Ghost]]",
+      "# heading\n    [[Ghost]]",
+      "- - -\n    [[Ghost]]",
+      "> * * *\n>     [[Ghost]]",
+      "<pre>\n</pre>\n    [[Ghost]]",
+      "> <pre>\n> </pre>\n>     [[Ghost]]",
+      "<!--\n-->\n    [[Ghost]]",
+      ">     - ```\n>     [[Ghost]]\n[[Shown]]",
+      ">     <!--\n\n[[Shown]]",
+      ">     <pre>\n\n[[Shown]]",
+      "- item\n\n      <!--\n\n  [[Shown]]",
+      ">    [[Shown]]",
+      "- item\n\n    [[Shown]]",
+      "-   \n\n    [[Shown]]",
+      "10. item\n\n      [[Shown]]",
+      "- first\n  - second\n\n      [[Shown]]",
+      "> - item\n>\n>     [[Shown]]",
+      "-\titem\n\n\t  [[Shown]]",
+      "> paragraph\n>     [[Shown]]",
+      "- item\n      [[Shown]]",
+      "- item\nlazy continuation\n\n    [[Shown]]",
+      "> item\nlazy continuation\n>     [[Shown]]",
+      ">     [[Ghost]]\n>\n>    [[Shown]]",
+      "-     [[Ghost]]\n\n    😀 [[Shown]]",
+      "paragraph <!-- inline -->\n    [[Shown]]",
+      "paragraph <!--\n-->\n    [[Shown]]",
+    ];
+    for (const example of cases) {
+      const source = `😀${newline}${newline}${example.replaceAll("\n", newline)}`;
+      const shown = source.indexOf("[[Shown]]");
+      expect(extractMarkdownExplicitReferences(source), example).toEqual(shown < 0 ? [] : [
+        expect.objectContaining({ linktext: "Shown", startOffset: shown }),
+      ]);
+    }
+  });
+
   it("ignores YAML comments while retaining frontmatter values and later headings", () => {
     const source = [
       "\uFEFF---",
