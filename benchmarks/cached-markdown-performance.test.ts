@@ -35,7 +35,7 @@ it(`filters positioned cached non-content in ${SOURCE_COUNT} sources and keeps 1
     index.replaceSourceSnapshot(value.path, (await port.buildSourceSnapshot(value.path))!);
   }
   const buildMs = performance.now() - started;
-  expect(cachedRead).toHaveBeenCalledTimes(SOURCE_COUNT + 1);
+  expect(cachedRead).toHaveBeenCalledTimes(SOURCE_COUNT + 2);
   expect(index.occurrences).toHaveLength(SOURCE_COUNT + 1);
   expect(index.getIncomingNeighborCount(hub.path)).toBe(SOURCE_COUNT);
   expect(index.getIncomingContributionCount(hub.path)).toBe(SOURCE_COUNT);

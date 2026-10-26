@@ -32,8 +32,10 @@ export function extractMarkdownExplicitReferences(
 export async function extractMarkdownExplicitReferencesAsync(
   source: string,
   scheduler = new WorkScheduler(),
+  // Internal adapters may reuse only the same source's UTF-16 mask.
+  maskedSource?: string,
 ): Promise<readonly ParsedExplicitReference[]> {
-  const steps = extractMarkdownSteps(source);
+  const steps = extractMarkdownSteps(source, maskedSource);
   let step = steps.next();
   while (!step.done) {
     const pause = scheduler.checkpoint();
@@ -43,8 +45,7 @@ export async function extractMarkdownExplicitReferencesAsync(
   return step.value;
 }
 
-function* extractMarkdownSteps(source: string): Generator<void, readonly ParsedExplicitReference[]> {
-  const masked = maskMarkdownNonContent(source);
+function* extractMarkdownSteps(source: string, masked = maskMarkdownNonContent(source)): Generator<void, readonly ParsedExplicitReference[]> {
   yield;
   const { references: wikiReferences, ranges } = yield* extractWikiLinks(source, masked);
   const destinations = yield* indexMarkdownDestinations(masked);
@@ -992,19 +993,16 @@ function maskYamlCommentRanges(
   }
 }
 
-function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
+export function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
+  if (!/^[^\S\r\n]*---[^\S\r\n]*(?:[\r\n]|$)/u.test(source)) return null;
   const lines = sourceLineRanges(source);
-  const first = lines[0];
-  if (first === undefined) return null;
-  const firstText = source.slice(first.start, first.contentEnd).replace(/^\uFEFF/u, "").trim();
-  if (firstText !== "---") return null;
   for (const line of lines.slice(1)) {
     const text = source.slice(line.start, line.contentEnd).trim();
     if (text === "---" || text === "...") {
-      return { start: first.start, end: line.end };
+      return { start: 0, end: line.end };
     }
   }
-  return { start: first.start, end: source.length };
+  return { start: 0, end: source.length };
 }
 
 interface SourceLineRange {

@@ -20,7 +20,7 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
-  it.each(["fallback", "cached", "canvas"])("updates container-relative code diagnostics, graph and isolation via %s", async (mode) => {
+  it.each(["fallback", "cached", "empty-cache", "partial-cache", "canvas"])("updates container-relative code diagnostics, graph and isolation via %s", async (mode) => {
     const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
     const target = fakeFile("Target.md");
     const files = [sourceFile, target];
@@ -61,9 +61,10 @@ describe("ObsidianLinkIndexPort", () => {
           const text = `😀${newline}${newline}${example.replaceAll("\n", newline)}`;
           content[sourceFile.path] = mode === "canvas"
             ? JSON.stringify({ nodes: [{ id: "container-node", type: "text", text }] }) : text;
-          if (mode === "cached") caches.set(sourceFile.path, { links: [
-            positioned(text, "Target", "[[Target]]"), positioned(text, "Missing", "[[Missing]]"),
-          ] });
+          if (mode === "cached" || mode === "partial-cache" || mode === "empty-cache") caches.set(sourceFile.path, { links:
+            mode === "empty-cache" ? [] : mode === "partial-cache" ? [positioned(text, "Target", "[[Target]]")] : [
+              positioned(text, "Target", "[[Target]]"), positioned(text, "Missing", "[[Missing]]"),
+            ] });
           if (store.current.files.length === 0) await new FullRebuildController(port, store).rebuild();
           else {
             incremental.enqueue({ type: "modify", path: sourceFile.path });
@@ -229,17 +230,90 @@ describe("ObsidianLinkIndexPort", () => {
         { ...ghost, position: { ...ghost.position, start: { ...ghost.position.start, line: -1 } } },
       ] }]]),
     });
-    expect((await test.port.buildSourceSnapshot(file.path))?.occurrences).toHaveLength(3);
+    const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+    expect(occurrences.filter(({ raw }) => raw !== "[[Real]]")).toHaveLength(3);
+    expect(occurrences.filter(({ raw }) => raw === "[[Real]]")).toHaveLength(1);
   });
 
-  it("keeps frontmatter-only caches independent of body reads", async () => {
+  it("retains native frontmatter positions while supplementing an otherwise empty cache from body source", async () => {
     const file = fakeFile("Source.md");
+    const source = "---\nrelated: '[[Property]]'\n---\n[id]: /url\n    [[Target]] [[Missing]]\n";
     const test = createPort([file], {
-      content: {}, destinations: new Map(),
-      caches: new Map([[file.path, { frontmatterLinks: [{ link: "Target", original: "[[Target]]", key: "related" }] }]]),
+      content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { frontmatterLinks: [{ link: "Property", original: "[[Property]]", key: "related" }] }]]),
     });
-    expect((await test.port.buildSourceSnapshot(file.path))?.occurrences).toHaveLength(1);
-    expect(test.cachedRead).not.toHaveBeenCalled();
+    const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+    expect(occurrences.map(({ linkpath }) => linkpath)).toEqual(["Target", "Missing", "Property"]);
+    expect(occurrences.at(-1)).toMatchObject({ kind: "frontmatter", position: { property: "related", line: null } });
+    expect(test.cachedRead).toHaveBeenCalledOnce();
+  });
+
+  it.each(["\n", "\r\n", "\r"])("merges exact and uncertain native occurrences without losing repeated body syntax with %j", async (newline) => {
+    const file = fakeFile("Source.md");
+    const source = ["😀 [[Target]] [[Target]] ![[Image.png]]", "[label][ref] [formatted `code`](Other)", "[ref]: Other", ""].join(newline);
+    const first = positioned(source, "Native target", "[[Target]]");
+    const second = positioned(source, "Native target", "[[Target]]", first.position.end.offset);
+    const embed = positioned(source, "Image.png", "![[Image.png]]");
+    const nativeReference = positioned(source, "Other", "[label][ref]");
+    const formatted = positioned(source, "Other", "[formatted `code`](Other)");
+    for (const links of [
+      [first, first, nativeReference, formatted],
+      [{ ...first, position: { start: { line: 100, col: 0, offset: 0 }, end: { line: 100, col: 10, offset: 10 } } }, nativeReference, formatted],
+      [first, second, nativeReference, formatted],
+    ]) {
+      const test = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+        caches: new Map([[file.path, { links, embeds: [embed] }]]) });
+      const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+      expect(occurrences).toHaveLength(5);
+      expect(occurrences.filter(({ raw }) => raw === "[[Target]]")).toHaveLength(2);
+      expect(occurrences.filter(({ raw }) => raw === "[[Target]]").some(({ linkpath }) => linkpath === "Native target")).toBe(true);
+      expect(occurrences.filter(({ kind }) => kind === "markdown-embed")).toHaveLength(1);
+      expect(occurrences.filter(({ raw }) => raw === "[label][ref]")).toHaveLength(1);
+      expect(occurrences.filter(({ raw }) => raw === "[formatted `code`](Other)")).toHaveLength(1);
+      expect(test.cachedRead).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("uses uncertain token multiplicities without assigning their positions to repeated source links", async () => {
+    const file = fakeFile("Source.md");
+    const source = "[[Target]] [[Target]] [[Target]]";
+    const uncertain = [100, 101].map((line) => reference("Target", "[[Target]]", line));
+    const test = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: uncertain }]]) });
+    const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+    expect(occurrences).toHaveLength(3);
+    expect(occurrences.map(({ position }) => position?.line)).toEqual([0, 100, 101]);
+    expect(occurrences[0]?.position?.column).toBe(source.lastIndexOf("[[Target]]"));
+  });
+
+  it("preserves native legacy ignore ordinals when source order differs or body references are supplemented", async () => {
+    const file = fakeFile("Source.md");
+    const source = "---\nrelated: '[[Property]]'\n---\n![[Image.png]] [[Missing]] [[Supplement]]";
+    const missing = positioned(source, "Missing", "[[Missing]]");
+    const image = positioned(source, "Image.png", "![[Image.png]]");
+    const test = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [missing], embeds: [image],
+        frontmatterLinks: [{ link: "Property", original: "[[Property]]", key: "related" }] }]]) });
+    const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+    const legacy = (kind: string, location: string, ordinal: number) => [file.path, kind, location, String(ordinal)].join("\u0000");
+    expect(occurrenceIdMatches(legacy("markdown-link", `${missing.position.start.line}:${missing.position.start.col}`, 0),
+      occurrences.find(({ raw }) => raw === "[[Missing]]")!.id)).toBe(true);
+    expect(occurrenceIdMatches(legacy("markdown-embed", `${image.position.start.line}:${image.position.start.col}`, 1),
+      occurrences.find(({ raw }) => raw === "![[Image.png]]")!.id)).toBe(true);
+    expect(occurrenceIdMatches(legacy("frontmatter", "-:-", 2), occurrences.at(-1)!.id)).toBe(true);
+    expect(occurrences.map(({ raw }) => raw)).toEqual(["![[Image.png]]", "[[Missing]]", "[[Supplement]]", "[[Property]]"]);
+  });
+
+  it("does not duplicate a native token whose raw text only normalizes source CRLF", async () => {
+    const file = fakeFile("Source.md");
+    const source = '[label](Target\r\n "title")';
+    const native = { ...positioned(source, "Native target", source), original: source.replaceAll("\r\n", "\n") };
+    const test = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [native] }]]) });
+    const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+    expect(occurrences).toHaveLength(1);
+    expect(occurrences[0]).toMatchObject({ raw: native.original, linkpath: "Native target",
+      position: { line: native.position.start.line, column: native.position.start.col } });
   });
 
   it("omits unsupported decoded YAML coordinates without losing repeated occurrences", async () => {
