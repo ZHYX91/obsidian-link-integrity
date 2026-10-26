@@ -66,6 +66,8 @@ Protected-range regressions for Markdown fallback, accurately positioned Metadat
 
 Fixed-seed random event sequences repeatedly verify differential equality. Focused race tests cover revalidation of valid and broken references when a same-name file appears, prevention of an older asynchronous snapshot overwriting a newer revision, repeated-event coalescing, absorption of pre-scan event storms by the new complete initial index without duplicate snapshot work, buffered replay of create/modify/delete/rename after a scan has begun, one late host-wide `resolved` correction after a Metadata Cache timeout, and bounded concurrency. Graph-contribution rule tests use the same normalized state as a stable differential fingerprint to prove that regraph equals a clean materialization under the new policy without increasing adapter-read or source-parse counts.
 
+Block-context regressions follow CommonMark 0.31.2 list-interruption rules and examples 97, 207, 213, 216, 280 and 285. They cover non-1 ordered markers and empty list markers after paragraphs, setext with and without a preceding paragraph, the second blank line of an empty item, and valid, invalid and multiline reference definitions. Each case separately asserts occurrences, missing targets, valid-edge contributions and isolated files; equality between incremental and clean rebuilds alone does not prove correct semantics.
+
 ## Rebuild and failure tests
 
 Transactional tests verify that staging is invisible before completion and is published atomically only after success. On build failure, the store retains the same most-recent trustworthy object and generation.

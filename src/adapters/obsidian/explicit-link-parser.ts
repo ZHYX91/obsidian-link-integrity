@@ -471,6 +471,8 @@ function maskDelimitedBlocks(
   let containers: readonly MarkdownContainer[] = [];
   let indentedCode = false;
   let paragraph = false;
+  let emptyItemDepth = 0;
+  let definitionEnd = 0;
   let inlineEnd = 0;
   let literalTagEnd = 0;
   const lines = sourceLineRanges(source);
@@ -482,8 +484,9 @@ function maskDelimitedBlocks(
     maskRange(characters, start, end);
     ranges.push({ start, end });
   };
-  for (const line of lines) {
+  for (const [lineIndex, line] of lines.entries()) {
     if (frontmatter !== null && line.start < frontmatter.end) continue;
+    if (line.start < definitionEnd) continue;
     const text = source.slice(line.start, line.contentEnd);
     let cursor = line.start;
     if (opaque !== null) {
@@ -516,7 +519,7 @@ function maskDelimitedBlocks(
     // A closing opaque block or literal attribute is not a new paragraph. Keep
     // the state from its opener unless actual prose follows the closing token.
     if (cursor > line.start && source.slice(cursor, line.contentEnd).trim().length === 0) continue;
-    const normalized = normalizeMarkdownContainerLine(text, containers);
+    const normalized = normalizeMarkdownContainerLine(text, containers, paragraph);
     const blank = normalized.text.trim().length === 0;
     // A lazy paragraph continuation can omit its quote/list prefixes. Keep that
     // stack for a later indented continuation, but never carry it across a blank
@@ -526,17 +529,37 @@ function maskDelimitedBlocks(
     if ((!continues && !lazy) || normalized.opensContainer) {
       indentedCode = false;
       paragraph = false;
+      emptyItemDepth = 0;
     }
     if (!lazy) containers = normalized.containers;
     const indented = normalized.text.startsWith("    ");
     if (!blank && indented && (indentedCode || !paragraph) && cursor === line.start) {
       indentedCode = true;
       paragraph = false;
+      emptyItemDepth = 0;
       mask(line.start, line.contentEnd);
       continue;
     }
     if (!blank) indentedCode = false;
-    paragraph = !blank && !startsMarkdownBlock(normalized.text);
+    // The marker itself is the first blank line of an empty list item. A second
+    // blank closes it; populated items can contain any number of blank lines.
+    if (blank) {
+      if (normalized.opensContainer && typeof containers.at(-1) === "number") emptyItemDepth = containers.length;
+      else if (emptyItemDepth > 0) { containers = containers.slice(0, emptyItemDepth - 1); emptyItemDepth = 0; }
+    } else emptyItemDepth = 0;
+    let definitionLines = 0;
+    if (!paragraph && !blank && /^ {0,3}\[/u.test(normalized.text)) {
+      let next = lineIndex + 1;
+      definitionLines = referenceDefinitionLines(normalized.text, () => {
+        const following = lines[next++];
+        if (following === undefined) return null;
+        const content = normalizeMarkdownContainerLine(source.slice(following.start, following.contentEnd), containers, true);
+        return content.opensContainer || startsMarkdownBlock(content.text) ? null : content.text;
+      });
+      if (definitionLines > 0) definitionEnd = lines[lineIndex + definitionLines - 1]!.end;
+    }
+    paragraph = definitionLines === 0 && !blank && !startsMarkdownBlock(normalized.text) &&
+      !(paragraph && continues && /^ {0,3}(?:=+|-+) *$/u.test(normalized.text));
     const rawStart = /^ {0,3}<(?:pre|script|style|textarea)(?=[\s>]|$)/iu.test(normalized.text)
       ? line.start + text.indexOf("<") : -1;
     const opening = cursor === line.start ? /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/u.exec(normalized.text) : null;
@@ -592,14 +615,76 @@ function maskDelimitedBlocks(
 }
 
 function startsMarkdownBlock(text: string): boolean {
-  return /^ {0,3}(?:#{1,6}(?:\s|$)|`{3,}[^`]*$|~{3,}|(?:\* *){3,}$|(?:_ *){3,}$|(?:- *){3,}$|(?:=+|-+) *$|<(?:pre|script|style|textarea)(?=[\s>]|$)|<!--)/iu.test(text);
+  return /^ {0,3}(?:#{1,6}(?:\s|$)|`{3,}[^`]*$|~{3,}|(?:\* *){3,}$|(?:_ *){3,}$|(?:- *){3,}$|<(?:pre|script|style|textarea)(?=[\s>]|$)|<!--)/iu.test(text);
+}
+
+/** A definition is a block only at a paragraph start. Read only its needed lines. */
+function referenceDefinitionLines(first: string, readLine: () => string | null): number {
+  let text = first;
+  let lines = 1;
+  const append = (): boolean => {
+    const next = readLine();
+    if (next === null || next.trim().length === 0) return false;
+    text += `\n${next}`;
+    lines += 1;
+    return true;
+  };
+  // Labels are bounded; an unfinished label must not scan a whole source again.
+  while (/^ {0,3}\[(?:\\.|[^[\]\\]){0,999}$/su.test(text) && append()) { /* continue label */ }
+  const label = /^ {0,3}\[((?:\\.|[^[\]\\]){1,999})\]: */su.exec(text);
+  if (label === null || label[1]!.trim().length === 0) return 0;
+  let cursor = label[0].length;
+  if (cursor === text.length) {
+    if (!append()) return 0;
+    cursor += /^\n */u.exec(text.slice(cursor))![0].length;
+  }
+  const start = cursor;
+  const angle = text[cursor] === "<";
+  if (angle) cursor += 1;
+  let depth = 0;
+  for (; cursor < text.length; cursor += 1) {
+    const character = text[cursor]!;
+    if (character === "\\" && /[!-/:-@[-`{-~]/u.test(text[cursor + 1] ?? "")) { cursor += 1; continue; }
+    if (angle && character === ">") { depth = -1; cursor += 1; break; }
+    if (angle && (character === "<" || character === "\n")) return 0;
+    if (!angle) {
+      if (character <= " " || character === "\u007f") break;
+      if (character === "(") depth += 1;
+      if (character === ")" && --depth < 0) return 0;
+    }
+  }
+  if (angle ? depth !== -1 : cursor === start || depth !== 0) return 0;
+  const destinationLines = lines;
+  const end = cursor;
+  while (text[cursor] === " ") cursor += 1;
+  const sameLine = cursor < text.length;
+  if (!sameLine) {
+    if (!append()) return destinationLines;
+    cursor += /^\n */u.exec(text.slice(cursor))![0].length;
+  } else if (cursor === end) return 0;
+  const opening = text[cursor];
+  const closing = opening === "(" ? ")" : opening;
+  const fallback = sameLine ? 0 : destinationLines;
+  if (opening !== '"' && opening !== "'" && opening !== "(") return fallback;
+  cursor += 1;
+  for (;;) {
+    if (cursor === text.length) {
+      text = "";
+      cursor = 0;
+      if (!append()) return fallback;
+    }
+    const character = text[cursor++];
+    if (character === "\\" && /[!-/:-@[-`{-~]/u.test(text[cursor] ?? "")) { cursor += 1; continue; }
+    if (character === closing) return text.slice(cursor).trim().length === 0 ? lines : fallback;
+    if (opening === "(" && character === "(") return fallback;
+  }
 }
 
 function continuesContainers(text: string, containers: readonly MarkdownContainer[]): boolean {
   const stripped = stripMarkdownContainers(expandMarkdownTabs(text), containers);
   if (stripped.text !== null) return true;
   // A blank list continuation may omit indentation; a quote must retain its marker.
-  return text.trim().length === 0 && !containers.slice(stripped.consumed.length).includes("quote");
+  return stripped.remainder.trim().length === 0 && !containers.slice(stripped.consumed.length).includes("quote");
 }
 
 function indexInlineCodeClosers(source: string, lines: readonly SourceLineRange[]): ReadonlyMap<number, number> {
