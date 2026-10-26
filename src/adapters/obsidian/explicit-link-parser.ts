@@ -561,7 +561,13 @@ function maskDelimitedBlocks(
         return content.opensContainer || startsMarkdownBlock(content.text) ||
           continuesContainers(text, containers) && isSetextUnderline(content.text) ? null : content.text;
       });
-      if (definitionLines > 0) definitionEnd = lines[lineIndex + definitionLines - 1]!.end;
+      if (definitionLines > 0) {
+        definitionEnd = lines[lineIndex + definitionLines - 1]!.end;
+        // Definitions are metadata, not inline content. Their labels, titles and
+        // literal delimiters must not create links or change following syntax.
+        mask(line.start, definitionEnd);
+        cursor = definitionEnd;
+      }
     }
     // Definitions remain in the open paragraph until it closes. Only the body
     // left after stripping its leading definitions can become a setext heading.

@@ -19,6 +19,17 @@ The review regression also exercises CRLF/empty/adjacent Canvas fences, Bases dy
 
 ## Body diagnostic scenarios
 
+The focused `container-block-boundaries` scenario uses five explicit provider commands:
+`prepare-block-quote-code`, `prepare-block-list-prose`,
+`prepare-block-definition-continuation`, `prepare-block-definition-non1-code` and
+`prepare-block-definition-title`. They create `Block Context Acceptance/C5 Source.md`
+and `C5 Target.md` only when the folder is absent. Later transitions require both known
+files and exact expected target/source bytes; unknown edits are never overwritten.
+The quote, non-1-marker code and definition-title inputs produce no C5 edge or diagnostic
+(five broken/six isolated overall). List prose and definition continuation produce one
+resolved C5 edge and one missing-target diagnostic (six broken/four isolated overall).
+Observe both tabs and rebuild through the real host; preparation is not a verdict.
+
 The focused `escaped-percent-and-source-context` scenario uses the explicit
 `create-context-regression-fixtures` provider command in a disposable Vault. It creates
 `Context Regression Acceptance/` only when absent: escaped delimiters and protected code,

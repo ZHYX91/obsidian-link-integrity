@@ -103,6 +103,13 @@ const examples = [
   const markdown = prefix + pair;
   return { id, markdown, ...expected(markdown) };
 });
+examples.push(...[
+  ["definition-wiki-title", `[id]: /url "${pair}"`],
+  ["definition-multiline-wiki-title", `[id]: /url "first\n${pair}"`],
+  ["quoted-definition-wiki-title", `> [id]: /url "${pair}"`],
+  ["list-definition-wiki-title", `- [id]: /url "${pair}"`],
+  ["invalid-definition-wiki-title", `[id]: /url "${pair}" prose`],
+].map(([id, markdown]) => ({ id, markdown, ...expected(markdown) })));
 const oracle = {
   schemaVersion: 1,
   oracle: {

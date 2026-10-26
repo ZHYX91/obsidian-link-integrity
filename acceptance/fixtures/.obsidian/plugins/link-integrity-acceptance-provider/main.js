@@ -5,6 +5,15 @@ const REPAIRED_TARGET = TARGET + "\n# Missing heading\n\nRepaired block ^missing
 const MISSING = "# Created missing file\n";
 const SOURCE = "# Body link hints\n\n[[Body Hints Acceptance/Missing|Missing file]]\n\n[[Body Hints Acceptance/Target#Missing heading|Missing heading]]\n\n[[Body Hints Acceptance/Target#^missing-block|Missing block]]\n\n[[Body Hints Acceptance/Target#Existing heading|Same label]] and [[Body Hints Acceptance/Missing|Same label]].\n\nBody Hints Acceptance/Target#^missing-block and [[Body Hints Acceptance/Target#^missing-block|Same label]].\n\n[[Body Hints Acceptance/Target#^known-block|Valid block]]\n\n[Native reference][existing]\n\n[existing]: <Body Hints Acceptance/Target#Existing heading>\n\n![[Body Hints Acceptance/Target]]\n\n`[[Protected ghost]]`\n%% [[Protected ghost]] %%\n";
 const VIRTUAL = "# Virtual text only\n\nBodyHintTarget\n\nBody Hints Acceptance/Target#^missing-block\n";
+const BLOCK_PREFIX = "Block Context Acceptance";
+const BLOCK_PAIR = "[[C5 Target]] [[C5 Missing]]";
+const BLOCK_CASES = {
+  "quote-code": `>     ${BLOCK_PAIR}\n`,
+  "list-prose": `- item\n\n    ${BLOCK_PAIR}\n`,
+  "definition-continuation": `[id]: /url\n    ${BLOCK_PAIR}\n`,
+  "definition-non1-code": `[id]: /url\n2. item\n\n    ${BLOCK_PAIR}\n`,
+  "definition-title": `[id]: /url "${BLOCK_PAIR}"\n`,
+};
 module.exports = class extends Plugin {
   onload() {
     for (const [id, name, action] of [
@@ -13,6 +22,10 @@ module.exports = class extends Plugin {
       ["repair-body-hint-fixtures", "Repair body-hint fixtures in this disposable acceptance Vault", () => this.repair()],
       ["restore-body-hint-fixtures", "Restore broken body-hint fixtures in this disposable acceptance Vault", () => this.restore()],
     ]) this.addCommand({ id, name, callback: () => action().catch((error) => new Notice(String(error))) });
+    for (const mode of Object.keys(BLOCK_CASES)) this.addCommand({
+      id: `prepare-block-${mode}`, name: `Prepare block-context ${mode} in this disposable acceptance Vault`,
+      callback: () => this.prepareBlockContextFixtures(mode).catch((error) => new Notice(String(error))),
+    });
   }
   guard() {
     if (this.app.vault.getFileByPath("Standalone.md") === null || this.app.vault.getFileByPath("Broken-only.md") === null) {
@@ -33,6 +46,29 @@ module.exports = class extends Plugin {
     await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${PREFIX}/Source.md`));
   }
   async verifyCommon() { this.guard(); await this.assertFile("Source.md", SOURCE); await this.assertFile("Virtual-only.md", VIRTUAL); }
+  async prepareBlockContextFixtures(mode) {
+    this.guard();
+    if (!Object.hasOwn(BLOCK_CASES, mode)) throw new Error("Unknown block-context fixture mode.");
+    const vault = this.app.vault;
+    const sourcePath = `${BLOCK_PREFIX}/C5 Source.md`;
+    const targetPath = `${BLOCK_PREFIX}/C5 Target.md`;
+    const targetText = "# Block context target\n";
+    if (vault.getAbstractFileByPath(BLOCK_PREFIX) === null) {
+      await vault.createFolder(BLOCK_PREFIX);
+      await vault.create(targetPath, targetText);
+      await vault.create(sourcePath, BLOCK_CASES[mode]);
+    } else {
+      const source = vault.getFileByPath(sourcePath);
+      const target = vault.getFileByPath(targetPath);
+      if (source === null || target === null || await vault.cachedRead(target) !== targetText ||
+        !Object.values(BLOCK_CASES).includes(await vault.cachedRead(source))) {
+        throw new Error("Unexpected block-context fixture bytes; use a fresh disposable Vault.");
+      }
+      await vault.modify(source, BLOCK_CASES[mode]);
+    }
+    new Notice(`Block-context ${mode} input prepared; observe diagnostics and isolation separately.`);
+    await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(sourcePath));
+  }
   async createContextRegressionFixtures() {
     this.guard();
     const vault = this.app.vault;

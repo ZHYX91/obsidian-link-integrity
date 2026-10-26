@@ -13,6 +13,31 @@
   },
   "scenarios": [
     {
+      "id": "container-block-boundaries",
+      "title": "Container-relative code and reference-definition boundaries",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline in this disposable Vault",
+        "Run prepare-block-quote-code, wait for indexing and inspect Broken links and Isolated files",
+        "Run prepare-block-list-prose, then prepare-block-definition-continuation; inspect both business tabs and the C5 Missing diagnostic after each transition",
+        "Run prepare-block-definition-non1-code, then prepare-block-definition-title; inspect both business tabs after each transition",
+        "Rebuild after each selected input and confirm its diagnostics and isolated files agree with the incremental results; verify only the known C5 Source fixture changed between modes"
+      ],
+      "expected": [
+        "Quote code has five broken and six isolated files; the new source and target have no connection",
+        "List prose and the definition continuation each have six broken and four isolated files: C5 Missing is reported once and C5 Source/C5 Target are connected",
+        "The definition non-1 marker followed by code and the definition title each have five broken and six isolated files, with no C5 Missing diagnostic or source/target connection",
+        "All rebuilt projections agree with incremental observations; provider commands prepare inert inputs and never issue a product verdict"
+      ]
+    },
+    {
       "id": "escaped-percent-and-source-context",
       "title": "Escaped delimiters, literal percent destinations and same-text source changes",
       "surfaces": [

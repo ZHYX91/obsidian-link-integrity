@@ -293,6 +293,27 @@ describe("extractMarkdownExplicitReferences", () => {
     }
   });
 
+  it.each(["\n", "\r\n", "\r"])("keeps reference-definition metadata out of content syntax with %j", (newline) => {
+    const definitions = [
+      '[id]: /url "[[Target]] [[Missing]]"',
+      '[id]: /url "[label](Target)"',
+      '[id]: /url "first\n[[Target]] [[Missing]]"',
+      '> [id]: /url "[[Target]] [[Missing]]"',
+      '- [id]: /url "[[Target]] [[Missing]]"',
+      '[id]: /url "%%"\n\n[[Shown]] %%',
+      '[id]: /url "`"\n\n[[Shown]] `',
+    ];
+    for (const definition of definitions) {
+      const source = `😀${newline}${newline}${definition.replaceAll("\n", newline)}`;
+      const shown = source.indexOf("[[Shown]]");
+      expect(extractMarkdownExplicitReferences(source), definition).toEqual(shown < 0 ? [] : [
+        expect.objectContaining({ linktext: "Shown", startOffset: shown }),
+      ]);
+    }
+    const invalid = '[id]: /url "[[Target]] [[Missing]]" prose';
+    expect(extractMarkdownExplicitReferences(invalid).map(({ linktext }) => linktext)).toEqual(["Target", "Missing"]);
+  });
+
   it.each(["\n", "\r\n", "\r"])("matches the frozen official CommonMark block matrix with %j", (newline) => {
     const cases = [...commonmarkBlockCases()];
     expect(cases).toHaveLength(1680);

@@ -393,6 +393,36 @@
       "markdown": "1. first\n2. second\n\n    [[Target]] [[Missing]]",
       "count": 2,
       "html": "<ol>\n<li>\n<p>first</p>\n</li>\n<li>\n<p>second</p>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ol>\n"
+    },
+    {
+      "id": "definition-wiki-title",
+      "markdown": "[id]: /url \"[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": ""
+    },
+    {
+      "id": "definition-multiline-wiki-title",
+      "markdown": "[id]: /url \"first\n[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": ""
+    },
+    {
+      "id": "quoted-definition-wiki-title",
+      "markdown": "> [id]: /url \"[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": "<blockquote>\n</blockquote>\n"
+    },
+    {
+      "id": "list-definition-wiki-title",
+      "markdown": "- [id]: /url \"[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": "<ul>\n<li></li>\n</ul>\n"
+    },
+    {
+      "id": "invalid-definition-wiki-title",
+      "markdown": "[id]: /url \"[[Target]] [[Missing]]\" prose",
+      "count": 2,
+      "html": "<p>[id]: /url &quot;[[Target]] [[Missing]]&quot; prose</p>\n"
     }
   ]
 }
