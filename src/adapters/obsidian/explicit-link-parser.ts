@@ -19,6 +19,11 @@ export interface ParsedExplicitReference {
   readonly exactPosition?: boolean;
 }
 
+export interface MarkdownSyntaxRange {
+  readonly start: number;
+  readonly end: number;
+  readonly kind: "metadata" | "code" | "comment" | "raw-html" | "frontmatter";
+}
 
 export function extractMarkdownExplicitReferences(
   source: string,
@@ -40,9 +45,24 @@ export async function parseMarkdownSourceAsync(source: string, scheduler = new W
   return step.value;
 }
 
-function* extractMarkdownSteps(source: string): Generator<void, { references: readonly ParsedExplicitReference[]; masked: string }> {
-  const destinations = yield* indexMarkdownDestinations(source);
-  const { masked, inline: established, frontmatterEnd } = maskMarkdownNonContent(source, destinations);
+function* extractMarkdownSteps(source: string) {
+  let destinations = yield* indexMarkdownDestinations(source);
+  const definitions = new Set<string>();
+  let syntax = source;
+  // Definitions belong to blocks and may follow their uses. Establish their
+  // source grammar before reference links can deactivate outer inline labels.
+  if (source.includes(">") || source.includes("]:")) {
+    const projection = source.split("");
+    maskMarkdownNonContent(source, destinations, source, definitions, projection);
+    syntax = projection.join("");
+    if (syntax !== source) {
+      destinations = yield* indexMarkdownDestinations(syntax);
+      definitions.clear();
+      maskMarkdownNonContent(source, destinations, syntax, definitions, projection);
+    }
+  }
+  const { masked, inline: established, frontmatterEnd, syntaxRanges } =
+    maskMarkdownNonContent(source, destinations, syntax, definitions);
   const { wikiReferences, markdown } = yield* extractMarkdownLinks(source, masked, destinations, established, frontmatterEnd);
   const references: ParsedExplicitReference[] = [];
   let wiki = 0;
@@ -53,7 +73,7 @@ function* extractMarkdownSteps(source: string): Generator<void, { references: re
     references.push(takeWiki ? wikiReferences[wiki++]! : markdown[inline++]!);
     if (references.length % 128 === 0) yield;
   }
-  return { references, masked };
+  return { references, masked, syntaxRanges };
 }
 
 export function extractBasesExplicitReferences(
@@ -241,8 +261,7 @@ export function isExternalReference(linktext: string): boolean {
   const candidate = linktext.trim();
   return (
     candidate.startsWith("//") ||
-    /^[a-z][a-z\d+.-]*:/iu.test(candidate) ||
-    candidate.startsWith("data:")
+    /^[a-z][a-z\d+.-]*:/iu.test(candidate)
   );
 }
 
@@ -377,7 +396,7 @@ function markdownReference(source: string, label: number, destination: MarkdownD
       .replace(/^<|>$/gu, "").trim()) };
 }
 
-function isEscaped(source: string, index: number): boolean {
+export function isEscaped(source: string, index: number): boolean {
   let backslashes = 0;
   for (let cursor = index - 1; cursor >= 0 && source[cursor] === "\\"; cursor -= 1) {
     backslashes += 1;
@@ -390,14 +409,17 @@ function isEmbedded(source: string, start: number): boolean {
 }
 
 /** Same-length UTF-16 mask shared by fallback parsing and positioned cache filtering. */
-function maskMarkdownNonContent(source: string, destinations: MarkdownDestinationIndex) {
+function maskMarkdownNonContent(source: string, destinations: MarkdownDestinationIndex,
+  syntax: string, definitions: Set<string>, projection?: string[]) {
   // Every offset used by RegExp, indexOf, and slice is a UTF-16 code-unit offset.
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.
   const characters = source.split("");
   const inline = new Map<number, ParsedExplicitReference>();
+  const syntaxRanges: MarkdownSyntaxRange[] = [];
   const frontmatterRange = findMarkdownFrontmatterRange(source);
   if (frontmatterRange !== null) {
+    syntaxRanges.push({ ...frontmatterRange, kind: "frontmatter" });
     maskYamlCommentRanges(
       characters,
       source,
@@ -405,8 +427,9 @@ function maskMarkdownNonContent(source: string, destinations: MarkdownDestinatio
       frontmatterRange.end,
     );
   }
-  maskDelimitedBlocks(characters, source, frontmatterRange, destinations, inline);
-  return { masked: characters.join(""), inline, frontmatterEnd: frontmatterRange?.end ?? 0 };
+  maskDelimitedBlocks(characters, source, frontmatterRange, destinations, inline,
+    syntax, definitions, syntaxRanges, projection);
+  return { masked: characters.join(""), inline, syntaxRanges, frontmatterEnd: frontmatterRange?.end ?? 0 };
 }
 
 interface MaskedRange {
@@ -420,6 +443,10 @@ function maskDelimitedBlocks(
   frontmatter: MaskedRange | null,
   destinations: MarkdownDestinationIndex,
   inline: Map<number, ParsedExplicitReference>,
+  syntax: string,
+  definitions: Set<string>,
+  syntaxRanges: MarkdownSyntaxRange[],
+  projection?: string[],
 ): void {
   let fence: {
     readonly character: string;
@@ -427,7 +454,8 @@ function maskDelimitedBlocks(
     readonly start: number;
     readonly containers: readonly MarkdownContainer[];
   } | null = null;
-  let opaque: { readonly start: number; readonly end: number; readonly containers: readonly MarkdownContainer[] } | null = null;
+  let opaque: { readonly start: number; readonly end: number; readonly containers: readonly MarkdownContainer[];
+    readonly kind: "comment" | "raw-html" } | null = null;
   let containers: readonly MarkdownContainer[] = [];
   let indentedCode = false;
   let paragraph = false;
@@ -436,15 +464,19 @@ function maskDelimitedBlocks(
   let definitionEnd = 0;
   let inlineEnd = 0;
   let literalTagEnd = 0;
-  const labels: number[] = [];
+  const labels: { offset: number; image: boolean; epoch: number }[] = [];
+  // A successful ordinary link invalidates every older ordinary opener in O(1),
+  // including openers behind image labels. Images remain eligible across epochs.
+  let linkEpoch = 0;
   let paragraphEnd = 0;
   const lines = sourceLineRanges(source);
   const linesByStart = new Map(lines.map((line) => [line.start, line]));
   const inlineClosers = indexInlineCodeClosers(characters.join(""));
   const opaqueClosers = indexOpaqueClosers(source);
   const rawOpening = /<(pre|script|style|textarea)(?=[\s>])/iyu;
-  const mask = (start: number, end: number) => {
+  const mask = (start: number, end: number, kind: MarkdownSyntaxRange["kind"] = "code") => {
     maskRange(characters, start, end);
+    syntaxRanges.push({ start, end, kind });
   };
   for (let cursor = 0; cursor < (frontmatter?.end ?? 0); cursor += 1) {
     if (characters[cursor] !== source[cursor]) continue;
@@ -456,7 +488,11 @@ function maskDelimitedBlocks(
       cursor = end - 1;
     }
   }
-  const inlineBoundary = (lineIndex: number): number => {
+  const inlineBoundary = (lineIndex: number, text: string): number => {
+    if (/^ {0,3}#{1,6}(?:[ \t]|$)/u.test(text)) {
+      paragraphEnd = lines[lineIndex]!.contentEnd;
+      return paragraphEnd;
+    }
     if (paragraphEnd <= lines[lineIndex]!.start) {
       paragraphEnd = source.length;
       for (let next = lineIndex + 1; next < lines.length; next += 1) {
@@ -474,15 +510,24 @@ function maskDelimitedBlocks(
     if (frontmatter !== null && line.start < frontmatter.end) continue;
     if (line.start < definitionEnd) continue;
     const text = source.slice(line.start, line.contentEnd);
+    if (projection !== undefined) {
+      const content = normalizeMarkdownContainerLine(text, containers, paragraph);
+      const prefixColumns = expandMarkdownTabs(text).length - content.text.length;
+      let column = 0;
+      for (let offset = 0; offset < text.length && column < prefixColumns; offset += 1) {
+        column += text[offset] === "\t" ? 4 - column % 4 : 1;
+        projection[line.start + offset] = " ";
+      }
+    }
     let cursor = line.start;
     if (opaque !== null) {
       if (!continuesContainers(text, opaque.containers)) {
-        mask(opaque.start, line.start);
+        mask(opaque.start, line.start, opaque.kind);
         opaque = null;
       } else if (opaque.end > line.end) continue;
       else {
         cursor = opaque.end;
-        mask(opaque.start, opaque.end);
+        mask(opaque.start, opaque.end, opaque.kind);
         opaque = null;
       }
     }
@@ -507,6 +552,7 @@ function maskDelimitedBlocks(
     if (cursor > line.start && source.slice(cursor, line.contentEnd).trim().length === 0) continue;
     const normalized = normalizeMarkdownContainerLine(text, containers, paragraph);
     const blank = normalized.text.trim().length === 0;
+    if (line.start >= paragraphEnd) labels.length = 0;
     if (startsMarkdownBlock(normalized.text) || isSetextUnderline(normalized.text)) labels.length = 0;
     // A lazy paragraph continuation can omit its quote/list prefixes. Keep that
     // stack for a later indented continuation, but never carry it across a blank
@@ -549,15 +595,16 @@ function maskDelimitedBlocks(
         const content = normalizeMarkdownContainerLine(text, containers, true);
         return content.opensContainer || startsMarkdownBlock(content.text) ||
           continuesContainers(text, containers) && isSetextUnderline(content.text) ? null : content.text;
-      });
+      }, definitions);
       if (definitionLines > 0) {
         definitionEnd = lines[lineIndex + definitionLines - 1]!.end;
         // Definitions are metadata, not inline content. Their labels, titles and
         // literal delimiters must not create links or change following syntax.
-        mask(line.start, definitionEnd);
+        mask(line.start, definitionEnd, "metadata");
         cursor = definitionEnd;
       }
     }
+    const boundary = inlineBoundary(lineIndex, normalized.text);
     // Definitions remain in the open paragraph until it closes. Only the body
     // left after stripping its leading definitions can become a setext heading.
     paragraph = !blank && !startsMarkdownBlock(normalized.text) &&
@@ -581,6 +628,7 @@ function maskDelimitedBlocks(
       if (cursor < inlineEnd) { cursor = inlineEnd; continue; }
       if (characters[cursor] !== source[cursor]) { cursor += 1; continue; }
       let end: number | null = null;
+      let kind: "comment" | "raw-html" = "comment";
       if (source.startsWith("<!--", cursor) && !isEscaped(source, cursor)) {
         end = source.startsWith("<!-->", cursor) ? cursor + 5
           : source.startsWith("<!--->", cursor) ? cursor + 6
@@ -591,6 +639,7 @@ function maskDelimitedBlocks(
         rawOpening.lastIndex = cursor;
         const name = cursor === rawStart ? rawOpening.exec(source)?.[1]?.toLowerCase() : undefined;
         if (name !== undefined) {
+          kind = "raw-html";
           const openingEnd = htmlTagEnd(source, rawOpening.lastIndex, containers, linesByStart);
           end = nextOpaqueEnd(opaqueClosers.get(name), openingEnd) ?? source.length;
         } else if (/^\/?[A-Za-z]/u.test(source.slice(cursor + 1, cursor + 3))) {
@@ -605,13 +654,13 @@ function maskDelimitedBlocks(
         }
       }
       if (end !== null) {
-        if (end > line.end) { opaque = { start: cursor, end, containers }; break; }
-        mask(cursor, end);
+        if (end > line.end) { opaque = { start: cursor, end, containers, kind }; break; }
+        mask(cursor, end, kind);
         cursor = end;
         continue;
       }
       inlineEnd = inlineClosers.get(cursor) ?? 0;
-      if (inlineEnd > line.end && inlineEnd > inlineBoundary(lineIndex)) inlineEnd = 0;
+      if (inlineEnd > boundary) inlineEnd = 0;
       if (inlineEnd > cursor) {
         mask(cursor + (isEscaped(source, cursor) ? 1 : 0), inlineEnd);
         cursor = inlineEnd;
@@ -624,33 +673,54 @@ function maskDelimitedBlocks(
         else cursor += 1;
         continue;
       }
-      if (source[cursor] === "[") labels.push(cursor);
+      if (source[cursor] === "[") {
+        labels.push({ offset: cursor, image: isEmbedded(source, cursor), epoch: linkEpoch });
+      }
       if (source[cursor] === "]") {
         const opening = labels.pop();
-        let destination = opening !== undefined && source[cursor + 1] === "("
-          ? readMarkdownDestination(source, cursor + 2, destinations) : null;
-        if (destination !== null && destination.linkEnd > line.end && destination.linkEnd > inlineBoundary(lineIndex)) destination = null;
+        if (opening === undefined || !opening.image && opening.epoch !== linkEpoch) { cursor += 1; continue; }
+        let destination = source[cursor + 1] === "("
+          ? readMarkdownDestination(syntax, cursor + 2, destinations) : null;
+        if (destination !== null && destination.linkEnd > boundary) destination = null;
         if (destination !== null) {
           // Only an established link outside code/comments makes its metadata
           // literal. Keep label content and invalid outer syntax as body text.
-          mask(cursor + 2, destination.linkEnd - 1);
-          const reference = markdownReference(source, opening!, destination);
+          mask(cursor + 2, destination.linkEnd - 1, "metadata");
+          const reference = markdownReference(source, opening.offset, destination);
           if (reference.linktext.length > 0) inline.set(reference.startOffset, reference);
           literalTagEnd = destination.linkEnd;
-          if (!isEmbedded(source, opening!)) labels.length = 0;
+          if (!opening.image) linkEpoch += 1;
           cursor = destination.linkEnd;
           continue;
+        }
+        // Reference syntax affects outer link validity without replacing the
+        // host's reference-style target interpretation or fallback contract.
+        const following = source[cursor + 1] === "["
+          ? /^\[((?:\\.|[^[\]\\]){0,999})\]/su.exec(syntax.slice(cursor + 1, boundary)) : null;
+        const label = following?.[1] || (cursor - opening.offset <= 1000 ? syntax.slice(opening.offset + 1, cursor) : "");
+        if (projection === undefined && label && label.length <= 999 && definitions.has(normalizeReferenceLabel(label))) {
+          if (!opening.image) linkEpoch += 1;
+          if (following !== null) {
+            const end = cursor + 1 + following[0].length;
+            syntaxRanges.push({ start: cursor + 1, end, kind: "metadata" });
+            cursor = end;
+            continue;
+          }
         }
       }
       cursor += 1;
     }
   }
   if (fence !== null) mask(fence.start, source.length);
-  if (opaque !== null) mask(opaque.start, source.length);
+  if (opaque !== null) mask(opaque.start, source.length, opaque.kind);
 }
 
 function startsMarkdownBlock(text: string): boolean {
-  return /^ {0,3}(?:#{1,6}(?:\s|$)|`{3,}[^`]*$|~{3,}|(?:\* *){3,}$|(?:_ *){3,}$|(?:- *){3,}$|<(?:pre|script|style|textarea)(?=[\s>]|$)|<!--)/iu.test(text);
+  return /^ {0,3}(?:#{1,6}(?:[ \t]|$)|`{3,}[^`]*$|~{3,}|(?:\* *){3,}$|(?:_ *){3,}$|(?:- *){3,}$|<(?:pre|script|style|textarea)(?=[\s>]|$)|<!--)/iu.test(text);
+}
+
+function normalizeReferenceLabel(value: string): string {
+  return value.trim().replace(/[ \t\r\n]+/gu, " ").toLowerCase().toUpperCase();
 }
 
 function isSetextUnderline(text: string): boolean {
@@ -658,7 +728,7 @@ function isSetextUnderline(text: string): boolean {
 }
 
 /** Leading definitions supply no setext body. Read only their needed lines. */
-function referenceDefinitionLines(first: string, readLine: () => string | null): number {
+function referenceDefinitionLines(first: string, readLine: () => string | null, definitions: Set<string>): number {
   let text = first;
   let lines = 1;
   const append = (): boolean => {
@@ -672,6 +742,10 @@ function referenceDefinitionLines(first: string, readLine: () => string | null):
   while (/^ {0,3}\[(?:\\.|[^[\]\\]){0,999}$/su.test(text) && append()) { /* continue label */ }
   const label = /^ {0,3}\[((?:\\.|[^[\]\\]){1,999})\]: */su.exec(text);
   if (label === null || label[1]!.trim().length === 0) return 0;
+  const complete = (count: number): number => {
+    if (count > 0) definitions.add(normalizeReferenceLabel(label[1]!));
+    return count;
+  };
   let cursor = label[0].length;
   if (cursor === text.length) {
     if (!append()) return 0;
@@ -698,24 +772,24 @@ function referenceDefinitionLines(first: string, readLine: () => string | null):
   while (text[cursor] === " ") cursor += 1;
   const sameLine = cursor < text.length;
   if (!sameLine) {
-    if (!append()) return destinationLines;
+    if (!append()) return complete(destinationLines);
     cursor += /^\n */u.exec(text.slice(cursor))![0].length;
   } else if (cursor === end) return 0;
   const opening = text[cursor];
   const closing = opening === "(" ? ")" : opening;
   const fallback = sameLine ? 0 : destinationLines;
-  if (opening !== '"' && opening !== "'" && opening !== "(") return fallback;
+  if (opening !== '"' && opening !== "'" && opening !== "(") return complete(fallback);
   cursor += 1;
   for (;;) {
     if (cursor === text.length) {
       text = "";
       cursor = 0;
-      if (!append()) return fallback;
+      if (!append()) return complete(fallback);
     }
     const character = text[cursor++];
     if (character === "\\" && /[!-/:-@[-`{-~]/u.test(text[cursor] ?? "")) { cursor += 1; continue; }
-    if (character === closing) return text.slice(cursor).trim().length === 0 ? lines : fallback;
-    if (opening === "(" && character === "(") return fallback;
+    if (character === closing) return complete(text.slice(cursor).trim().length === 0 ? lines : fallback);
+    if (opening === "(" && character === "(") return complete(fallback);
   }
 }
 
@@ -921,7 +995,7 @@ interface SourceLineRange {
   readonly end: number;
 }
 
-function sourceLineRanges(source: string): SourceLineRange[] {
+export function sourceLineRanges(source: string): SourceLineRange[] {
   const ranges: SourceLineRange[] = [];
   let start = 0;
   while (start < source.length) {
@@ -945,7 +1019,7 @@ function readWikiLinktext(content: string): string {
   return separator < 0 ? content : content.slice(0, separator);
 }
 
-function maskRange(characters: string[], start: number, end: number): void {
+export function maskRange(characters: string[], start: number, end: number): void {
   for (let index = start; index < end; index += 1) {
     if (characters[index] !== "\n" && characters[index] !== "\r") characters[index] = " ";
   }

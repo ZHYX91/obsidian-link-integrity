@@ -1,5 +1,6 @@
 import { commonmarkBlockCases, commonmarkBlockOracle } from "../helpers/commonmark-block-oracle";
 import { inlineMarkdownCases } from "../helpers/inline-markdown-cases";
+import { inlineBoundaryCases } from "../helpers/inline-boundary-cases";
 
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { describe, expect, it } from "vitest";
@@ -12,6 +13,15 @@ import {
 } from "../../src/adapters/obsidian/explicit-link-parser";
 
 describe("extractMarkdownExplicitReferences", () => {
+  it.each(inlineBoundaryCases)("preserves block and nested-label ownership: $markdown", ({ markdown, references }) => {
+    for (const newline of ["\n", "\r\n", "\r"]) {
+      const source = `😀${newline}${newline}${markdown.replaceAll("\n", newline)}`;
+      const parsed = extractMarkdownExplicitReferences(source);
+      expect(parsed.map(({ linktext, raw }) => [linktext, raw]), source)
+        .toEqual(references.map(([target, raw]) => [target, raw.replaceAll("\n", newline)]));
+      for (const reference of parsed) expect(source.slice(reference.startOffset, reference.endOffset)).toBe(reference.raw);
+    }
+  });
   it("does not mistake an escaped bang for a nested image when proving outer metadata", () => {
     expect(extractMarkdownExplicitReferences(String.raw`[outer \![alt](Target)](Other "[[Ghost]]")`)
       .map(({ linktext }) => linktext)).toEqual(["Target", "Ghost"]);
@@ -162,6 +172,17 @@ describe("extractMarkdownExplicitReferences", () => {
     const source = "[x".repeat(25_000);
 
     expect(extractMarkdownExplicitReferences(source)).toEqual([]);
+  });
+
+  it.each(["[pending ", "![pending "])("invalidates old ordinary openers without rescanning the pending %s stack", (prefix) => {
+    const count = 16_000;
+    const pending = prefix.repeat(count);
+    const source = pending + "[x](Target)".repeat(count);
+    const references = extractMarkdownExplicitReferences(source);
+    expect(references).toHaveLength(count);
+    expect(references[0]?.startOffset).toBe(pending.length);
+    expect(references.at(-1)?.endOffset).toBe(source.length);
+    expect(references.every(({ linktext, embedded }) => linktext === "Target" && !embedded)).toBe(true);
   });
 
   it.each(["[x](", "[x](<", '[x](a "'])("handles repeated unsuccessful destinations: %s", (unit) => {

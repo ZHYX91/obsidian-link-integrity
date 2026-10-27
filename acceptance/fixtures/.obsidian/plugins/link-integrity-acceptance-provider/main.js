@@ -20,6 +20,11 @@ const INLINE_CASES = {
   "parenthesized": "[label](Target (title))\n![label](Target (title \\(nested\\) [[Ghost]] [[Missing]]))\n",
   "label-wiki": "[label [[Ghost]] [[Missing]]](Target \"[[Ghost]] [[Missing]]\")\n",
   "invalid-outer": "[label](Target \"[[Ghost]] [[Missing]]\" extra)\n",
+  "atx-boundary": "# [label](Target \"title\n[[Missing]]\")\n",
+  "nested-image": "![outer [inner](Target)](Ghost \"[[Missing]]\")\n",
+  "reference-inner": "[outer [r]](Ghost \"[[Missing]]\")\n\n[r]: Target\n",
+  "quote-continuation": "> [label](Target\n> \"[[Ghost]] [[Missing]]\")\n",
+  "hint-metadata": "[label](Missing \"<!--\") [[Missing]]\n",
 };
 module.exports = class extends Plugin {
   onload() {

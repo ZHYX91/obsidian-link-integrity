@@ -67,7 +67,8 @@ describe("self-contained explicit body fixture provider", () => {
     const { provider, files, commands } = await loadProvider();
     provider.onload(); expect(commands.map(({ id }) => id)).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "repair-body-hint-fixtures", "restore-body-hint-fixtures",
       "prepare-block-quote-code", "prepare-block-list-prose", "prepare-block-definition-continuation", "prepare-block-definition-non1-code", "prepare-block-definition-title",
-      "prepare-inline-quoted", "prepare-inline-parenthesized", "prepare-inline-label-wiki", "prepare-inline-invalid-outer"]);
+      "prepare-inline-quoted", "prepare-inline-parenthesized", "prepare-inline-label-wiki", "prepare-inline-invalid-outer",
+      "prepare-inline-atx-boundary", "prepare-inline-nested-image", "prepare-inline-reference-inner", "prepare-inline-quote-continuation", "prepare-inline-hint-metadata"]);
     await provider.createFixtures(); expect(projection(files)).toEqual({ broken: 5, isolated: 1 });
     await expect(provider.createFixtures()).rejects.toThrow("already exist");
     await provider.repair(); expect(projection(files)).toEqual({ broken: 0, isolated: 1 });
@@ -100,6 +101,36 @@ describe("self-contained explicit body fixture provider", () => {
     expect(files.get("Standalone.md")).toBe("baseline standalone"); expect(files.get("Broken-only.md")).toBe("baseline broken");
     files.set(`${prefix}/Source.md`, "user modification"); await expect(provider.repair()).rejects.toThrow("Unexpected fixture bytes");
     files.delete("Standalone.md"); await expect(provider.createFixtures()).rejects.toThrow("disposable acceptance fixture");
+  });
+
+  it("prepares block, nesting, quote and hint inputs without changing targets or declaring a verdict", async () => {
+    const { provider, files, commands, mutations, notices } = await loadProvider();
+    provider.onload();
+    await provider.prepareInlineMetadataFixtures("quoted");
+    const baseline = new Map(files);
+    for (const [mode, text, references] of [
+      ["atx-boundary", '# [label](Target "title\n[[Missing]]")\n', ["Missing"]],
+      ["nested-image", '![outer [inner](Target)](Ghost "[[Missing]]")\n', ["Ghost", "Target"]],
+      ["reference-inner", '[outer [r]](Ghost "[[Missing]]")\n\n[r]: Target\n', ["Missing"]],
+      ["quote-continuation", '> [label](Target\n> "[[Ghost]] [[Missing]]")\n', ["Target"]],
+      ["hint-metadata", '[label](Missing "<!--") [[Missing]]\n', ["Missing", "Missing"]],
+    ] as const) {
+      mutations.length = 0;
+      await commands.find(({ id }) => id === `prepare-inline-${mode}`)!.callback();
+      expect(files.get(`${inlinePrefix}/Source.md`)).toBe(text);
+      expect(extractMarkdownExplicitReferences(text).map(({ linktext }) => linktext)).toEqual(references);
+      expect(mutations).toEqual([`${inlinePrefix}/Source.md`]);
+      expect(new Map([...files].filter(([path]) => path !== `${inlinePrefix}/Source.md`)))
+        .toEqual(new Map([...baseline].filter(([path]) => path !== `${inlinePrefix}/Source.md`)));
+      expect(notices.at(-1)).toBe(`inline-metadata ${mode} input prepared; observe diagnostics and isolation separately.`);
+    }
+    // Reference-style target interpretation remains the host's responsibility.
+    // Source-only projection is not a native-cache or hint acceptance verdict.
+    const contract = JSON.parse(await readFile("acceptance/product-scenarios.json", "utf8")) as { scenarios: { id: string; steps: string[] }[] };
+    const scenario = contract.scenarios.find(({ id }) => id === "inline-proof-boundaries")!;
+    for (const mode of ["atx-boundary", "nested-image", "reference-inner", "quote-continuation", "hint-metadata"]) {
+      expect(scenario.steps.join("\n")).toContain(`prepare-inline-${mode}`);
+    }
   });
 
   it("prepares four exact inline inputs explicitly, changes only Source and leaves verdicts to the host", async () => {

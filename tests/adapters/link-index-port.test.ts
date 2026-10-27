@@ -13,6 +13,7 @@ import { AtomicLinkIndexStore, FullRebuildController, IncrementalIndexController
 import { queryBrokenLinks, queryIsolatedFiles } from "../../src/features/queries";
 import { commonmarkBlockOracle } from "../helpers/commonmark-block-oracle";
 import { inlineMarkdownCases } from "../helpers/inline-markdown-cases";
+import { inlineBoundaryCases } from "../helpers/inline-boundary-cases";
 
 interface FakeFile {
   readonly path: string;
@@ -21,6 +22,54 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["fallback", "empty-cache", "cached", "partial-cache", "metadata-cache", "canvas"])("preserves block/nested/container graph semantics via %s", async (mode) => {
+    const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
+    const targets = [fakeFile("Target.md"), fakeFile("Ghost.md"), fakeFile("Real.md"), fakeFile("image.png")];
+    const destinations = new Map(targets.map((file) => [file.path.replace(/\.md$/u, ""), file]));
+    const content: Record<string, string> = {};
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([sourceFile, ...targets], { content, caches, destinations });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      for (const newline of ["\n", "\r\n", "\r"]) for (const test of inlineBoundaryCases) {
+        const text = `😀${newline}${newline}${test.markdown.replaceAll("\n", newline)}`;
+        const sourceReferences = test.references.map(([link, raw]) => positioned(text, link, raw.replaceAll("\n", newline)));
+        const nativeOnly = (test.native ?? []).map(([link, raw]) => positioned(text, link, raw.replaceAll("\n", newline), text.indexOf("[outer ") + 7));
+        const cached = ["cached", "partial-cache", "metadata-cache"].includes(mode);
+        const actualNative = cached ? [...sourceReferences, ...nativeOnly] : [];
+        const selected = mode === "partial-cache" ? actualNative.slice(-1) : actualNative;
+        if (mode === "empty-cache" || cached) caches.set(sourceFile.path, {
+          links: [...selected.filter(({ original }) => !original.startsWith("!")),
+            ...(mode === "metadata-cache" ? [...text.matchAll(/\[\[([^\r\n]*?)\]\]/gu)]
+              .map((match) => positioned(text, match[1]!, match[0], match.index)) : [])],
+          embeds: selected.filter(({ original }) => original.startsWith("!")),
+        });
+        content[sourceFile.path] = mode === "canvas"
+          ? JSON.stringify({ nodes: [{ id: "boundary", type: "text", text }] }) : text;
+        if (store.current.files.length === 0) await new FullRebuildController(port, store).rebuild();
+        else { incremental.enqueue({ type: "modify", path: sourceFile.path }); await incremental.whenIdle(); }
+        const expected = [...sourceReferences, ...selected.filter((reference) => nativeOnly.includes(reference))]
+          .sort((a, b) => a.position.start.offset - b.position.start.offset).map(({ link }) => link);
+        const snapshot = store.current.getSourceSnapshot(sourceFile.path)!;
+        expect(snapshot.occurrences.map(({ linkpath }) => linkpath), test.markdown).toEqual(expected);
+        expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText), test.markdown)
+          .toEqual(expected.filter((target) => !destinations.has(target)));
+        for (const [name, file] of destinations) expect(store.current.getIncomingContributionCount(file.path), test.markdown)
+          .toBe(expected.filter((target) => target === name).length);
+        expect(queryIsolatedFiles(store.current).map(({ path }) => path).sort(), test.markdown).toEqual([
+          ...(expected.some((target) => destinations.has(target)) ? [] : [sourceFile.path]),
+          ...targets.filter((file) => !expected.includes(file.path.replace(/\.md$/u, ""))).map(({ path }) => path),
+        ].sort());
+        const clean = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(store.current.toCanonicalState(), test.markdown).toEqual(clean.toCanonicalState());
+        for (const occurrence of snapshot.occurrences) if (occurrence.raw === "[[Missing]]") {
+          expect(occurrence.position?.line).toBe(text.slice(0, text.indexOf("[[Missing]]")).split(/\r\n|\r|\n/u).length - 1);
+        }
+      }
+    } finally { incremental.stop(); }
+  });
   it.each(["fallback", "empty-cache", "cached", "partial-cache", "metadata-cache", "canvas"])("indexes inline metadata through graph consumers via %s", async (mode) => {
     const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
     const target = fakeFile("Target.md");

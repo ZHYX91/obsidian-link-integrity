@@ -3,7 +3,7 @@ import type { SourcePosition, SourceSnapshot } from "../../core/model";
 import type { BodyLinkPort, ProvenBodyLink } from "../../features/body-links/body-link-service";
 import { WorkScheduler, yieldBrowserTask } from "../../scheduling/work-scheduler";
 import { parseMarkdownSourceAsync } from "./explicit-link-parser";
-import { extractMarkdownNonLinkExclusions } from "./body-link-syntax";
+import { extractProvenMarkdownNonLinkExclusions } from "./body-link-syntax";
 
 export function normalizedBodyText(text: string): string { return text.replace(/\r\n|\r/gu, "\n"); }
 
@@ -69,9 +69,8 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
       await yieldBrowserTask();
       if (signal.aborted) throw new Error("Body source proof cancelled.");
     } });
-    const [{ references }, exclusions] = await Promise.all([
-      parseMarkdownSourceAsync(text, scheduler), extractMarkdownNonLinkExclusions(text, scheduler),
-    ]);
+    const { references, syntaxRanges } = await parseMarkdownSourceAsync(text, scheduler);
+    const exclusions = await extractProvenMarkdownNonLinkExclusions(text, scheduler, syntaxRanges);
     if (signal.aborted || this.app.metadataCache.getFileCache(file) !== cache) return null;
     const byRange = new Map(references.map((reference) => [`${reference.startOffset}:${reference.endOffset}`, reference]));
     const protectedRanges = [...exclusions].sort((left, right) => left.from - right.from);

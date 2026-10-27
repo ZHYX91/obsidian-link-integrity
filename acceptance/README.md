@@ -26,7 +26,7 @@ The focused `inline-metadata-boundaries` scenario uses four explicit commands:
 `Inline Metadata Acceptance/Source.md`, `Target.md` and `Ghost.md` only when the folder
 is absent. Source bytes are LF with a final LF (81, 82, 62 and 46 bytes respectively).
 Later commands require the three known files, exact fixed Target/Ghost bytes and one
-of the four Source states. A missing file, unexpected child, unknown edit or existing
+of the nine Source states. A missing file, unexpected child, unknown edit or existing
 `Missing.md` refuses the transition before writing; Missing is never created.
 
 Quoted link/image metadata and parenthesized titles yield five broken/five isolated
@@ -36,6 +36,17 @@ Target isolated. Observe both tabs incrementally and after each Rebuild, then ac
 open the diagnostic source. Commands prepare input and open Source without evaluating
 product output. Actual native caches are observed; forced cold/partial cache and legacy
 ordinal conditions remain automated regression claims.
+
+The companion `inline-proof-boundaries` scenario adds `prepare-inline-atx-boundary`,
+`prepare-inline-nested-image`, `prepare-inline-reference-inner`,
+`prepare-inline-quote-continuation` and `prepare-inline-hint-metadata`. They reuse the
+same guarded three notes. Their expected broken/isolated totals are respectively
+6/7, 5/4, 6/5 with a ready accurate native reference cache, 5/5 and 7/7. Verify the
+ATX Missing location on L2, both connections in the nested image, the native inner
+reference and literal quote title, then the two actual Missing hint locations after
+explicitly enabling body diagnostics. Preserve native anchor/rendering restrictions;
+source-only setup or matching counts do not prove hints or navigation. Commands do
+not change settings, force metadata state, create Missing or evaluate product output.
 
 The focused `container-block-boundaries` scenario uses five explicit provider commands:
 `prepare-block-quote-code`, `prepare-block-list-prose`,

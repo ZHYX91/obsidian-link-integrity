@@ -13,6 +13,35 @@
   },
   "scenarios": [
     {
+      "id": "inline-proof-boundaries",
+      "title": "Block ownership, nested labels, quote continuation and metadata-safe body hints",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline in this disposable Vault",
+        "Run prepare-inline-atx-boundary; after native indexing inspect Broken links and Isolated files, then open the unique Missing source on L2",
+        "Run prepare-inline-nested-image; inspect both tabs after indexing settles",
+        "Run prepare-inline-reference-inner; inspect both tabs and verify the native reference-style Target link independently",
+        "Run prepare-inline-quote-continuation; inspect both tabs after indexing settles",
+        "Run prepare-inline-hint-metadata; turn body diagnostics On through Settings, inspect Reading and Live Preview hints and native navigation for both actual Missing occurrences, then restore the prior setting",
+        "Rebuild after each selected input and compare both projections to its incremental observation; record Source bytes, fixed targets, original fixture identities and actual native renderer limitations"
+      ],
+      "expected": [
+        "ATX boundary yields six broken/seven isolated: Missing remains on L2 and no Target edge crosses the heading boundary",
+        "Nested image yields five broken/four isolated: the outer Ghost image and inner Target link both connect, with no Missing diagnostic",
+        "Reference inner yields six broken/five isolated with a ready accurate native cache: Target connects through the inner reference, Ghost remains isolated and Missing is body text",
+        "Quote continuation yields five broken/five isolated: Target connects, Ghost is isolated and title Wiki text creates no diagnostics",
+        "Hint metadata yields seven broken/seven isolated: both actual Missing occurrences remain eligible for hints when native source/anchor and resolver proof succeeds; title text cannot start an HTML comment",
+        "The provider creates only the same three known notes and later changes Source among nine exact states; no mode forces cache readiness, creates Missing, changes user settings or issues a product verdict"
+      ]
+    },
+    {
       "id": "inline-metadata-boundaries",
       "title": "Inline link and image metadata versus body references",
       "surfaces": [
@@ -36,7 +65,7 @@
         "Label Wiki produces six broken/four isolated files: Source connects to Target and Ghost, with exactly one Missing diagnostic on Source L1",
         "Invalid outer syntax produces six broken/five isolated files: Source connects to Ghost, Target is isolated and Missing appears once on Source L1",
         "Every rebuilt projection agrees with the corresponding incremental result, and actual diagnostic source navigation opens the known Source note",
-        "Preparation creates only Source, Target and Ghost once, then changes only Source between four known byte states; Missing is never created and unknown files or edits are refused",
+        "Preparation creates only Source, Target and Ghost once, then changes only Source between nine known byte states; Missing is never created and unknown files or edits are refused",
         "Provider notices prepare input only; this scenario does not force a cold/partial metadata cache or issue an automated product verdict"
       ]
     },
