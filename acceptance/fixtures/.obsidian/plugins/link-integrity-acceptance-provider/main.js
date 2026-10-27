@@ -14,6 +14,13 @@ const BLOCK_CASES = {
   "definition-non1-code": `[id]: /url\n2. item\n\n    ${BLOCK_PAIR}\n`,
   "definition-title": `[id]: /url "${BLOCK_PAIR}"\n`,
 };
+const INLINE_PREFIX = "Inline Metadata Acceptance";
+const INLINE_CASES = {
+  "quoted": "[label](Target \"[[Ghost]] [[Missing]]\")\n![label](Target '[[Ghost]] [[Missing]]')\n",
+  "parenthesized": "[label](Target (title))\n![label](Target (title \\(nested\\) [[Ghost]] [[Missing]]))\n",
+  "label-wiki": "[label [[Ghost]] [[Missing]]](Target \"[[Ghost]] [[Missing]]\")\n",
+  "invalid-outer": "[label](Target \"[[Ghost]] [[Missing]]\" extra)\n",
+};
 module.exports = class extends Plugin {
   onload() {
     for (const [id, name, action] of [
@@ -22,9 +29,12 @@ module.exports = class extends Plugin {
       ["repair-body-hint-fixtures", "Repair body-hint fixtures in this disposable acceptance Vault", () => this.repair()],
       ["restore-body-hint-fixtures", "Restore broken body-hint fixtures in this disposable acceptance Vault", () => this.restore()],
     ]) this.addCommand({ id, name, callback: () => action().catch((error) => new Notice(String(error))) });
-    for (const mode of Object.keys(BLOCK_CASES)) this.addCommand({
-      id: `prepare-block-${mode}`, name: `Prepare block-context ${mode} in this disposable acceptance Vault`,
-      callback: () => this.prepareBlockContextFixtures(mode).catch((error) => new Notice(String(error))),
+    for (const [group, label, cases, prepare] of [
+      ["block", "block-context", BLOCK_CASES, (mode) => this.prepareBlockContextFixtures(mode)],
+      ["inline", "inline-metadata", INLINE_CASES, (mode) => this.prepareInlineMetadataFixtures(mode)],
+    ]) for (const mode of Object.keys(cases)) this.addCommand({
+      id: `prepare-${group}-${mode}`, name: `Prepare ${label} ${mode} in this disposable acceptance Vault`,
+      callback: () => prepare(mode).catch((error) => new Notice(String(error))),
     });
   }
   guard() {
@@ -47,26 +57,40 @@ module.exports = class extends Plugin {
   }
   async verifyCommon() { this.guard(); await this.assertFile("Source.md", SOURCE); await this.assertFile("Virtual-only.md", VIRTUAL); }
   async prepareBlockContextFixtures(mode) {
+    return this.prepareKnownSource(mode, { prefix: BLOCK_PREFIX, label: "block-context", cases: BLOCK_CASES,
+      sourceName: "C5 Source.md", fixed: { "C5 Target.md": "# Block context target\n" }, absent: ["C5 Missing.md"] });
+  }
+  async prepareInlineMetadataFixtures(mode) {
+    return this.prepareKnownSource(mode, { prefix: INLINE_PREFIX, label: "inline-metadata", cases: INLINE_CASES,
+      sourceName: "Source.md", fixed: { "Target.md": "# Inline metadata target\n", "Ghost.md": "# Inline metadata ghost\n" },
+      absent: ["Missing.md"] });
+  }
+  async prepareKnownSource(mode, { prefix, label, cases, sourceName, fixed, absent }) {
     this.guard();
-    if (!Object.hasOwn(BLOCK_CASES, mode)) throw new Error("Unknown block-context fixture mode.");
+    if (!Object.hasOwn(cases, mode)) throw new Error(`Unknown ${label} fixture mode.`);
     const vault = this.app.vault;
-    const sourcePath = `${BLOCK_PREFIX}/C5 Source.md`;
-    const targetPath = `${BLOCK_PREFIX}/C5 Target.md`;
-    const targetText = "# Block context target\n";
-    if (vault.getAbstractFileByPath(BLOCK_PREFIX) === null) {
-      await vault.createFolder(BLOCK_PREFIX);
-      await vault.create(targetPath, targetText);
-      await vault.create(sourcePath, BLOCK_CASES[mode]);
+    const sourcePath = `${prefix}/${sourceName}`;
+    const paths = [sourcePath, ...Object.keys(fixed).map((name) => `${prefix}/${name}`)];
+    const folder = vault.getAbstractFileByPath(prefix);
+    const unexpected = () => { throw new Error(`Unexpected ${label} fixture bytes; use a fresh disposable Vault.`); };
+    if (absent.some((name) => vault.getAbstractFileByPath(`${prefix}/${name}`) !== null)) unexpected();
+    if (folder === null) {
+      if (paths.some((path) => vault.getAbstractFileByPath(path) !== null)) unexpected();
+      await vault.createFolder(prefix);
+      for (const [name, text] of Object.entries(fixed)) await vault.create(`${prefix}/${name}`, text);
+      await vault.create(sourcePath, cases[mode]);
     } else {
       const source = vault.getFileByPath(sourcePath);
-      const target = vault.getFileByPath(targetPath);
-      if (source === null || target === null || await vault.cachedRead(target) !== targetText ||
-        !Object.values(BLOCK_CASES).includes(await vault.cachedRead(source))) {
-        throw new Error("Unexpected block-context fixture bytes; use a fresh disposable Vault.");
-      }
-      await vault.modify(source, BLOCK_CASES[mode]);
+      if (!Array.isArray(folder.children) || folder.children.length !== paths.length ||
+        folder.children.some((child) => !paths.includes(child.path)) || source === null) unexpected();
+      const targets = Object.keys(fixed).map((name) => vault.getFileByPath(`${prefix}/${name}`));
+      if (targets.some((file) => file === null)) unexpected();
+      const [currentSource, ...targetTexts] = await Promise.all([source, ...targets].map((file) => vault.cachedRead(file)));
+      if (!Object.values(cases).includes(currentSource) ||
+        Object.values(fixed).some((text, index) => targetTexts[index] !== text)) unexpected();
+      await vault.modify(source, cases[mode]);
     }
-    new Notice(`Block-context ${mode} input prepared; observe diagnostics and isolation separately.`);
+    new Notice(`${label} ${mode} input prepared; observe diagnostics and isolation separately.`);
     await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(sourcePath));
   }
   async createContextRegressionFixtures() {

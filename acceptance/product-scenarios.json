@@ -13,6 +13,34 @@
   },
   "scenarios": [
     {
+      "id": "inline-metadata-boundaries",
+      "title": "Inline link and image metadata versus body references",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline in this disposable Vault",
+        "Run prepare-inline-quoted; wait for native indexing, then inspect Broken links and Isolated files",
+        "Run prepare-inline-parenthesized; inspect both tabs after native indexing settles",
+        "Run prepare-inline-label-wiki; inspect both tabs and activate the unique Missing diagnostic source location",
+        "Run prepare-inline-invalid-outer; inspect both tabs and activate the unique Missing diagnostic source location",
+        "Rebuild after every selected input and compare both projections with the incremental observations; record Source bytes and verify Target, Ghost and the original fixture files did not change between modes"
+      ],
+      "expected": [
+        "Quoted link/image titles and parenthesized titles each produce five broken/five isolated files: Source connects to Target, Ghost is isolated and Missing has no diagnostic",
+        "Label Wiki produces six broken/four isolated files: Source connects to Target and Ghost, with exactly one Missing diagnostic on Source L1",
+        "Invalid outer syntax produces six broken/five isolated files: Source connects to Ghost, Target is isolated and Missing appears once on Source L1",
+        "Every rebuilt projection agrees with the corresponding incremental result, and actual diagnostic source navigation opens the known Source note",
+        "Preparation creates only Source, Target and Ghost once, then changes only Source between four known byte states; Missing is never created and unknown files or edits are refused",
+        "Provider notices prepare input only; this scenario does not force a cold/partial metadata cache or issue an automated product verdict"
+      ]
+    },
+    {
       "id": "container-block-boundaries",
       "title": "Container-relative code and reference-definition boundaries",
       "surfaces": [

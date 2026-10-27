@@ -19,6 +19,24 @@ The review regression also exercises CRLF/empty/adjacent Canvas fences, Bases dy
 
 ## Body diagnostic scenarios
 
+The focused `inline-metadata-boundaries` scenario uses four explicit commands:
+`prepare-inline-quoted`, `prepare-inline-parenthesized`, `prepare-inline-label-wiki` and
+`prepare-inline-invalid-outer`. Their palette names begin with
+**Prepare inline-metadata** under **Link Integrity acceptance provider**. They create
+`Inline Metadata Acceptance/Source.md`, `Target.md` and `Ghost.md` only when the folder
+is absent. Source bytes are LF with a final LF (81, 82, 62 and 46 bytes respectively).
+Later commands require the three known files, exact fixed Target/Ghost bytes and one
+of the four Source states. A missing file, unexpected child, unknown edit or existing
+`Missing.md` refuses the transition before writing; Missing is never created.
+
+Quoted link/image metadata and parenthesized titles yield five broken/five isolated
+files. Label Wiki yields six/four, with exactly one Missing on Source L1 and both
+targets connected; invalid outer syntax yields six/five, with Ghost connected and
+Target isolated. Observe both tabs incrementally and after each Rebuild, then actually
+open the diagnostic source. Commands prepare input and open Source without evaluating
+product output. Actual native caches are observed; forced cold/partial cache and legacy
+ordinal conditions remain automated regression claims.
+
 The focused `container-block-boundaries` scenario uses five explicit provider commands:
 `prepare-block-quote-code`, `prepare-block-list-prose`,
 `prepare-block-definition-continuation`, `prepare-block-definition-non1-code` and
