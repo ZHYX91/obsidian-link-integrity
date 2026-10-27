@@ -12,6 +12,7 @@ import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { AtomicLinkIndexStore, FullRebuildController, IncrementalIndexController } from "../../src/features/index";
 import { queryBrokenLinks, queryIsolatedFiles } from "../../src/features/queries";
 import { commonmarkBlockOracle } from "../helpers/commonmark-block-oracle";
+import { inlineMarkdownCases } from "../helpers/inline-markdown-cases";
 
 interface FakeFile {
   readonly path: string;
@@ -20,6 +21,67 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["fallback", "empty-cache", "cached", "partial-cache", "metadata-cache", "canvas"])("indexes inline metadata through graph consumers via %s", async (mode) => {
+    const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
+    const target = fakeFile("Target.md");
+    const ghost = fakeFile("Ghost.md");
+    const files = [sourceFile, target, ghost];
+    const content: Record<string, string> = {};
+    const caches = new Map<string, CachedMetadata>();
+    const destinations = new Map([["Target", target], ["Ghost", ghost]]);
+    const { port } = createPort(files, { content, caches, destinations });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      for (const newline of ["\n", "\r\n", "\r"]) for (const { markdown, targets } of inlineMarkdownCases) {
+        const example = markdown.replaceAll("\n", newline);
+        const text = `😀${newline}${newline}${example}`;
+        content[sourceFile.path] = mode === "canvas"
+          ? JSON.stringify({ nodes: [{ id: "inline-node", type: "text", text }] }) : text;
+        const native = targets.map((link) => {
+          const outer = link !== "Ghost" && link !== "Missing";
+          const raw = outer ? example.slice(0, example.lastIndexOf(")") + 1) : `[[${link}]]`;
+          const from = !outer && (example.startsWith("`") || example.startsWith("<!--")) ? text.lastIndexOf(raw) : 0;
+          return positioned(text, link, raw, from);
+        });
+        if (mode === "empty-cache") caches.set(sourceFile.path, {});
+        if (["cached", "partial-cache", "metadata-cache"].includes(mode)) {
+          const selected = mode === "partial-cache" ? native.slice(0, 1) : native;
+          caches.set(sourceFile.path, {
+            links: [...selected.filter(({ original }) => !original.startsWith("!")),
+              ...(mode === "metadata-cache" ? [...text.matchAll(/\[\[([^\r\n]*?)\]\]/gu)]
+                .map((match) => positioned(text, match[1]!, match[0], match.index)) : [])],
+            embeds: selected.filter(({ original }) => original.startsWith("!")),
+          });
+        }
+        if (store.current.files.length === 0) await new FullRebuildController(port, store).rebuild();
+        else {
+          incremental.enqueue({ type: "modify", path: sourceFile.path });
+          await incremental.whenIdle();
+        }
+        const clean = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(store.current.toCanonicalState(), example).toEqual(clean.toCanonicalState());
+        const occurrences = store.current.getSourceSnapshot(sourceFile.path)!.occurrences;
+        expect(occurrences.map(({ linkpath }) => linkpath), example).toEqual(targets);
+        expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText), example)
+          .toEqual(targets.filter((name) => !destinations.has(name)));
+        const resolved = targets.filter((name) => destinations.has(name));
+        expect(store.current.getOutgoingContributionCount(sourceFile.path), example).toBe(resolved.length);
+        for (const name of ["Target", "Ghost"]) {
+          expect(store.current.getIncomingContributionCount(`${name}.md`), example)
+            .toBe(targets.filter((value) => value === name).length);
+        }
+        const isolated = [resolved.length === 0 ? sourceFile.path : null,
+          ...["Target", "Ghost"].filter((name) => !resolved.includes(name)).map((name) => `${name}.md`)]
+          .filter((path): path is string => path !== null).sort();
+        expect(queryIsolatedFiles(store.current).map(({ path }) => path).sort(), example).toEqual(isolated);
+      }
+    } finally {
+      incremental.stop();
+    }
+  });
+
   it.each(["fallback", "cached", "empty-cache", "partial-cache", "canvas"])("updates container-relative code diagnostics, graph and isolation via %s", async (mode) => {
     const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
     const target = fakeFile("Target.md");
@@ -235,6 +297,17 @@ describe("ObsidianLinkIndexPort", () => {
     expect(occurrences.filter(({ raw }) => raw === "[[Real]]")).toHaveLength(1);
   });
 
+  it("retains an uncertain native metadata candidate without inventing its source coordinates", async () => {
+    const file = fakeFile("Source.md");
+    const source = '[label](Target "[[Ghost]]")';
+    const test = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [positioned(source, "Native target", source),
+        reference("Native ghost", "[[Ghost]]", 100)] }]]) });
+    const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+    expect(occurrences.map(({ linkpath }) => linkpath)).toEqual(["Native target", "Native ghost"]);
+    expect(occurrences[1]?.position?.line).toBe(100);
+  });
+
   it("retains native frontmatter positions while supplementing an otherwise empty cache from body source", async () => {
     const file = fakeFile("Source.md");
     const source = "---\nrelated: '[[Property]]'\n---\n[id]: /url\n    [[Target]] [[Missing]]\n";
@@ -302,6 +375,19 @@ describe("ObsidianLinkIndexPort", () => {
       occurrences.find(({ raw }) => raw === "![[Image.png]]")!.id)).toBe(true);
     expect(occurrenceIdMatches(legacy("frontmatter", "-:-", 2), occurrences.at(-1)!.id)).toBe(true);
     expect(occurrences.map(({ raw }) => raw)).toEqual(["![[Image.png]]", "[[Missing]]", "[[Supplement]]", "[[Property]]"]);
+  });
+
+  it("consumes exact duplicate native ordinals before deduplication for legacy ignores", async () => {
+    const file = fakeFile("Source.md");
+    const source = "%% [[Masked]] %%\n[[First]] [[Missing]]";
+    const first = positioned(source, "First", "[[First]]");
+    const missing = positioned(source, "Missing", "[[Missing]]");
+    const test = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [positioned(source, "Masked", "[[Masked]]"), first, first, missing] }]]) });
+    const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
+    expect(occurrences.map(({ linkpath }) => linkpath)).toEqual(["First", "Missing"]);
+    const legacy = [file.path, "markdown-link", `${missing.position.start.line}:${missing.position.start.col}`, "2"].join("\u0000");
+    expect(occurrenceIdMatches(legacy, occurrences[1]!.id)).toBe(true);
   });
 
   it("does not duplicate a native token whose raw text only normalizes source CRLF", async () => {

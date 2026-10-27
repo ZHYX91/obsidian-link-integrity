@@ -26,16 +26,11 @@ export function extractMarkdownExplicitReferences(
   const steps = extractMarkdownSteps(source);
   let step = steps.next();
   while (!step.done) step = steps.next();
-  return step.value;
+  return step.value.references;
 }
 
-export async function extractMarkdownExplicitReferencesAsync(
-  source: string,
-  scheduler = new WorkScheduler(),
-  // Internal adapters may reuse only the same source's UTF-16 mask.
-  maskedSource?: string,
-): Promise<readonly ParsedExplicitReference[]> {
-  const steps = extractMarkdownSteps(source, maskedSource);
+export async function parseMarkdownSourceAsync(source: string, scheduler = new WorkScheduler()) {
+  const steps = extractMarkdownSteps(source);
   let step = steps.next();
   while (!step.done) {
     const pause = scheduler.checkpoint();
@@ -45,27 +40,20 @@ export async function extractMarkdownExplicitReferencesAsync(
   return step.value;
 }
 
-function* extractMarkdownSteps(source: string, masked = maskMarkdownNonContent(source)): Generator<void, readonly ParsedExplicitReference[]> {
-  yield;
-  const { references: wikiReferences, ranges } = yield* extractWikiLinks(source, masked);
-  const destinations = yield* indexMarkdownDestinations(masked);
-  const markdown = yield* extractInlineMarkdownLinks(source, masked, ranges, destinations);
+function* extractMarkdownSteps(source: string): Generator<void, { references: readonly ParsedExplicitReference[]; masked: string }> {
+  const destinations = yield* indexMarkdownDestinations(source);
+  const { masked, inline: established, frontmatterEnd } = maskMarkdownNonContent(source, destinations);
+  const { wikiReferences, markdown } = yield* extractMarkdownLinks(source, masked, destinations, established, frontmatterEnd);
   const references: ParsedExplicitReference[] = [];
   let wiki = 0;
   let inline = 0;
   while (wiki < wikiReferences.length || inline < markdown.length) {
-    const left = wikiReferences[wiki];
-    const right = markdown[inline];
-    if (left !== undefined && (right === undefined || left.startOffset <= right.startOffset)) {
-      references.push(left);
-      wiki += 1;
-    } else if (right !== undefined) {
-      references.push(right);
-      inline += 1;
-    }
+    const takeWiki = inline >= markdown.length || wiki < wikiReferences.length &&
+      wikiReferences[wiki]!.startOffset <= markdown[inline]!.startOffset;
+    references.push(takeWiki ? wikiReferences[wiki++]! : markdown[inline++]!);
     if (references.length % 128 === 0) yield;
   }
-  return references;
+  return { references, masked };
 }
 
 export function extractBasesExplicitReferences(
@@ -258,80 +246,25 @@ export function isExternalReference(linktext: string): boolean {
   );
 }
 
-interface ExtractedWikiLinks {
-  readonly references: ParsedExplicitReference[];
-  readonly ranges: MaskedRange[];
-}
-
-function* extractWikiLinks(source: string, masked: string): Generator<void, ExtractedWikiLinks> {
-  const references: ParsedExplicitReference[] = [];
-  const ranges: MaskedRange[] = [];
-  let index = 0;
-  while (index < masked.length) {
-    if (index % 1024 === 0) yield;
-    const embedded = masked[index] === "!" && masked[index + 1] === "[" &&
-      masked[index + 2] === "[" && !isEscaped(masked, index + 1);
-    const startOffset = index;
-    const opening = embedded ? index + 1 : index;
-    if (
-      masked[opening] !== "[" ||
-      masked[opening + 1] !== "[" ||
-      isEscaped(masked, opening)
-    ) {
-      index += 1;
-      continue;
-    }
-    const contentStart = opening + 2;
-    const closing = yield* findWikiClosing(masked, contentStart);
-    if (closing < 0) {
-      index = lineEndOffset(masked, contentStart);
-      continue;
-    }
-    const endOffset = closing + 2;
-    ranges.push({ start: startOffset, end: endOffset });
-    const wikiContent = source.slice(contentStart, closing);
-    const linktext = readWikiLinktext(wikiContent).trim();
-    if (linktext.length > 0) {
-      references.push({
-        raw: source.slice(startOffset, endOffset),
-        linktext,
-        embedded,
-        startOffset,
-        endOffset,
-      });
-    }
-    index = endOffset;
-  }
-  return { references, ranges };
-}
-
-function* extractInlineMarkdownLinks(
+function* extractMarkdownLinks(
   source: string,
   masked: string,
-  wikiRanges: readonly MaskedRange[],
   destinations: MarkdownDestinationIndex,
-): Generator<void, ParsedExplicitReference[]> {
-  const references: ParsedExplicitReference[] = [];
+  inline: ReadonlyMap<number, ParsedExplicitReference>,
+  frontmatterEnd: number,
+): Generator<void, { wikiReferences: ParsedExplicitReference[]; markdown: ParsedExplicitReference[] }> {
+  const wikiReferences: ParsedExplicitReference[] = [];
+  const markdown: ParsedExplicitReference[] = [];
   const labelStack: number[] = [];
-  let wikiRangeIndex = 0;
   let index = 0;
   while (index < masked.length) {
     if (index % 1024 === 0) yield;
-    const wikiRange = wikiRanges[wikiRangeIndex];
-    if (wikiRange !== undefined && index >= wikiRange.end) {
-      wikiRangeIndex += 1;
-      continue;
-    }
-    if (wikiRange !== undefined && index >= wikiRange.start) {
-      labelStack.length = 0;
-      index = wikiRange.end;
-      wikiRangeIndex += 1;
-      continue;
-    }
-
+    const established = inline.get(index);
+    if (established !== undefined) markdown.push(established);
     const character = masked[index];
     if (character === "\n" || character === "\r") {
-      labelStack.length = 0;
+      const nextLine = index + (character === "\r" && masked[index + 1] === "\n" ? 2 : 1);
+      if (/[\r\n]/u.test(masked[destinations.afterWhitespace[nextLine]!] ?? "")) labelStack.length = 0;
       index += 1;
       continue;
     }
@@ -339,6 +272,18 @@ function* extractInlineMarkdownLinks(
       index += Math.min(2, masked.length - index);
       continue;
     }
+    const embeddedWiki = character === "!" && masked[index + 1] === "[" && masked[index + 2] === "[";
+    const opening = embeddedWiki ? index + 1 : index;
+    if (masked[opening] === "[" && masked[opening + 1] === "[") {
+      const closing = yield* findWikiClosing(masked, opening + 2);
+      if (closing < 0) { index = lineEndOffset(masked, opening + 2); continue; }
+      const linktext = readWikiLinktext(source.slice(opening + 2, closing)).trim();
+      if (linktext.length > 0) wikiReferences.push({ raw: source.slice(index, closing + 2),
+        linktext, embedded: embeddedWiki, startOffset: index, endOffset: closing + 2 });
+      index = closing + 2;
+      continue;
+    }
+    if (index >= frontmatterEnd) { index += 1; continue; }
     if (character === "[" && masked[index + 1] !== "[") {
       labelStack.push(index);
       index += 1;
@@ -354,31 +299,17 @@ function* extractInlineMarkdownLinks(
       index += 1;
       continue;
     }
-    const parsedDestination = readMarkdownDestination(masked, index + 2, destinations);
+    const parsedDestination = readMarkdownDestination(source, index + 2, destinations);
     if (parsedDestination === null) {
       index += 1;
       continue;
     }
-    const embedded = labelStart > 0 && source[labelStart - 1] === "!" &&
-      !isEscaped(source, labelStart - 1);
-    const startOffset = embedded ? labelStart - 1 : labelStart;
-    const linktext = source
-      .slice(parsedDestination.destinationStart, parsedDestination.destinationEnd)
-      .replace(/^<|>$/gu, "")
-      .trim();
-    if (linktext.length > 0) {
-      references.push({
-        raw: source.slice(startOffset, parsedDestination.linkEnd),
-        linktext: unescapeMarkdownDestination(linktext),
-        embedded,
-        startOffset,
-        endOffset: parsedDestination.linkEnd,
-      });
-    }
-    labelStack.length = 0;
+    const reference = markdownReference(source, labelStart, parsedDestination);
+    if (reference.linktext.length > 0) markdown.push(reference);
+    if (!reference.embedded) labelStack.length = 0;
     index = parsedDestination.linkEnd;
   }
-  return references;
+  return { wikiReferences, markdown };
 }
 
 function* findWikiClosing(source: string, start: number): Generator<void, number> {
@@ -405,22 +336,45 @@ function readMarkdownDestination(
   source: string,
   start: number,
   boundaries: MarkdownDestinationIndex,
-): { destinationStart: number; destinationEnd: number; linkEnd: number } | null {
-  const destinationStart = boundaries.afterWhitespace[start] ?? source.length;
-  const closing = boundaries.closing[destinationStart] ?? -1;
+): MarkdownDestination | null {
+  const skipSpace = (from: number): number => {
+    let index = boundaries.afterWhitespace[from]!;
+    if (source[index] === "\n" || source[index] === "\r") {
+      index += source[index] === "\r" && source[index + 1] === "\n" ? 2 : 1;
+      index = boundaries.afterWhitespace[index]!;
+    }
+    return index;
+  };
+  const destinationStart = skipSpace(start);
+  const closing = boundaries.closing[destinationStart]!;
   const destinationEnd = source[destinationStart] === "<"
     ? closing < 0 ? -1 : closing + 1
-    : boundaries.bareEnd[destinationStart] ?? -1;
+    : boundaries.bareEnd[destinationStart]!;
   if (destinationEnd < 0) return null;
-  let index = boundaries.afterWhitespace[destinationEnd] ?? source.length;
+  let index = skipSpace(destinationEnd);
   const quote = source[index];
-  if (quote === '"' || quote === "'") {
-    const titleEnd = boundaries.closing[index] ?? -1;
+  if (index > destinationEnd && /["'(]/u.test(quote ?? "")) {
+    const titleEnd = boundaries.closing[index]!;
     if (titleEnd < 0) return null;
-    index = boundaries.afterWhitespace[titleEnd + 1] ?? source.length;
+    index = skipSpace(titleEnd + 1);
   }
   if (source[index] !== ")") return null;
   return { destinationStart, destinationEnd, linkEnd: index + 1 };
+}
+
+interface MarkdownDestination {
+  readonly destinationStart: number;
+  readonly destinationEnd: number;
+  readonly linkEnd: number;
+}
+
+function markdownReference(source: string, label: number, destination: MarkdownDestination): ParsedExplicitReference {
+  const embedded = isEmbedded(source, label);
+  const startOffset = embedded ? label - 1 : label;
+  return { raw: source.slice(startOffset, destination.linkEnd), embedded, startOffset,
+    endOffset: destination.linkEnd,
+    linktext: unescapeMarkdownDestination(source.slice(destination.destinationStart, destination.destinationEnd)
+      .replace(/^<|>$/gu, "").trim()) };
 }
 
 function isEscaped(source: string, index: number): boolean {
@@ -431,14 +385,18 @@ function isEscaped(source: string, index: number): boolean {
   return backslashes % 2 === 1;
 }
 
+function isEmbedded(source: string, start: number): boolean {
+  return source[start - 1] === "!" && !isEscaped(source, start - 1);
+}
+
 /** Same-length UTF-16 mask shared by fallback parsing and positioned cache filtering. */
-export function maskMarkdownNonContent(source: string): string {
+function maskMarkdownNonContent(source: string, destinations: MarkdownDestinationIndex) {
   // Every offset used by RegExp, indexOf, and slice is a UTF-16 code-unit offset.
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.
   const characters = source.split("");
+  const inline = new Map<number, ParsedExplicitReference>();
   const frontmatterRange = findMarkdownFrontmatterRange(source);
-  const blockRanges = maskDelimitedBlocks(characters, source, frontmatterRange);
   if (frontmatterRange !== null) {
     maskYamlCommentRanges(
       characters,
@@ -447,8 +405,8 @@ export function maskMarkdownNonContent(source: string): string {
       frontmatterRange.end,
     );
   }
-  maskInlineCodeAndComments(characters, source, blockRanges);
-  return characters.join("");
+  maskDelimitedBlocks(characters, source, frontmatterRange, destinations, inline);
+  return { masked: characters.join(""), inline, frontmatterEnd: frontmatterRange?.end ?? 0 };
 }
 
 interface MaskedRange {
@@ -460,8 +418,9 @@ function maskDelimitedBlocks(
   characters: string[],
   source: string,
   frontmatter: MaskedRange | null,
-): MaskedRange[] {
-  const ranges: MaskedRange[] = [];
+  destinations: MarkdownDestinationIndex,
+  inline: Map<number, ParsedExplicitReference>,
+): void {
   let fence: {
     readonly character: string;
     readonly length: number;
@@ -477,14 +436,39 @@ function maskDelimitedBlocks(
   let definitionEnd = 0;
   let inlineEnd = 0;
   let literalTagEnd = 0;
+  const labels: number[] = [];
+  let paragraphEnd = 0;
   const lines = sourceLineRanges(source);
   const linesByStart = new Map(lines.map((line) => [line.start, line]));
-  const inlineClosers = indexInlineCodeClosers(source, lines);
+  const inlineClosers = indexInlineCodeClosers(characters.join(""));
   const opaqueClosers = indexOpaqueClosers(source);
   const rawOpening = /<(pre|script|style|textarea)(?=[\s>])/iyu;
   const mask = (start: number, end: number) => {
     maskRange(characters, start, end);
-    ranges.push({ start, end });
+  };
+  for (let cursor = 0; cursor < (frontmatter?.end ?? 0); cursor += 1) {
+    if (characters[cursor] !== source[cursor]) continue;
+    const closing = source.startsWith("%%", cursor)
+      ? findUnmaskedDelimiter(characters, source, "%%", cursor + 2) : -1;
+    const end = closing >= 0 ? closing + 2 : inlineClosers.get(cursor) ?? 0;
+    if (end > cursor && end <= frontmatter!.end) {
+      mask(cursor + (closing < 0 && isEscaped(source, cursor) ? 1 : 0), end);
+      cursor = end - 1;
+    }
+  }
+  const inlineBoundary = (lineIndex: number): number => {
+    if (paragraphEnd <= lines[lineIndex]!.start) {
+      paragraphEnd = source.length;
+      for (let next = lineIndex + 1; next < lines.length; next += 1) {
+        const following = lines[next]!;
+        const content = normalizeMarkdownContainerLine(source.slice(following.start, following.contentEnd), containers, true);
+        if (content.opensContainer || content.text.trim().length === 0 || startsMarkdownBlock(content.text) || isSetextUnderline(content.text)) {
+          paragraphEnd = following.start;
+          break;
+        }
+      }
+    }
+    return paragraphEnd;
   };
   for (const [lineIndex, line] of lines.entries()) {
     if (frontmatter !== null && line.start < frontmatter.end) continue;
@@ -523,12 +507,14 @@ function maskDelimitedBlocks(
     if (cursor > line.start && source.slice(cursor, line.contentEnd).trim().length === 0) continue;
     const normalized = normalizeMarkdownContainerLine(text, containers, paragraph);
     const blank = normalized.text.trim().length === 0;
+    if (startsMarkdownBlock(normalized.text) || isSetextUnderline(normalized.text)) labels.length = 0;
     // A lazy paragraph continuation can omit its quote/list prefixes. Keep that
     // stack for a later indented continuation, but never carry it across a blank
     // or a new block. Code cannot interrupt the paragraph itself.
     const lazy = !continues && paragraph && !blank && !normalized.opensContainer &&
       !startsMarkdownBlock(normalized.text);
     if ((!continues && !lazy) || normalized.opensContainer) {
+      labels.length = 0;
       indentedCode = false;
       paragraph = false;
       paragraphBody = false;
@@ -537,6 +523,7 @@ function maskDelimitedBlocks(
     if (!lazy) containers = normalized.containers;
     const indented = normalized.text.startsWith("    ");
     if (!blank && indented && (indentedCode || !paragraph) && cursor === line.start) {
+      labels.length = 0;
       indentedCode = true;
       paragraph = false;
       paragraphBody = false;
@@ -548,6 +535,7 @@ function maskDelimitedBlocks(
     // The marker itself is the first blank line of an empty list item. A second
     // blank closes it; populated items can contain any number of blank lines.
     if (blank) {
+      labels.length = 0;
       if (normalized.opensContainer && typeof containers.at(-1) === "number") emptyItemDepth = containers.length;
       else if (emptyItemDepth > 0) { containers = containers.slice(0, emptyItemDepth - 1); emptyItemDepth = 0; }
     } else emptyItemDepth = 0;
@@ -580,6 +568,7 @@ function maskDelimitedBlocks(
     const opening = cursor === line.start ? /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/u.exec(normalized.text) : null;
     const delimiter = opening?.[1];
     if (delimiter !== undefined && !(delimiter[0] === "`" && opening?.[2]?.includes("`"))) {
+      labels.length = 0;
       fence = { character: delimiter[0] ?? "", length: delimiter.length, start: line.start, containers };
       inlineEnd = 0;
       paragraph = false;
@@ -587,6 +576,7 @@ function maskDelimitedBlocks(
     }
     // Recognize opaque syntax in source order so fences inside comments/raw HTML
     // and HTML openers inside code spans never become a second active block.
+    let wiki = false;
     while (cursor < line.contentEnd) {
       if (cursor < inlineEnd) { cursor = inlineEnd; continue; }
       if (characters[cursor] !== source[cursor]) { cursor += 1; continue; }
@@ -621,12 +611,42 @@ function maskDelimitedBlocks(
         continue;
       }
       inlineEnd = inlineClosers.get(cursor) ?? 0;
-      cursor = inlineEnd > cursor ? inlineEnd : cursor + 1;
+      if (inlineEnd > line.end && inlineEnd > inlineBoundary(lineIndex)) inlineEnd = 0;
+      if (inlineEnd > cursor) {
+        mask(cursor + (isEscaped(source, cursor) ? 1 : 0), inlineEnd);
+        cursor = inlineEnd;
+        continue;
+      }
+      if (source[cursor] === "\\" && source[cursor + 1] !== "`") { cursor += 2; continue; }
+      if (source.startsWith("[[", cursor)) { wiki = true; cursor += 2; continue; }
+      if (wiki) {
+        if (source.startsWith("]]", cursor)) { wiki = false; cursor += 2; }
+        else cursor += 1;
+        continue;
+      }
+      if (source[cursor] === "[") labels.push(cursor);
+      if (source[cursor] === "]") {
+        const opening = labels.pop();
+        let destination = opening !== undefined && source[cursor + 1] === "("
+          ? readMarkdownDestination(source, cursor + 2, destinations) : null;
+        if (destination !== null && destination.linkEnd > line.end && destination.linkEnd > inlineBoundary(lineIndex)) destination = null;
+        if (destination !== null) {
+          // Only an established link outside code/comments makes its metadata
+          // literal. Keep label content and invalid outer syntax as body text.
+          mask(cursor + 2, destination.linkEnd - 1);
+          const reference = markdownReference(source, opening!, destination);
+          if (reference.linktext.length > 0) inline.set(reference.startOffset, reference);
+          literalTagEnd = destination.linkEnd;
+          if (!isEmbedded(source, opening!)) labels.length = 0;
+          cursor = destination.linkEnd;
+          continue;
+        }
+      }
+      cursor += 1;
     }
   }
   if (fence !== null) mask(fence.start, source.length);
   if (opaque !== null) mask(opaque.start, source.length);
-  return ranges;
 }
 
 function startsMarkdownBlock(text: string): boolean {
@@ -706,27 +726,15 @@ function continuesContainers(text: string, containers: readonly MarkdownContaine
   return stripped.remainder.trim().length === 0 && !containers.slice(stripped.consumed.length).includes("quote");
 }
 
-function indexInlineCodeClosers(source: string, lines: readonly SourceLineRange[]): ReadonlyMap<number, number> {
+function indexInlineCodeClosers(source: string): ReadonlyMap<number, number> {
   const runs = [...source.matchAll(/`+/gu)];
   const nextByLength = new Map<number, number>();
   const result = new Map<number, number>();
-  const barriers: number[] = [];
-  let containers: readonly MarkdownContainer[] = [];
-  for (const line of lines) {
-    const normalized = normalizeMarkdownContainerLine(source.slice(line.start, line.contentEnd), containers);
-    containers = normalized.containers;
-    if (/^ {0,3}(?:`{3,}[^`]*|~{3,}.*)$/u.test(normalized.text)) barriers.push(line.start);
-  }
-  let barrier = barriers.length - 1;
   for (let index = runs.length - 1; index >= 0; index -= 1) {
     const run = runs[index]!;
-    while (barrier >= 0 && barriers[barrier]! > run.index) {
-      nextByLength.clear();
-      barrier -= 1;
-    }
     const effectiveLength = run[0].length - (isEscaped(source, run.index) ? 1 : 0);
     const end = nextByLength.get(effectiveLength);
-    if (effectiveLength > 0 && end !== undefined) result.set(run.index, end);
+    if (end !== undefined) result.set(run.index, end);
     nextByLength.set(run[0].length, run.index + run[0].length);
   }
   return result;
@@ -776,104 +784,6 @@ function findUnmaskedDelimiter(
     cursor = index + delimiter.length;
   }
   return -1;
-}
-
-function maskInlineCodeAndComments(
-  characters: string[],
-  source: string,
-  blockRanges: readonly MaskedRange[],
-): void {
-  const runs = [...source.matchAll(/`+/gu)].filter((run) => {
-    const start = run.index;
-    return start !== undefined && characters[start] === "`";
-  });
-  const runSegments: number[] = [];
-  let blockRangeIndex = 0;
-  for (const run of runs) {
-    const start = run.index;
-    if (start === undefined) continue;
-    while (true) {
-      const blockRange = blockRanges[blockRangeIndex];
-      if (blockRange === undefined || blockRange.end > start) break;
-      blockRangeIndex += 1;
-    }
-    runSegments.push(blockRangeIndex);
-  }
-  const nextMatchingRun: Array<number | null> = Array.from({ length: runs.length }, () => null);
-  // An escaped first backtick is literal outside code. A longer run can
-  // still open code with the remaining backticks, whereas a backslash
-  // inside an already open code span does not escape its closing delimiter.
-  const nextMatchingAfterEscapedFirst: Array<number | null> = Array.from({ length: runs.length }, () => null);
-  const nextByLength = new Map<number, number>();
-  const runIndexByStart = new Map<number, number>();
-  let segment = -1;
-  for (let index = runs.length - 1; index >= 0; index -= 1) {
-    const run = runs[index];
-    if (run === undefined || run.index === undefined) continue;
-    const runSegment = runSegments[index] ?? -1;
-    if (runSegment !== segment) {
-      nextByLength.clear();
-      segment = runSegment;
-    }
-    const length = run[0].length;
-    nextMatchingRun[index] = nextByLength.get(length) ?? null;
-    if (length > 1) nextMatchingAfterEscapedFirst[index] = nextByLength.get(length - 1) ?? null;
-    nextByLength.set(length, index);
-    runIndexByStart.set(run.index, index);
-  }
-
-  let cursor = 0;
-  while (cursor < source.length) {
-    if (characters[cursor] !== source[cursor]) {
-      cursor += 1;
-      continue;
-    }
-    if (source.startsWith("%%", cursor)) {
-      const closing = findUnmaskedDelimiter(characters, source, "%%", cursor + 2);
-      if (closing < 0) {
-        cursor += 2;
-        continue;
-      }
-      maskRange(characters, cursor, closing + 2);
-      cursor = closing + 2;
-      continue;
-    }
-    if (source[cursor] !== "`") {
-      cursor += 1;
-      continue;
-    }
-    const openingIndex = runIndexByStart.get(cursor);
-    const opening = openingIndex === undefined ? undefined : runs[openingIndex];
-    if (opening === undefined || openingIndex === undefined) {
-      cursor += 1;
-      continue;
-    }
-    let precedingBackslashes = 0;
-    for (let at = cursor - 1; at >= 0 && source[at] === "\\"; at -= 1) {
-      precedingBackslashes += 1;
-    }
-    const escapedFirst = precedingBackslashes % 2 === 1;
-    const effectiveLength = opening[0].length - (escapedFirst ? 1 : 0);
-    if (effectiveLength === 0) {
-      cursor += opening[0].length;
-      continue;
-    }
-    const closingIndex = escapedFirst
-      ? nextMatchingAfterEscapedFirst[openingIndex]
-      : nextMatchingRun[openingIndex];
-    if (closingIndex == null) {
-      cursor += opening[0].length;
-      continue;
-    }
-    const closing = runs[closingIndex];
-    if (closing === undefined || closing.index === undefined) {
-      cursor += opening[0].length;
-      continue;
-    }
-    const end = closing.index + closing[0].length;
-    maskRange(characters, cursor + (escapedFirst ? 1 : 0), end);
-    cursor = end;
-  }
 }
 
 function scanLiteralHtmlTag(
@@ -1030,17 +940,9 @@ function sourceLineRanges(source: string): SourceLineRange[] {
 }
 
 function readWikiLinktext(content: string): string {
-  let escaped = false;
-  for (let index = 0; index < content.length; index += 1) {
-    const character = content[index];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (character === "\\") escaped = true;
-    else if (character === "|") return content.slice(0, index);
-  }
-  return content;
+  let separator = content.indexOf("|");
+  while (separator >= 0 && isEscaped(content, separator)) separator = content.indexOf("|", separator + 1);
+  return separator < 0 ? content : content.slice(0, separator);
 }
 
 function maskRange(characters: string[], start: number, end: number): void {

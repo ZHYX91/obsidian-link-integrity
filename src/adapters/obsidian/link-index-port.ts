@@ -26,10 +26,9 @@ import {
 } from "../../core/occurrence-identity";
 import {
   extractBasesExplicitReferences,
-  extractMarkdownExplicitReferencesAsync,
   findMarkdownFrontmatterRange,
   isExternalReference,
-  maskMarkdownNonContent,
+  parseMarkdownSourceAsync,
   type ParsedExplicitReference,
 } from "./explicit-link-parser";
 
@@ -111,7 +110,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
   private async buildMarkdownSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const cache = this.metadataCache.getFileCache(file);
     const source = await this.vault.cachedRead(file);
-    const masked = maskMarkdownNonContent(source);
+    const { masked, references: sourceReferences } = await parseMarkdownSourceAsync(source, scheduler);
     const lineStarts = createLineStarts(source);
     const inputs: OccurrenceInput[] = [];
     const covered = new Map<string, number>();
@@ -123,8 +122,10 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       for (const reference of references ?? []) {
         const range = cachedSourceRange(reference, source, lineStarts);
         const key = sourceReferenceKey(kind, reference.original, range);
+        if (range && masked[range[0]] !== source[range[0]]) continue;
+        const nativeOrdinal = ordinal++;
         if (range) {
-          if (masked[range[0]] !== source[range[0]] || covered.has(key)) continue;
+          if (covered.has(key)) continue;
           covered.set(key, 1);
         } else covered.set(key, (covered.get(key) ?? 0) + 1);
         inputs.push({
@@ -132,7 +133,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
           linktext: reference.link,
           kind,
           position: positionFromCache(reference),
-          ordinal: ordinal++,
+          ordinal: nativeOrdinal,
         });
       }
     };
@@ -143,7 +144,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       position: frontmatterPosition(reference), ordinal: ordinal++,
     }));
     const bodyStart = cache === null ? 0 : findMarkdownFrontmatterRange(source)?.end ?? 0;
-    for (const reference of await extractMarkdownExplicitReferencesAsync(source, scheduler, masked)) {
+    for (const reference of sourceReferences) {
       if (reference.startOffset < bodyStart) continue;
       const kind = reference.embedded ? "markdown-embed" : "markdown-link";
       if (covered.has(sourceReferenceKey(kind, reference.raw, [reference.startOffset, reference.endOffset]))) continue;
@@ -191,7 +192,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       }
       if (node.type === "text" && typeof node.text === "string") {
         const lineStarts = createLineStarts(node.text);
-        for (const reference of await extractMarkdownExplicitReferencesAsync(node.text, scheduler)) {
+        for (const reference of (await parseMarkdownSourceAsync(node.text, scheduler)).references) {
           inputs.push(parsedOccurrenceInput(reference, lineStarts, "canvas-text", nodeId));
         }
       }

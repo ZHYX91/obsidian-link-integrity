@@ -1,4 +1,5 @@
 import { commonmarkBlockCases, commonmarkBlockOracle } from "../helpers/commonmark-block-oracle";
+import { inlineMarkdownCases } from "../helpers/inline-markdown-cases";
 
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { describe, expect, it } from "vitest";
@@ -6,11 +7,33 @@ import { describe, expect, it } from "vitest";
 import {
   extractBasesExplicitReferences,
   extractMarkdownExplicitReferences,
-  extractMarkdownExplicitReferencesAsync,
+  parseMarkdownSourceAsync,
   isExternalReference,
 } from "../../src/adapters/obsidian/explicit-link-parser";
 
 describe("extractMarkdownExplicitReferences", () => {
+  it("does not mistake an escaped bang for a nested image when proving outer metadata", () => {
+    expect(extractMarkdownExplicitReferences(String.raw`[outer \![alt](Target)](Other "[[Ghost]]")`)
+      .map(({ linktext }) => linktext)).toEqual(["Target", "Ghost"]);
+  });
+  it("preserves lexical source order for images in link labels without exposing outer metadata", () => {
+    expect(extractMarkdownExplicitReferences('[outer ![alt](Target)](Ghost "[[Missing]]")')
+      .map(({ linktext }) => linktext)).toEqual(["Ghost", "Target"]);
+  });
+  it("does not prove inline metadata inside a Wiki alias", () => {
+    expect(extractMarkdownExplicitReferences('[[Target|[label](Other "title")]] [[Missing]]')
+      .map(({ linktext }) => linktext)).toEqual(["Target", "Missing"]);
+  });
+  it.each(inlineMarkdownCases)("distinguishes inline body from valid metadata: $markdown", ({ markdown, targets }) => {
+    for (const newline of ["\n", "\r\n", "\r"]) {
+      const source = `😀 ${markdown.replaceAll("\n", newline)}`;
+      const references = extractMarkdownExplicitReferences(source);
+      expect(references.map(({ linktext }) => linktext)).toEqual(targets);
+      for (const reference of references) {
+        expect(source.slice(reference.startOffset, reference.endOffset)).toBe(reference.raw);
+      }
+    }
+  });
   it.each(["\n", "\r\n", "\r"])("excludes HTML comments and raw code while retaining text offsets with %j", (newline) => {
     const source = [
       "😀 <!-- [[Ghost]] [ghost](Missing.md) --> [[Shown]]",
@@ -151,7 +174,7 @@ describe("extractMarkdownExplicitReferences", () => {
     const source = "[link](A(B(C)).md) [[Other]]\n".repeat(1000);
     let yields = 0;
     const scheduler = new WorkScheduler({ yieldEvery: 1, yieldControl: async () => { yields += 1; } });
-    expect(await extractMarkdownExplicitReferencesAsync(source, scheduler))
+    expect((await parseMarkdownSourceAsync(source, scheduler)).references)
       .toEqual(extractMarkdownExplicitReferences(source));
     expect(yields).toBeGreaterThan(10);
   });
