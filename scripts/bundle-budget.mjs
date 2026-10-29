@@ -1,18 +1,20 @@
-// Measured from the immutable 0.2.8 production asset published from
-// 902b881585c346e599656c3d5629017165c5da9c:
-// main.js = 499,922 bytes.
+// Measured from the immutable 0.5.1 production asset published from
+// b7be5f4630a4eada0c15a261589079401a712b31:
+// main.js = 622,882 bytes, SHA-256
+// 4f1e63cf619664a48574c7bc5500514bda3f570f97a678d2d67197057268ba87.
 //
-// The large step between 0.2.6 and 0.2.7 is attributable to adding the runtime
-// yaml package used by Bases parsing and syntax-range-aware Frontmatter
-// navigation. That dependency is intentional product code, not test/debug
-// material. The reference therefore follows the reviewed runtime baseline.
-export const BUNDLE_REFERENCE_BYTES = 499_922;
+// The published parser and body-diagnostic runtime had already consumed nearly
+// all of the old ceiling. Complete CommonMark destination semantics also need
+// the HTML5 named-entity table and decoder (about 39 KB, imported via
+// entities/decode only). This is runtime code, not test or debug material.
+// Keep the same approximately 25% growth allowance on the published baseline.
+export const BUNDLE_REFERENCE_BYTES = 622_882;
 
 // Keep roughly 25% reviewed growth room above the measured runtime while still
 // rejecting accidental source maps, unminified output, or another large
 // dependency expansion. Raising this ceiling requires a new measured reference
 // and an explanation of the runtime growth.
-export const BUNDLE_MAXIMUM_BYTES = 625_000;
+export const BUNDLE_MAXIMUM_BYTES = 779_000;
 
 export function measureBundleBudget(actualBytes) {
   if (!Number.isSafeInteger(actualBytes) || actualBytes <= 0) {

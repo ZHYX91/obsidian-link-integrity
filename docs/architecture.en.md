@@ -46,6 +46,8 @@ Keeping every lookup reference matters because creating, deleting, or renaming a
 
 ## Resolver adapters
 
+Source supplementation decodes ASCII punctuation backslash escapes and valid semicolon-terminated named/numeric entities once, only at the Markdown destination boundary, before checking external schemes and delegating to the host. An escaped ampersand or an entity-produced backslash is not decoded again. WikiLinks, percent encoding, Canvas file fields, and tokens accurately covered by native caches retain their interpretation. Raw text and UTF-16 source ranges remain unchanged; Canvas text uses the same rule.
+
 Obsidian semantics are resolved only in adapters. The current adapter uses the official `parseLinktext`, `MetadataCache.getFirstLinkpathDest`, and `resolveSubpath` APIs instead of reproducing Obsidian path, alias, heading, or block normalization in core.
 
 The adapter builds one complete snapshot for each supported explicit source. Markdown and Frontmatter use the Metadata Cache with text extraction as a fallback where needed; Canvas reads explicit file nodes, background files, and internal links in text; Bases parses YAML first and extracts statically identifiable explicit references only from formula scalars in `filters`, `formulas`, custom `summaries`, and view `filters`. View names, `properties` display configuration, and ordinary strings inside formulas do not create edges, and dynamic Bases query results never enter the graph model; malformed Bases YAML causes that batch to fail without publishing partial results. A link() first argument must be a complete string literal; concatenations and other dynamic expressions do not create edges. Positions are exact only when the decoded formula appears unchanged in its YAML scalar; otherwise the reference is retained without a claimed line/column. Repeated references are preserved in either case. Invalid Canvas JSON follows the same rule: the batch does not replace file metadata or snapshots, and the most recent trustworthy index remains visible as stale instead of turning that source into a high-confidence isolated result.
@@ -66,7 +68,7 @@ Host rendering can differ from the source block contract. Obsidian 1.13.8 Readin
 
 Ignore previews use the execution matcher, visit stored occurrences in scheduled batches, cancel superseded drafts, and restart if the authoritative index changes while counting. Single-source and occurrence rules restrict enumeration to the source snapshot. Settings do not cache previews by rule ID alone: each draft editor checks normalized rule content, index publication generation, index version, and readiness together. Editor cleanup releases index diagnostics/status subscriptions. Impact counts are collected in the same scheduled traversal, with source/target pairs deduplicated, without a second Vault scan.
 
-Core lookup-key normalization is used only for conservative revalidation after namespace changes. It neither replaces the official resolver nor decides the final target.
+Core lookup-key normalization is used only for conservative revalidation after namespace changes. File dependencies include the full path and every directory suffix: `Parent/Subdir/Target.md` supplies `parent/subdir/target`, `subdir/target`, and `target`. Reverse-source invalidation and in-flight batch conflict checks share these keys, covering host best-match changes when competing names change. They do not replace the official resolver or decide the final target.
 
 ## Graph and query invariants
 

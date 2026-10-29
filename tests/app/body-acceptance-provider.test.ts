@@ -33,6 +33,7 @@ interface FixtureProvider {
   onload: () => void;
   createFixtures: () => Promise<void>;
   createContextRegressionFixtures: () => Promise<void>;
+  createResolutionRegressionFixtures: () => Promise<void>;
   prepareBlockContextFixtures: (mode: string) => Promise<void>;
   prepareInlineMetadataFixtures: (mode: string) => Promise<void>;
   repair: () => Promise<void>;
@@ -63,9 +64,34 @@ async function loadProvider() {
 }
 
 describe("self-contained explicit body fixture provider", () => {
+  it("prepares inert resolution inputs once without changing existing fixture bytes", async () => {
+    const { provider, files, mutations, commands, notices } = await loadProvider();
+    const baseline = new Map(files);
+    provider.onload();
+    await commands.find(({ id }) => id === "create-resolution-regression-fixtures")!.callback();
+    const root = "Resolution Semantics Acceptance";
+    const text = files.get(`${root}/Destinations/Source.md`)!;
+    expect(text.startsWith("😀\n")).toBe(true);
+    expect(extractMarkdownExplicitReferences(text).map(({ linktext }) => linktext)).toEqual([
+      "A&B.md", "foo!.md", "A&amp;B.md", "Escaped&amp;B.md", "Wiki&amp;Name", "Percent%26Name.md", "https://example.com", "Missing&Value.md",
+    ]);
+    expect(JSON.parse(files.get(`${root}/Destinations/Board.canvas`)!) as unknown).toEqual({ nodes: [{ id: "destinations", type: "text", text }] });
+    expect(files.get(`${root}/Parent/Source.md`)).toBe("[[Subdir/Suffix Target]]\n");
+    expect([...files.keys()].some((path) => path.includes("Suffix Target.md") || path.includes("Missing&Value.md"))).toBe(false);
+    expect(new Map([...files].filter(([path]) => !path.startsWith(`${root}/`)))).toEqual(baseline);
+    expect(mutations.every((path) => path === root || path.startsWith(`${root}/`))).toBe(true);
+    expect(notices.at(-1)).toContain("Observe native targets");
+    const before = new Map(files); const writes = mutations.length;
+    await expect(provider.createResolutionRegressionFixtures()).rejects.toThrow("already exist");
+    expect(files).toEqual(before); expect(mutations).toHaveLength(writes);
+    files.delete("Standalone.md");
+    await expect(provider.createResolutionRegressionFixtures()).rejects.toThrow("disposable acceptance fixture");
+    expect(mutations).toHaveLength(writes);
+  });
+
   it("preserves base bytes and verifies prepare/repair/restore transitions without filesystem writes", async () => {
     const { provider, files, commands } = await loadProvider();
-    provider.onload(); expect(commands.map(({ id }) => id)).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "repair-body-hint-fixtures", "restore-body-hint-fixtures",
+    provider.onload(); expect(commands.map(({ id }) => id)).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "create-resolution-regression-fixtures", "repair-body-hint-fixtures", "restore-body-hint-fixtures",
       "prepare-block-quote-code", "prepare-block-list-prose", "prepare-block-definition-continuation", "prepare-block-definition-non1-code", "prepare-block-definition-title",
       "prepare-inline-quoted", "prepare-inline-parenthesized", "prepare-inline-label-wiki", "prepare-inline-invalid-outer",
       "prepare-inline-atx-boundary", "prepare-inline-nested-image", "prepare-inline-reference-inner", "prepare-inline-quote-continuation", "prepare-inline-hint-metadata"]);

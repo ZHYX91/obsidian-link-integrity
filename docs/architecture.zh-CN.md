@@ -45,6 +45,8 @@ translation_status: source
 
 ## 解析适配器
 
+源码补全仅在 Markdown 目的地址语义边界单次处理 ASCII 标点反斜线转义及带分号的有效命名／数字实体，然后判断外链并交给宿主解析。转义的 `&` 或实体产生的反斜线不再次解码；WikiLink、百分号编码、Canvas 文件字段及原生缓存已准确覆盖的 token 保持原解释。`raw` 与 UTF-16 源范围不变，Canvas 文本使用相同规则。
+
 Obsidian 语义只在 adapter 中解析。当前 adapter 使用官方 `parseLinktext`、`MetadataCache.getFirstLinkpathDest` 和 `resolveSubpath`，而不是在 core 中复制路径、别名、标题或块规范化算法。
 
 adapter 为每个可作为显式来源的文件构建完整快照：Markdown 和 Frontmatter 使用 Metadata Cache 并在必要时从文本降级提取；Canvas 读取显式文件节点、背景文件和文本内部链接；Bases 先解析 YAML，只从 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 的公式标量提取可静态识别的显式引用。视图名称、`properties` 展示配置和公式内部普通字符串不会形成边，动态 Bases 查询结果也不会传入图模型；Bases YAML 无效时，本批次保持保守失败，不发布部分结果。link() 的第一个参数必须是完整字符串字面量，拼接和其他动态表达式不形成边。只有解码后公式在 YAML 标量中保持原样时才记录精确位置，否则保留引用但不声称具有行列坐标；两种情况下都保留重复引用。无效 Canvas JSON 采用同样策略：当前批次不替换文件元数据或快照，最近一次可信索引以过期状态继续可见，而不会把该来源错报为高置信孤立文件。
@@ -65,7 +67,7 @@ Markdown 目的地址和标题边界按语法视图建立索引，包括匹配�
 
 忽略预览与实际执行共用匹配器，分片遍历已有 occurrence，取消被新草稿替代的请求，并在计数期间权威索引变化时重新开始。单来源和 occurrence 规则只枚举对应来源快照。设置页不缓存仅以规则 ID 标识的预览；每个草稿编辑器以规范化规则内容、索引发布代次、索引版本及就绪状态共同校验预览。索引诊断/状态订阅在编辑器清理时释放。影响数量在同一次分片遍历中计算，连接按来源/目标对去重，避免再次扫描 Vault。
 
-core 的规范化 lookup key 只用于命名空间变化后的保守重验证。它不替代官方 resolver，也不决定最终目标。
+core 的规范化 lookup key 只用于命名空间变化后的保守重验证。文件依赖包括完整路径及每个目录后缀，例如 `Parent/Subdir/Target.md` 同时提供 `parent/subdir/target`、`subdir/target` 和 `target`。反向来源失效与在途批次的冲突检查共用这些键，覆盖宿主最佳匹配因同名候选变化而重新定向的情况；它不替代官方 resolver，也不决定最终目标。
 
 ## 图与查询不变量
 

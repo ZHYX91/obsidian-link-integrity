@@ -9,6 +9,8 @@ import {
   type SidebarRenderOptions,
 } from "./render";
 import { runAction } from "./render-controls";
+import { revealHorizontalTab } from "../tab-navigation";
+import type { SidebarTabId } from "./types";
 
 export function renderSidebar(
   container: HTMLElement,
@@ -19,6 +21,7 @@ export function renderSidebar(
 
 export interface SidebarMount {
   readonly update: (options: SidebarRenderOptions) => void;
+  readonly cancelPendingTabFocus: () => void;
   readonly dispose: () => void;
 }
 
@@ -31,6 +34,22 @@ export function mountSidebar(
   let composing = false;
   let controlsKey = "";
   let resultsKey = "";
+  let pendingTabFocus: { readonly tabId: SidebarTabId; readonly anchor: Element | null } | null = null;
+  const cancelPendingTabFocus = (): void => { pendingTabFocus = null; };
+  const commitTabFocus = (): void => {
+    if (pendingTabFocus === null) return;
+    const request = pendingTabFocus;
+    const active = container.ownerDocument.activeElement;
+    const replacedAnchor = request.anchor?.isConnected === false && active === container.ownerDocument.body;
+    if (active !== request.anchor && !replacedAnchor || !container.isConnected) {
+      cancelPendingTabFocus();
+      return;
+    }
+    const tab = container.querySelector<HTMLButtonElement>(`#link-integrity-sidebar-tab-${request.tabId}`);
+    if (tab?.getAttribute("aria-selected") !== "true") return;
+    cancelPendingTabFocus();
+    revealHorizontalTab(tab, true);
+  };
   const rows: NonNullable<SidebarRenderOptions["rows"]> = new Map();
   const disclosures = new Map<string, boolean>();
   // Event handlers read current state even when their controls survive an update.
@@ -48,12 +67,19 @@ export function mountSidebar(
     mountElement: container,
     disclosures,
     rows,
+    requestTabFocus: (tabId) => {
+      pendingTabFocus = { tabId, anchor: container.ownerDocument.activeElement };
+    },
+    commitTabFocus,
+    navigationTabId: () => pendingTabFocus?.tabId,
   };
   container.replaceChildren();
   container.classList.add("link-integrity-sidebar");
   const root = container.ownerDocument.createElement("div");
   root.className = "link-integrity-sidebar-root";
   container.append(root);
+  root.addEventListener("focusout", cancelPendingTabFocus);
+  container.ownerDocument.defaultView?.addEventListener("blur", cancelPendingTabFocus);
   const panel = renderTabs(root, options);
   const status = container.ownerDocument.createElement("div");
   const toolbar = container.ownerDocument.createElement("div");
@@ -84,6 +110,9 @@ export function mountSidebar(
     current = next;
     container.dir = options.translator.direction;
     updateTabs(root, panel, options);
+    // SidebarView publishes only its latest completed render generation. Keep
+    // the request until that render selects the requested tab, without timers.
+    commitTabFocus();
     status.replaceChildren();
     renderContextualStatus(status, options);
     status.hidden = status.childElementCount === 0;
@@ -132,8 +161,11 @@ export function mountSidebar(
   update(initialOptions);
   return {
     update,
+    cancelPendingTabFocus,
     dispose: () => {
       disposed = true;
+      cancelPendingTabFocus();
+      container.ownerDocument.defaultView?.removeEventListener("blur", cancelPendingTabFocus);
       disclosures.clear();
       rows.clear();
       root.remove();

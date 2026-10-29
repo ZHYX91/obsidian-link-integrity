@@ -72,6 +72,8 @@ Block-context regressions follow CommonMark 0.31.2 list-interruption rules and e
 
 ## Rebuild and failure tests
 
+Suffix-dependency regressions use the production Obsidian adapter with an independent host-resolver stand-in and explicit target identities. They cover intermediate directory suffixes, competing best matches, create/delete/rename, source moves, and in-flight batch conflicts, checking broken links, isolation, and clean rebuilds after each transition. Markdown destination regressions cover valid/invalid entities, all ASCII punctuation escapes, single decoding, external schemes, Wiki/percent negative controls, raw text and UTF-16 positions, empty/partial/accurate native caches, and Canvas text. The production asynchronous query service verifies sidebar arrow navigation, repeated input, late old requests, and cancellation after focus changes, window blur, hiding, or closing. These stand-ins do not prove host or assistive-technology acceptance.
+
 Transactional tests verify that staging is invisible before completion and is published atomically only after success. On build failure, the store retains the same most-recent trustworthy object and generation.
 
 Coordinator tests cover buffering and replay during rebuild, single-flight concurrent rebuilds within one lifecycle, lifecycle recovery after pre-rebuild incremental failure, prevention of an obsolete rebuild from publishing or claiming more sources after stop, and prevention of an old operation finalizer from cleaning up a new controller after stop→start. Yield tests inject `yieldControl` and a controlled clock to verify both file-count and main-thread-time budgets; progress tests verify throttling and final progress.
@@ -101,6 +103,8 @@ Navigation CSS checks inspect selectors, individual declarations, and their prio
 The i18n gate checks 12 complete independent catalogs, compile-time exact key coverage, interpolation, plurals, language autonyms, the Follow Obsidian label, structural parity of stable Chinese and English documents, and retired terminology. README checks use the reader's actual sidebar labels and retain offline target validation for canonical root links and relative translated links. Help-link tests cover localized guide targets and availability without settings writes. A stable catalog may not be completed by spreading the English object over missing translations.
 
 ## Performance and scale
+
+The directory-suffix fan-out benchmark adds a shared suffix target among 10k/50k sources, asserting all dependent source rebuilds, cooperative yields, and an unchanged previous index. An unrelated namespace addition builds only the new source. It records the necessary conservative-invalidation cost without treating stand-in timing as host latency.
 
 Incremental performance regression must cover ordinary body edits of a heavily referenced note. In 10k and 50k file graphs, edit the central note 12 times with a ready, unchanged target fingerprint and assert exactly 12 source builds and no Vault-registry enumeration. Update both sidebar projections while preserving the old index and unchanged result-array identities. Synthetic batch ceilings are 750 ms and 1,500 ms respectively; they do not represent real-host input latency.
 

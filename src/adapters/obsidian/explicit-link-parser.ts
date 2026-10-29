@@ -1,4 +1,26 @@
 import { isMap, isScalar, isSeq, parseDocument } from "yaml";
+/*!
+ * entities 7.0.1, BSD-2-Clause
+ * Copyright (c) Felix Böhm. All rights reserved.
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ * Redistributions of source code must retain the above copyright notice, this list
+ * of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright notice, this
+ * list of conditions and the following disclaimer in the documentation and/or other
+ * materials provided with the distribution.
+ * THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS
+ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+ * SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+import { decodeHTMLStrict } from "entities/decode";
 
 import { WorkScheduler } from "../../scheduling/work-scheduler";
 import { indexMarkdownDestinations, type MarkdownDestinationIndex } from "./markdown-destination-index";
@@ -1026,5 +1048,17 @@ export function maskRange(characters: string[], start: number, end: number): voi
 }
 
 function unescapeMarkdownDestination(value: string): string {
-  return value.replace(/\\([()<>\\])/gu, "$1");
+  // Decode at the Markdown destination boundary, in one lexical pass. An
+  // escaped ampersand or a decoded backslash must not start a second escape.
+  return value.replace(/\\([!-/:-@[-`{-~])|&(?:#[xX][\da-fA-F]{1,6}|#\d{1,7}|[a-zA-Z][a-zA-Z\d]*);/gu,
+    (token, escaped: string | undefined) => escaped ?? decodeMarkdownEntity(token));
+}
+
+function decodeMarkdownEntity(token: string): string {
+  if (token[1] !== "#") return decodeHTMLStrict(token);
+  const hexadecimal = token[2] === "x" || token[2] === "X";
+  const codepoint = Number.parseInt(token.slice(hexadecimal ? 3 : 2, -1), hexadecimal ? 16 : 10);
+  // CommonMark uses Unicode code points, without HTML's legacy C1 remapping.
+  return String.fromCodePoint(codepoint === 0 || codepoint > 0x10ffff ||
+    codepoint >= 0xd800 && codepoint <= 0xdfff ? 0xfffd : codepoint);
 }

@@ -39,6 +39,72 @@ async function fixture() {
 }
 
 describe("scheduled sidebar rendering", () => {
+  it("moves keyboard focus with the selected tab after the production asynchronous query", async () => {
+    const f = await fixture();
+    const tabs = f.view.contentEl.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs[0]!.focus();
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await vi.waitFor(() => {
+      expect(tabs[1]!.getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(tabs[1]);
+    });
+    tabs[1]!.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    await vi.waitFor(() => {
+      expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(tabs[0]);
+    });
+  });
+
+  it.each(["ArrowRight", "Home"])("keeps the latest keyboard request when %s follows a pending End", async (key) => {
+    const f = await fixture();
+    const prepare = f.query.prepareSnapshot.bind(f.query);
+    const completions: (() => void)[] = [];
+    vi.spyOn(f.query, "prepareSnapshot").mockImplementation(async (tab) => {
+      await new Promise<void>((resolve) => completions.push(resolve));
+      return prepare(tab);
+    });
+    const tabs = f.view.contentEl.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs[0]!.focus();
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    expect(completions).toHaveLength(2);
+    completions[1]!();
+    await vi.waitFor(() => {
+      expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(tabs[0]);
+    });
+    completions[0]!();
+    await prepare("isolated-files");
+    expect(tabs[1]!.getAttribute("aria-selected")).toBe("false");
+    expect(document.activeElement).toBe(tabs[0]);
+  });
+
+  it.each(["search", "external", "blur", "close"])("does not reclaim delayed tab focus after %s", async (action) => {
+    const f = await fixture();
+    const prepare = f.query.prepareSnapshot.bind(f.query);
+    let release!: () => void;
+    vi.spyOn(f.query, "prepareSnapshot").mockImplementation(async (tab) => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return prepare(tab);
+    });
+    const tabs = f.view.contentEl.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs[0]!.focus();
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    let expected = document.activeElement;
+    if (action === "search") {
+      const search = f.view.contentEl.querySelector<HTMLInputElement>('input[type="search"]')!;
+      search.focus(); expected = search;
+    } else if (action === "external") {
+      const button = document.createElement("button"); document.body.append(button);
+      button.focus(); expected = button;
+    } else if (action === "blur") window.dispatchEvent(new Event("blur"));
+    else { await f.view.onClose(); expected = document.activeElement; }
+    release();
+    if (action !== "close") await vi.waitFor(() => expect(tabs[1]!.getAttribute("aria-selected")).toBe("true"));
+    else { await prepare("isolated-files"); expect(f.view.contentEl.childElementCount).toBe(0); }
+    expect(document.activeElement).toBe(expected);
+  });
+
   it("preserves the current page and focus across progress updates", async () => {
     const f = await fixture();
     const row = f.view.contentEl.querySelector<HTMLElement>(".link-integrity-result-row")!;
@@ -103,5 +169,32 @@ describe("scheduled sidebar rendering", () => {
     expect(prepare).toHaveBeenCalled();
     await f.view.onClose();
     expect(disconnect).toHaveBeenCalled();
+  });
+
+  it("cancels delayed tab focus when the view becomes hidden", async () => {
+    let observe!: (entries: { isIntersecting: boolean }[]) => void;
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: typeof observe) { observe = callback; }
+      observe() {}
+      disconnect() {}
+    });
+    const f = await fixture();
+    const prepare = f.query.prepareSnapshot.bind(f.query);
+    let release!: () => void;
+    vi.spyOn(f.query, "prepareSnapshot").mockImplementationOnce(async (tab) => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return prepare(tab);
+    });
+    const tabs = f.view.contentEl.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    tabs[0]!.focus();
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    observe([{ isIntersecting: false }]);
+    release();
+    await prepare("isolated-files");
+    observe([{ isIntersecting: true }]);
+    await vi.waitFor(() => expect(tabs[1]!.getAttribute("aria-selected")).toBe("true"));
+    expect(document.activeElement).toBe(tabs[0]);
+    tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    await vi.waitFor(() => expect(document.activeElement).toBe(tabs[1]));
   });
 });

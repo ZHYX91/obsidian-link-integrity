@@ -31,6 +31,7 @@ module.exports = class extends Plugin {
     for (const [id, name, action] of [
       ["create-body-hint-fixtures", "Create body-hint fixtures in this disposable acceptance Vault", () => this.createFixtures()],
       ["create-context-regression-fixtures", "Create escaped, percent and source-context regression fixtures", () => this.createContextRegressionFixtures()],
+      ["create-resolution-regression-fixtures", "Create suffix and Markdown destination regression fixtures", () => this.createResolutionRegressionFixtures()],
       ["repair-body-hint-fixtures", "Repair body-hint fixtures in this disposable acceptance Vault", () => this.repair()],
       ["restore-body-hint-fixtures", "Restore broken body-hint fixtures in this disposable acceptance Vault", () => this.restore()],
     ]) this.addCommand({ id, name, callback: () => action().catch((error) => new Notice(String(error))) });
@@ -118,6 +119,23 @@ module.exports = class extends Plugin {
     ]) await vault.create(`${root}/${name}`, text);
     new Notice("Context fixtures created. Observe native links and Link Integrity results separately.");
     await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${root}/Escaped.md`));
+  }
+  async createResolutionRegressionFixtures() {
+    this.guard();
+    const vault = this.app.vault;
+    const root = "Resolution Semantics Acceptance";
+    if (vault.getAbstractFileByPath(root) !== null) throw new Error("Resolution fixtures already exist; use a fresh disposable Vault.");
+    const folders = [root, `${root}/Parent`, `${root}/Parent/Subdir`, `${root}/Archive`, `${root}/Archive/Subdir`, `${root}/Destinations`];
+    const text = "😀\n[amp](A&amp;B.md)\n[bang](foo\\!.md)\n[once](A&amp;amp;B.md)\n[escaped](Escaped\\&amp;B.md)\n[[Wiki&amp;Name]]\n[percent](Percent%26Name.md)\n[remote](https&#58;//example.com)\n[missing](Missing&amp;Value.md)\n";
+    for (const folder of folders) await vault.createFolder(folder);
+    for (const name of ["A&B.md", "foo!.md", "A&amp;B.md", "Escaped&amp;B.md", "Wiki&amp;Name.md", "Percent%26Name.md"]) {
+      await vault.create(`${root}/Destinations/${name}`, "# Fixed destination target\n");
+    }
+    await vault.create(`${root}/Destinations/Source.md`, text);
+    await vault.create(`${root}/Destinations/Board.canvas`, JSON.stringify({ nodes: [{ id: "destinations", type: "text", text }] }, null, 2) + "\n");
+    await vault.create(`${root}/Parent/Source.md`, "[[Subdir/Suffix Target]]\n");
+    new Notice("Resolution inputs prepared. Observe native targets, diagnostics, incremental events and rebuild results separately.");
+    await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${root}/Destinations/Source.md`));
   }
   async repair() {
     await this.verifyCommon(); const vault = this.app.vault; const target = await this.assertFile("Target.md", TARGET);

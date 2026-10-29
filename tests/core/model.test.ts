@@ -14,6 +14,9 @@ describe("core model normalization", () => {
     expect(normalizeLookupKey(" Folder\\Note.MD ")).toBe("folder/note");
     expect(normalizeLookupKey("notes/foo.bar")).toBe("notes/foo.bar");
     expect(makeFileLookupKeys("Folder/Note.md")).toEqual(["folder/note", "note"]);
+    expect(makeFileLookupKeys("Parent/Subdir/Target.md")).toEqual([
+      "parent/subdir/target", "subdir/target", "target",
+    ]);
     expect(makeOccurrenceLookupKey("../Target.md", "Folder/Sub/Source.md")).toBe(
       "folder/target",
     );

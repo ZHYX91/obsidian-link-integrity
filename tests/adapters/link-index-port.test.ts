@@ -22,6 +22,52 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["fallback", "empty-cache", "partial-cache", "cached", "canvas"])("resolves decoded Markdown destinations with native ownership via %s", async (mode) => {
+    const references = [
+      ["[amp](A&amp;B.md)", "A&B.md"],
+      ["[bang](Folder/foo\\!.md)", "Folder/foo!.md"],
+      ["[once](A&amp;amp;B.md)", "A&amp;B.md"],
+      ["[escaped](Escaped\\&amp;B.md)", "Escaped&amp;B.md"],
+      ["[[Wiki&amp;Name]]", "Wiki&amp;Name"],
+      ["[percent](Percent%26Name.md)", "Percent%26Name.md"],
+      ["[remote](https&#58;//example.com)", "https://example.com"],
+      ["[missing](Missing&amp;Value.md)", "Missing&Value.md"],
+    ] as const;
+    const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
+    const targets = ["A&B.md", "Folder/foo!.md", "A&amp;B.md", "Escaped&amp;B.md", "Wiki&amp;Name.md", "Percent%26Name.md"].map(fakeFile);
+    const destinations = new Map(targets.map((file, index) => [references[index]![1], file]));
+    const caches = new Map<string, CachedMetadata>();
+    const content: Record<string, string> = {};
+    const { port } = createPort([sourceFile, ...targets], { content, caches, destinations });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      for (const newline of ["\n", "\r\n", "\r"]) {
+        const text = `😀${newline}${references.map(([raw]) => raw).join(newline)}`;
+        const native = references.map(([raw, link]) => positioned(text, link, raw));
+        if (mode !== "fallback" && mode !== "canvas") caches.set(sourceFile.path, {
+          links: mode === "empty-cache" ? [] : mode === "partial-cache" ? native.slice(0, 3) : native,
+        });
+        content[sourceFile.path] = mode === "canvas"
+          ? JSON.stringify({ nodes: [{ id: "destinations", type: "text", text }] }) : text;
+        if (store.current.files.length === 0) await new FullRebuildController(port, store).rebuild();
+        else { incremental.enqueue({ type: "modify", path: sourceFile.path }); await incremental.whenIdle(); }
+        const occurrences = store.current.getSourceSnapshot(sourceFile.path)!.occurrences;
+        expect(occurrences.map(({ raw, linkpath, targetPath }) => [raw, linkpath, targetPath])).toEqual(
+          references.map(([raw, link], index) => [raw, link, targets[index]?.path ?? null]),
+        );
+        expect(occurrences[6]?.destinationKind).toBe("external");
+        expect(occurrences[7]?.position).toMatchObject({ line: 8, column: 0 });
+        expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText)).toEqual(["Missing&Value.md"]);
+        expect(queryIsolatedFiles(store.current)).toEqual([]);
+        for (const target of targets) expect(store.current.getIncomingContributionCount(target.path)).toBe(1);
+        const clean = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(store.current.toCanonicalState()).toEqual(clean.toCanonicalState());
+      }
+    } finally { incremental.stop(); }
+  });
+
   it.each(["fallback", "empty-cache", "cached", "partial-cache", "metadata-cache", "canvas"])("preserves block/nested/container graph semantics via %s", async (mode) => {
     const sourceFile = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
     const targets = [fakeFile("Target.md"), fakeFile("Ghost.md"), fakeFile("Real.md"), fakeFile("image.png")];
