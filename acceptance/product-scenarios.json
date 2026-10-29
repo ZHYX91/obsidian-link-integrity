@@ -25,16 +25,17 @@
       },
       "steps": [
         "In a fresh disposable fixture Vault run create-resolution-regression-fixtures once; record the Source, Board and fixed target bytes",
-        "Observe native navigation and Link Integrity target identities for the Markdown and Canvas destination inputs; compare incremental and rebuilt projections",
+        "Run record-native-resolution-observation explicitly to save public cache tuples, source slices and official API results in the provider's own data.json. Preserve complete and incomplete observations separately from product verdicts; the command does not navigate or rebuild",
+        "Observe native navigation and Link Integrity target identities for the Markdown and Canvas destination inputs; compare incremental and rebuilt projections for the same stable source and native cache, recording host interpretation differences without creating missing targets",
         "For Parent/Source.md create Parent/Subdir/Suffix Target.md, then add an Archive/Subdir/Suffix Target.md competitor; record the host resolver's actual best match after each create/delete/rename and source move, comparing both business projections to Rebuild",
         "With the physical keyboard on desktop or emulator hardware-key input, focus Broken links and press one direction key, then rapid End/Home; observe selected tab, keyboard focus and visible panel after queries settle",
         "During a delayed tab transition move focus to search, leave the window, hide or close the view; confirm completion does not reclaim focus"
       ],
       "expected": [
-        "Markdown and Canvas each retain six distinct local targets, one external URL and one Missing&Value.md diagnostic, without double-decoding literal amp entities, Wiki names or percent spellings",
+        "Source supplementation and Canvas text decode Markdown destinations once before official host resolution. Wiki names and percent spellings retain their interpretation. Markdown tokens covered by native caches retain the native destination instead of substituting the source-decoded spelling; record actual per-token targets and diagnostics rather than requiring identical cross-platform totals",
         "Suffix dependency changes revalidate the source and agree with the actual host resolver and a clean rebuild; a newly linked target is not high-confidence isolated",
         "The latest completed tab selection and keyboard focus agree unless the user or lifecycle canceled the focus request",
-        "Preparation creates inert inputs once, refuses an existing root, does not force native cache readiness or modify settings, and issues no product verdict"
+        "Preparation creates inert inputs once, refuses an existing root, does not force native cache readiness or modify product settings, and issues no product verdict. The explicit observer writes only its bounded provider receipt, preserves invalid or unstable facts as incomplete, and never treats a missing native tuple as a fabricated source interpretation"
       ]
     },
     {

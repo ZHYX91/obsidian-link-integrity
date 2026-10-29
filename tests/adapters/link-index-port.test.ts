@@ -22,6 +22,48 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["\n", "\r\n", "\r"])("preserves a differing native destination until its exact token coverage is removed with %j", async (newline) => {
+    const source = fakeFile("Source.md");
+    const nativeTarget = fakeFile("Escaped&B.md");
+    const literalTarget = fakeFile("Escaped&amp;B.md");
+    const raw = "[escaped](Escaped\\&amp;B.md)";
+    const text = `😀${newline}${raw}${newline}`;
+    const caches = new Map<string, CachedMetadata>([[source.path, { links: [positioned(text, nativeTarget.path, raw)] }]]);
+    const destinations = new Map([[nativeTarget.path, nativeTarget], [literalTarget.path, literalTarget]]);
+    const files = new Map([source, nativeTarget, literalTarget].map((file) => [file.path, file]));
+    const port = new ObsidianLinkIndexPort({ getFiles: () => [...files.values()],
+      getFileByPath: (path: string) => files.get(path) ?? null,
+      cachedRead: async (file: FakeFile) => file === source ? text : "",
+    } as unknown as Vault, { getFileCache: (file: FakeFile) => caches.get(file.path) ?? null,
+      getFirstLinkpathDest: (path: string) => destinations.get(path) ?? null,
+    } as unknown as MetadataCache);
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      await new FullRebuildController(port, store).rebuild();
+      for (const mode of ["native", "native-missing", "source-supplement"] as const) {
+        if (mode === "native-missing") { destinations.delete(nativeTarget.path); files.delete(nativeTarget.path); }
+        if (mode === "source-supplement") caches.set(source.path, { links: [] });
+        if (mode !== "native") { incremental.enqueue(mode === "native-missing"
+          ? { type: "delete", path: nativeTarget.path } : { type: "modify", path: source.path }); await incremental.whenIdle(); }
+        const occurrence = store.current.getSourceSnapshot(source.path)!.occurrences;
+        const linkpath = mode === "source-supplement" ? literalTarget.path : nativeTarget.path;
+        const targetPath = mode === "native-missing" ? null : linkpath;
+        expect(occurrence).toHaveLength(1);
+        expect(occurrence[0]).toMatchObject({ raw, linkpath, targetPath,
+          position: { line: 1, column: 0, endLine: 1, endColumn: raw.length },
+          fileStatus: targetPath === null ? "missing" : "resolved" });
+        expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText))
+          .toEqual(mode === "native-missing" ? [nativeTarget.path] : []);
+        expect(store.current.getIncomingContributionCount(nativeTarget.path)).toBe(mode === "native" ? 1 : 0);
+        expect(store.current.getIncomingContributionCount(literalTarget.path)).toBe(mode === "source-supplement" ? 1 : 0);
+        const rebuilt = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(store.current.toCanonicalState()).toEqual(rebuilt.toCanonicalState());
+      }
+    } finally { incremental.stop(); }
+  });
+
   it.each(["fallback", "empty-cache", "partial-cache", "cached", "canvas"])("resolves decoded Markdown destinations with native ownership via %s", async (mode) => {
     const references = [
       ["[amp](A&amp;B.md)", "A&B.md"],

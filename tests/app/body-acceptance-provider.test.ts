@@ -91,7 +91,7 @@ describe("self-contained explicit body fixture provider", () => {
 
   it("preserves base bytes and verifies prepare/repair/restore transitions without filesystem writes", async () => {
     const { provider, files, commands } = await loadProvider();
-    provider.onload(); expect(commands.map(({ id }) => id)).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "create-resolution-regression-fixtures", "repair-body-hint-fixtures", "restore-body-hint-fixtures",
+    provider.onload(); expect(commands.map(({ id }) => id)).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "create-resolution-regression-fixtures", "record-native-resolution-observation", "repair-body-hint-fixtures", "restore-body-hint-fixtures",
       "prepare-block-quote-code", "prepare-block-list-prose", "prepare-block-definition-continuation", "prepare-block-definition-non1-code", "prepare-block-definition-title",
       "prepare-inline-quoted", "prepare-inline-parenthesized", "prepare-inline-label-wiki", "prepare-inline-invalid-outer",
       "prepare-inline-atx-boundary", "prepare-inline-nested-image", "prepare-inline-reference-inner", "prepare-inline-quote-continuation", "prepare-inline-hint-metadata"]);
