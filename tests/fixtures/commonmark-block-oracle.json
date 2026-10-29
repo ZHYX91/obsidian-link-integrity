@@ -1,0 +1,428 @@
+{
+  "schemaVersion": 1,
+  "oracle": {
+    "implementation": "Official CommonMark.js",
+    "version": "0.31.2",
+    "sourceUrl": "https://cdn.jsdelivr.net/npm/commonmark@0.31.2/dist/commonmark.js",
+    "sourceSha256": "4d124568b8d4490df72fea8aa0f9a144c5b581b0de0eb63d3a996104b2797edc",
+    "specification": "https://spec.commonmark.org/0.31.2/",
+    "algorithm": "https://github.com/commonmark/commonmark.js/blob/0.31.2/lib/blocks.js"
+  },
+  "matrix": {
+    "preamble": "😀\n\n",
+    "pair": "[[Target]] [[Missing]]",
+    "prefixes": [
+      "paragraph",
+      "paragraph\n2. item",
+      "paragraph\n1. item",
+      "paragraph\n01. item",
+      "paragraph\n-",
+      "paragraph\n+",
+      "paragraph\n1.",
+      "paragraph\n==",
+      "==",
+      "-",
+      "-   ",
+      "- item",
+      "1. item",
+      "10. item",
+      "> paragraph",
+      "> -",
+      "- -",
+      "- >",
+      "> [id]: /url",
+      "[id]: /url",
+      "[id]:",
+      "[id]:\n    /url",
+      "[id]: /url \"title\"",
+      "[id]: /url \"title\" prose",
+      "[id]: /url\n  \"title\"",
+      "[id]: /url \"a\nb\"",
+      "[id]: /url \"a\n==\nb\"",
+      "[a\n==\nb]: /url",
+      "[id]: <my url>",
+      "[id]: foo(bar)",
+      "[id]: foo(bar",
+      "[id]: <>",
+      "- item\n2. item",
+      "> item\n2. item",
+      "-\n      code"
+    ],
+    "blankLines": [
+      0,
+      1,
+      2
+    ],
+    "quotePrefixes": [
+      "",
+      "> "
+    ],
+    "indents": [
+      0,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      10
+    ],
+    "expectedByPrefix": [
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022222200222000002222220022200000",
+      "222222222220000022222200222000002222220022200000",
+      "222000002220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222000002220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222220002220000022200000222000002220000022200000",
+      "222220002220000022200000222000002220000022200000",
+      "222222222220000022222000222000002222200022200000",
+      "222222222220000022222200222000002222220022200000",
+      "222222222220000022222200222000002222220022200000",
+      "222222222222222222200000222000002220000022200000",
+      "222000002222200022200000222000002220000022200000",
+      "222222002220000022222000222000002222200022200000",
+      "222220002220000022222000222000002222200022200000",
+      "222222222222222222200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022200000222000002220000022200000",
+      "222222222220000022222200222000002222220022200000",
+      "222222222220000022222200222000002222220022200000",
+      "222220002220000022222000222000002222200022200000"
+    ]
+  },
+  "examples": [
+    {
+      "id": "paragraph-non-1-marker",
+      "markdown": "paragraph\n2. item\n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<p>paragraph\n2. item</p>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "paragraph-setext",
+      "markdown": "paragraph\n-\n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<h2>paragraph</h2>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "empty-item-second-blank",
+      "markdown": "-   \n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<ul>\n<li></li>\n</ul>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "standalone-underline",
+      "markdown": "==\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>==\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-continuation",
+      "markdown": "[id]: /url\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-non-1-marker",
+      "markdown": "[id]: /url\n2. item\n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<p>2. item</p>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "definition-blank-code",
+      "markdown": "[id]: /url\n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "definition-blank-list",
+      "markdown": "[id]: /url\n\n2. item\n\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ol start=\"2\">\n<li>\n<p>item</p>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ol>\n"
+    },
+    {
+      "id": "definition-empty-marker",
+      "markdown": "[id]: /url\n-\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>-\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-empty-marker-blank",
+      "markdown": "[id]: /url\n-\n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<p>-</p>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "definition-no-heading-body",
+      "markdown": "[id]: /url\n==\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>==\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-heading-body",
+      "markdown": "[id]: /url\nbody\n==\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<h1>body</h1>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "definition-second-underline",
+      "markdown": "[id]: /url\n==\n==\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<h1>==</h1>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "consecutive-definitions",
+      "markdown": "[a]: /a\n[b]: /b\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "consecutive-definitions-underline",
+      "markdown": "[a]: /a\n[b]: /b\n==\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>==\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "consecutive-definitions-heading",
+      "markdown": "[a]: /a\n[b]: /b\nbody\n==\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<h1>body</h1>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "definition-title",
+      "markdown": "[id]: /url \"title\"\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-extra-prose",
+      "markdown": "[id]: /url \"title\" prose\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[id]: /url &quot;title&quot; prose\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-multiline-destination",
+      "markdown": "[id]:\n    /url\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-next-line-title",
+      "markdown": "[id]: /url\n    \"title\"\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-multiline-title",
+      "markdown": "[id]: /url 'multi\n    line'\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-title-setext",
+      "markdown": "[id]: /url 'multi\n==\nline'\n==\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<h1>[id]: /url 'multi</h1>\n<h1>line'</h1>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "definition-label-setext",
+      "markdown": "[multi\n==\nline]: /url\n==\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<h1>[multi</h1>\n<h1>line]: /url</h1>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "definition-in-paragraph",
+      "markdown": "paragraph\n[id]: /url\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>paragraph\n[id]: /url\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "quoted-definition",
+      "markdown": "> [id]: /url\n>     [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<blockquote>\n<p>[[Target]] [[Missing]]</p>\n</blockquote>\n"
+    },
+    {
+      "id": "lazy-quoted-definition",
+      "markdown": "> [id]:\n/url\n>     [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<blockquote>\n<p>[[Target]] [[Missing]]</p>\n</blockquote>\n"
+    },
+    {
+      "id": "list-definition",
+      "markdown": "- [id]: /url\n      [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ul>\n<li>[[Target]] [[Missing]]</li>\n</ul>\n"
+    },
+    {
+      "id": "list-definition-code",
+      "markdown": "- [id]: /url\n\n      [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<ul>\n<li>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n</li>\n</ul>\n"
+    },
+    {
+      "id": "list-definition-prose",
+      "markdown": "- [id]: /url\n\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ul>\n<li>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ul>\n"
+    },
+    {
+      "id": "definition-missing-destination",
+      "markdown": "[id]:\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[id]:\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-angle-title",
+      "markdown": "[id]: <my url> (title)\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-balanced-destination",
+      "markdown": "[id]: foo(bar)\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-unbalanced-destination",
+      "markdown": "[id]: foo(bar\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[id]: foo(bar\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-unclosed-angle",
+      "markdown": "[id]: <url\\>\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[id]: &lt;url&gt;\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-non-ascii-space",
+      "markdown": "[id]: url part\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "definition-unclosed-title",
+      "markdown": "[id]: /url \"unclosed\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>[id]: /url &quot;unclosed\n[[Target]] [[Missing]]</p>\n"
+    },
+    {
+      "id": "paragraph-leading-zero-list",
+      "markdown": "paragraph\n01. item\n\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<p>paragraph</p>\n<ol>\n<li>\n<p>item</p>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ol>\n"
+    },
+    {
+      "id": "paragraph-empty-bullet",
+      "markdown": "paragraph\n+\n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<p>paragraph\n+</p>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "paragraph-empty-ordered",
+      "markdown": "paragraph\n1.\n\n    [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<p>paragraph\n1.</p>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n"
+    },
+    {
+      "id": "empty-item-first-content",
+      "markdown": "-   \n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ul>\n<li>[[Target]] [[Missing]]</li>\n</ul>\n"
+    },
+    {
+      "id": "populated-item-blank-lines",
+      "markdown": "- item\n\n\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ul>\n<li>\n<p>item</p>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ul>\n"
+    },
+    {
+      "id": "empty-item-code-then-prose",
+      "markdown": "-\n      code\n\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ul>\n<li>\n<pre><code>code\n</code></pre>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ul>\n"
+    },
+    {
+      "id": "quoted-non-1-marker",
+      "markdown": "> paragraph\n> 2. item\n>\n>     [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<blockquote>\n<p>paragraph\n2. item</p>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n</blockquote>\n"
+    },
+    {
+      "id": "nested-non-1-marker",
+      "markdown": "- paragraph\n  2. item\n\n      [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<ul>\n<li>\n<p>paragraph\n2. item</p>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n</li>\n</ul>\n"
+    },
+    {
+      "id": "quoted-empty-list",
+      "markdown": "> -\n>\n>     [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<blockquote>\n<ul>\n<li></li>\n</ul>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n</blockquote>\n"
+    },
+    {
+      "id": "quote-ending-empty-list",
+      "markdown": "> -\n\n>     [[Target]] [[Missing]]",
+      "count": 0,
+      "html": "<blockquote>\n<ul>\n<li></li>\n</ul>\n</blockquote>\n<blockquote>\n<pre><code>[[Target]] [[Missing]]\n</code></pre>\n</blockquote>\n"
+    },
+    {
+      "id": "list-containing-empty-quote",
+      "markdown": "- >\n\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ul>\n<li>\n<blockquote>\n</blockquote>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ul>\n"
+    },
+    {
+      "id": "ordered-sibling",
+      "markdown": "1. first\n2. second\n\n    [[Target]] [[Missing]]",
+      "count": 2,
+      "html": "<ol>\n<li>\n<p>first</p>\n</li>\n<li>\n<p>second</p>\n<p>[[Target]] [[Missing]]</p>\n</li>\n</ol>\n"
+    },
+    {
+      "id": "definition-wiki-title",
+      "markdown": "[id]: /url \"[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": ""
+    },
+    {
+      "id": "definition-multiline-wiki-title",
+      "markdown": "[id]: /url \"first\n[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": ""
+    },
+    {
+      "id": "quoted-definition-wiki-title",
+      "markdown": "> [id]: /url \"[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": "<blockquote>\n</blockquote>\n"
+    },
+    {
+      "id": "list-definition-wiki-title",
+      "markdown": "- [id]: /url \"[[Target]] [[Missing]]\"",
+      "count": 0,
+      "html": "<ul>\n<li></li>\n</ul>\n"
+    },
+    {
+      "id": "invalid-definition-wiki-title",
+      "markdown": "[id]: /url \"[[Target]] [[Missing]]\" prose",
+      "count": 2,
+      "html": "<p>[id]: /url &quot;[[Target]] [[Missing]]&quot; prose</p>\n"
+    }
+  ]
+}

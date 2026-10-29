@@ -26,9 +26,9 @@ import {
 } from "../../core/occurrence-identity";
 import {
   extractBasesExplicitReferences,
-  extractMarkdownExplicitReferencesAsync,
+  findMarkdownFrontmatterRange,
   isExternalReference,
-  maskMarkdownNonContent,
+  parseMarkdownSourceAsync,
   type ParsedExplicitReference,
 } from "./explicit-link-parser";
 
@@ -50,12 +50,13 @@ interface OccurrenceInput {
   readonly linktext: string;
   readonly kind: LinkOccurrenceKind;
   readonly position: SourcePosition | null;
-  readonly ordinal: number;
+  readonly ordinal?: number;
 }
 
 interface OccurrenceIdentityOrdinal {
   readonly duplicateIndex: number;
   readonly duplicateCount: number;
+  readonly index: number;
 }
 
 export class ObsidianLinkIndexPort implements LinkIndexPort {
@@ -108,46 +109,54 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
 
   private async buildMarkdownSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const cache = this.metadataCache.getFileCache(file);
-    if (cache === null) {
-      const source = await this.vault.cachedRead(file);
-      return this.buildParsedTextSnapshot(file, source, "markdown-link", scheduler);
-    }
-    // Keep the host's reference/frontmatter semantics. Only discard a cache entry
-    // when its current source location proves that its opening is non-content.
-    const hasPositionedReferences = (cache.links?.length ?? 0) + (cache.embeds?.length ?? 0) > 0;
-    const source = hasPositionedReferences ? await this.vault.cachedRead(file) : "";
-    const masked = hasPositionedReferences ? maskMarkdownNonContent(source) : source;
+    const source = await this.vault.cachedRead(file);
+    const { masked, references: sourceReferences } = await parseMarkdownSourceAsync(source, scheduler);
     const lineStarts = createLineStarts(source);
     const inputs: OccurrenceInput[] = [];
+    const covered = new Map<string, number>();
     let ordinal = 0;
     const appendPositioned = (
       references: readonly ReferenceCache[] | undefined,
       kind: LinkOccurrenceKind,
     ): void => {
       for (const reference of references ?? []) {
-        if (cachedOpeningIsMasked(reference, source, masked, lineStarts)) continue;
+        const range = cachedSourceRange(reference, source, lineStarts);
+        const key = sourceReferenceKey(kind, reference.original, range);
+        if (range && masked[range[0]] !== source[range[0]]) continue;
+        const nativeOrdinal = ordinal++;
+        if (range) {
+          if (covered.has(key)) continue;
+          covered.set(key, 1);
+        } else covered.set(key, (covered.get(key) ?? 0) + 1);
         inputs.push({
           raw: reference.original,
           linktext: reference.link,
           kind,
           position: positionFromCache(reference),
-          ordinal,
+          ordinal: nativeOrdinal,
         });
-        ordinal += 1;
       }
     };
-    appendPositioned(cache.links, "markdown-link");
-    appendPositioned(cache.embeds, "markdown-embed");
-    for (const reference of cache.frontmatterLinks ?? []) {
-      inputs.push({
-        raw: reference.original,
-        linktext: reference.link,
-        kind: "frontmatter",
-        position: frontmatterPosition(reference),
-        ordinal: ordinal++,
-      });
+    appendPositioned(cache?.links, "markdown-link");
+    appendPositioned(cache?.embeds, "markdown-embed");
+    const frontmatter = (cache?.frontmatterLinks ?? []).map((reference): OccurrenceInput => ({
+      raw: reference.original, linktext: reference.link, kind: "frontmatter",
+      position: frontmatterPosition(reference), ordinal: ordinal++,
+    }));
+    const bodyStart = cache === null ? 0 : findMarkdownFrontmatterRange(source)?.end ?? 0;
+    for (const reference of sourceReferences) {
+      if (reference.startOffset < bodyStart) continue;
+      const kind = reference.embedded ? "markdown-embed" : "markdown-link";
+      if (covered.has(sourceReferenceKey(kind, reference.raw, [reference.startOffset, reference.endOffset]))) continue;
+      const ambiguous = sourceReferenceKey(kind, reference.raw, null);
+      const remaining = covered.get(ambiguous) ?? 0;
+      // Unprovable cache coordinates remain native. Match their token counts,
+      // never invent a source position or suppress every identical occurrence.
+      if (remaining > 0) { covered.set(ambiguous, remaining - 1); continue; }
+      inputs.push({ ...parsedOccurrenceInput(reference, lineStarts, kind), ordinal: ordinal++ });
     }
-    return this.resolveSnapshot(file.path, inputs, scheduler);
+    inputs.sort(({ position: left }, { position: right }) => left!.line! - right!.line! || left!.column! - right!.column!);
+    return this.resolveSnapshot(file.path, [...inputs, ...frontmatter], scheduler);
   }
 
   private async buildCanvasSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
@@ -157,7 +166,6 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       throw new Error(`Cannot parse Canvas source: ${file.path}`);
     }
     const inputs: OccurrenceInput[] = [];
-    let ordinal = 0;
     for (const node of document.nodes) {
       const nodeId = typeof node.id === "string" ? node.id : null;
       if (node.type === "file" && typeof node.file === "string") {
@@ -167,7 +175,6 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
           linktext: node.file + subpath,
           kind: "canvas-file",
           position: canvasPosition(nodeId),
-          ordinal: ordinal++,
         });
       }
       if (
@@ -181,19 +188,12 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
           linktext: node.background,
           kind: "canvas-background",
           position: canvasPosition(nodeId),
-          ordinal: ordinal++,
         });
       }
       if (node.type === "text" && typeof node.text === "string") {
         const lineStarts = createLineStarts(node.text);
-        for (const reference of await extractMarkdownExplicitReferencesAsync(node.text, scheduler)) {
-          inputs.push({
-            raw: reference.raw,
-            linktext: reference.linktext,
-            kind: "canvas-text",
-            position: positionFromParsedReference(lineStarts, reference, nodeId),
-            ordinal: ordinal++,
-          });
+        for (const reference of (await parseMarkdownSourceAsync(node.text, scheduler)).references) {
+          inputs.push(parsedOccurrenceInput(reference, lineStarts, "canvas-text", nodeId));
         }
       }
     }
@@ -203,32 +203,9 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
   private async buildBasesSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const source = await this.vault.cachedRead(file);
     const lineStarts = createLineStarts(source);
-    const inputs = extractBasesExplicitReferences(source).map((reference, ordinal) => ({
-      raw: reference.raw,
-      linktext: reference.linktext,
-      kind: "bases-explicit" as const,
-      position: positionFromParsedReference(lineStarts, reference, null),
-      ordinal,
-    }));
+    const inputs = extractBasesExplicitReferences(source).map((reference) =>
+      parsedOccurrenceInput(reference, lineStarts, "bases-explicit"));
     return this.resolveSnapshot(file.path, inputs, scheduler);
-  }
-
-  private async buildParsedTextSnapshot(
-    file: TFile,
-    source: string,
-    kind: LinkOccurrenceKind,
-    scheduler?: WorkScheduler,
-  ): Promise<SourceSnapshot> {
-    const lineStarts = createLineStarts(source);
-    return this.resolveSnapshot(file.path, (await extractMarkdownExplicitReferencesAsync(source, scheduler)).map(
-      (reference, ordinal) => ({
-        raw: reference.raw,
-        linktext: reference.linktext,
-        kind: reference.embedded ? "markdown-embed" : kind,
-        position: positionFromParsedReference(lineStarts, reference, null),
-        ordinal,
-      }),
-    ), scheduler);
   }
 
   private async resolveSnapshot(
@@ -254,6 +231,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       occurrences.push(this.resolveOccurrence(sourcePath, input, {
         duplicateIndex,
         duplicateCount: totals.get(key) ?? 1,
+        index: input.ordinal ?? index,
       }));
       const pause = scheduler?.checkpoint();
       if (pause != null) await pause;
@@ -426,17 +404,25 @@ function createLineStarts(source: string): readonly number[] {
   return starts;
 }
 
-function cachedOpeningIsMasked(
+function cachedSourceRange(
   reference: ReferenceCache,
   source: string,
-  masked: string,
   lineStarts: readonly number[],
-): boolean {
+): readonly [number, number] | null {
   const start = cachePointOffset(reference.position.start, source, lineStarts);
   const end = cachePointOffset(reference.position.end, source, lineStarts);
   if (start === null || end === null || end <= start ||
-    source.slice(start, end) !== reference.original) return false;
-  return masked[start] !== source[start];
+    source.slice(start, end) !== reference.original) return null;
+  return [start, end];
+}
+
+function sourceReferenceKey(kind: LinkOccurrenceKind, raw: string, range: readonly [number, number] | null): string {
+  return `${kind}\u0000${range?.join(":")}\u0000${range ? raw : raw.replace(/\r\n?/gu, "\n")}`;
+}
+
+function parsedOccurrenceInput(reference: ParsedExplicitReference, lineStarts: readonly number[], kind: LinkOccurrenceKind, nodeId: string | null = null): OccurrenceInput {
+  return { raw: reference.raw, linktext: reference.linktext, kind,
+    position: positionFromParsedReference(lineStarts, reference, nodeId) };
 }
 
 function cachePointOffset(
@@ -485,7 +471,7 @@ function occurrenceId(
     duplicateIndex: identity.duplicateIndex,
     duplicateCount: identity.duplicateCount,
     location,
-    legacyOrdinal: input.ordinal,
+    legacyOrdinal: identity.index,
   });
 }
 

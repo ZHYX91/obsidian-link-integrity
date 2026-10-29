@@ -1,14 +1,49 @@
+import { commonmarkBlockCases, commonmarkBlockOracle } from "../helpers/commonmark-block-oracle";
+import { inlineMarkdownCases } from "../helpers/inline-markdown-cases";
+import { inlineBoundaryCases } from "../helpers/inline-boundary-cases";
+
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { describe, expect, it } from "vitest";
 
 import {
   extractBasesExplicitReferences,
   extractMarkdownExplicitReferences,
-  extractMarkdownExplicitReferencesAsync,
+  parseMarkdownSourceAsync,
   isExternalReference,
 } from "../../src/adapters/obsidian/explicit-link-parser";
 
 describe("extractMarkdownExplicitReferences", () => {
+  it.each(inlineBoundaryCases)("preserves block and nested-label ownership: $markdown", ({ markdown, references }) => {
+    for (const newline of ["\n", "\r\n", "\r"]) {
+      const source = `😀${newline}${newline}${markdown.replaceAll("\n", newline)}`;
+      const parsed = extractMarkdownExplicitReferences(source);
+      expect(parsed.map(({ linktext, raw }) => [linktext, raw]), source)
+        .toEqual(references.map(([target, raw]) => [target, raw.replaceAll("\n", newline)]));
+      for (const reference of parsed) expect(source.slice(reference.startOffset, reference.endOffset)).toBe(reference.raw);
+    }
+  });
+  it("does not mistake an escaped bang for a nested image when proving outer metadata", () => {
+    expect(extractMarkdownExplicitReferences(String.raw`[outer \![alt](Target)](Other "[[Ghost]]")`)
+      .map(({ linktext }) => linktext)).toEqual(["Target", "Ghost"]);
+  });
+  it("preserves lexical source order for images in link labels without exposing outer metadata", () => {
+    expect(extractMarkdownExplicitReferences('[outer ![alt](Target)](Ghost "[[Missing]]")')
+      .map(({ linktext }) => linktext)).toEqual(["Ghost", "Target"]);
+  });
+  it("does not prove inline metadata inside a Wiki alias", () => {
+    expect(extractMarkdownExplicitReferences('[[Target|[label](Other "title")]] [[Missing]]')
+      .map(({ linktext }) => linktext)).toEqual(["Target", "Missing"]);
+  });
+  it.each(inlineMarkdownCases)("distinguishes inline body from valid metadata: $markdown", ({ markdown, targets }) => {
+    for (const newline of ["\n", "\r\n", "\r"]) {
+      const source = `😀 ${markdown.replaceAll("\n", newline)}`;
+      const references = extractMarkdownExplicitReferences(source);
+      expect(references.map(({ linktext }) => linktext)).toEqual(targets);
+      for (const reference of references) {
+        expect(source.slice(reference.startOffset, reference.endOffset)).toBe(reference.raw);
+      }
+    }
+  });
   it.each(["\n", "\r\n", "\r"])("excludes HTML comments and raw code while retaining text offsets with %j", (newline) => {
     const source = [
       "😀 <!-- [[Ghost]] [ghost](Missing.md) --> [[Shown]]",
@@ -139,6 +174,17 @@ describe("extractMarkdownExplicitReferences", () => {
     expect(extractMarkdownExplicitReferences(source)).toEqual([]);
   });
 
+  it.each(["[pending ", "![pending "])("invalidates old ordinary openers without rescanning the pending %s stack", (prefix) => {
+    const count = 16_000;
+    const pending = prefix.repeat(count);
+    const source = pending + "[x](Target)".repeat(count);
+    const references = extractMarkdownExplicitReferences(source);
+    expect(references).toHaveLength(count);
+    expect(references[0]?.startOffset).toBe(pending.length);
+    expect(references.at(-1)?.endOffset).toBe(source.length);
+    expect(references.every(({ linktext, embedded }) => linktext === "Target" && !embedded)).toBe(true);
+  });
+
   it.each(["[x](", "[x](<", '[x](a "'])("handles repeated unsuccessful destinations: %s", (unit) => {
     expect(extractMarkdownExplicitReferences(unit.repeat(16_000))).toEqual([]);
     expect(extractMarkdownExplicitReferences(`${unit.repeat(100)}\n[kept](Present.md)`)
@@ -149,7 +195,7 @@ describe("extractMarkdownExplicitReferences", () => {
     const source = "[link](A(B(C)).md) [[Other]]\n".repeat(1000);
     let yields = 0;
     const scheduler = new WorkScheduler({ yieldEvery: 1, yieldControl: async () => { yields += 1; } });
-    expect(await extractMarkdownExplicitReferencesAsync(source, scheduler))
+    expect((await parseMarkdownSourceAsync(source, scheduler)).references)
       .toEqual(extractMarkdownExplicitReferences(source));
     expect(yields).toBeGreaterThan(10);
   });
@@ -230,6 +276,98 @@ describe("extractMarkdownExplicitReferences", () => {
       "paragraph continuation",
       "kept",
     ]);
+  });
+
+  it.each(["\n", "\r\n", "\r"])("measures indented code inside its containers without shifting offsets with %j", (newline) => {
+    const cases = [
+      ">     [[Ghost]]",
+      "> >     [[Ghost]]",
+      "- item\n\n      [[Ghost]]",
+      "10. item\n\n        [[Ghost]]",
+      "1000. item\n\n          [[Ghost]]",
+      "-   \n\n      [[Ghost]]",
+      "10.   \n\n        [[Ghost]]",
+      "- > item\n  >\n  >     [[Ghost]]",
+      "> - item\n>\n>       [[Ghost]]",
+      "-\titem\n\n\t\t[[Ghost]]",
+      ">\t\t[[Ghost]]",
+      "-     [[Ghost]]",
+      "- first\n-     [[Ghost]]",
+      "paragraph\n>     [[Ghost]]",
+      "# heading\n    [[Ghost]]",
+      "- - -\n    [[Ghost]]",
+      "> * * *\n>     [[Ghost]]",
+      "<pre>\n</pre>\n    [[Ghost]]",
+      "> <pre>\n> </pre>\n>     [[Ghost]]",
+      "<!--\n-->\n    [[Ghost]]",
+      ">     - ```\n>     [[Ghost]]\n[[Shown]]",
+      ">     <!--\n\n[[Shown]]",
+      ">     <pre>\n\n[[Shown]]",
+      "- item\n\n      <!--\n\n  [[Shown]]",
+      ">    [[Shown]]",
+      "- item\n\n    [[Shown]]",
+      "-   \n\n    [[Ghost]]",
+      "10. item\n\n      [[Shown]]",
+      "- first\n  - second\n\n      [[Shown]]",
+      "> - item\n>\n>     [[Shown]]",
+      "-\titem\n\n\t  [[Shown]]",
+      "> paragraph\n>     [[Shown]]",
+      "- item\n      [[Shown]]",
+      "- item\nlazy continuation\n\n    [[Shown]]",
+      "> item\nlazy continuation\n>     [[Shown]]",
+      ">     [[Ghost]]\n>\n>    [[Shown]]",
+      "-     [[Ghost]]\n\n    😀 [[Shown]]",
+      "paragraph <!-- inline -->\n    [[Shown]]",
+      "paragraph <!--\n-->\n    [[Shown]]",
+    ];
+    for (const example of cases) {
+      const source = `😀${newline}${newline}${example.replaceAll("\n", newline)}`;
+      const shown = source.indexOf("[[Shown]]");
+      expect(extractMarkdownExplicitReferences(source), example).toEqual(shown < 0 ? [] : [
+        expect.objectContaining({ linktext: "Shown", startOffset: shown }),
+      ]);
+    }
+  });
+
+  it.each(["\n", "\r\n", "\r"])("uses block context before accepting list markers, setext and definitions with %j", (newline) => {
+    for (const { markdown: example, count } of commonmarkBlockOracle.examples) {
+      const source = `😀${newline}${newline}${example.replaceAll("\n", newline)}`;
+      expect(extractMarkdownExplicitReferences(source), example).toEqual(count === 2 ? ["Target", "Missing"].map((linktext) =>
+        expect.objectContaining({ linktext, startOffset: source.indexOf(`[[${linktext}]]`) })) : []);
+    }
+  });
+
+  it.each(["\n", "\r\n", "\r"])("keeps reference-definition metadata out of content syntax with %j", (newline) => {
+    const definitions = [
+      '[id]: /url "[[Target]] [[Missing]]"',
+      '[id]: /url "[label](Target)"',
+      '[id]: /url "first\n[[Target]] [[Missing]]"',
+      '> [id]: /url "[[Target]] [[Missing]]"',
+      '- [id]: /url "[[Target]] [[Missing]]"',
+      '[id]: /url "%%"\n\n[[Shown]] %%',
+      '[id]: /url "`"\n\n[[Shown]] `',
+    ];
+    for (const definition of definitions) {
+      const source = `😀${newline}${newline}${definition.replaceAll("\n", newline)}`;
+      const shown = source.indexOf("[[Shown]]");
+      expect(extractMarkdownExplicitReferences(source), definition).toEqual(shown < 0 ? [] : [
+        expect.objectContaining({ linktext: "Shown", startOffset: shown }),
+      ]);
+    }
+    const invalid = '[id]: /url "[[Target]] [[Missing]]" prose';
+    expect(extractMarkdownExplicitReferences(invalid).map(({ linktext }) => linktext)).toEqual(["Target", "Missing"]);
+  });
+
+  it.each(["\n", "\r\n", "\r"])("matches the frozen official CommonMark block matrix with %j", (newline) => {
+    const cases = [...commonmarkBlockCases()];
+    expect(cases).toHaveLength(1680);
+    expect(commonmarkBlockOracle.oracle.implementation).toBe("Official CommonMark.js");
+    expect(commonmarkBlockOracle.oracle.version).toBe("0.31.2");
+    for (const { source: original, count } of cases) {
+      const source = original.replaceAll("\n", newline);
+      expect(extractMarkdownExplicitReferences(source), original).toEqual(count === 2 ? ["Target", "Missing"].map((linktext) =>
+        expect.objectContaining({ linktext, startOffset: source.indexOf(`[[${linktext}]]`) })) : []);
+    }
   });
 
   it("ignores YAML comments while retaining frontmatter values and later headings", () => {

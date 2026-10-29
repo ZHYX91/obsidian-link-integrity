@@ -12,6 +12,51 @@ import { createScheduledViewModelSelector, type SidebarViewState } from "../src/
 const LARGE = process.env.LINK_INTEGRITY_BENCHMARK_MODE === "large";
 const FILE_COUNT = LARGE ? 50_000 : 10_000;
 
+it(`revalidates a shared directory suffix across ${FILE_COUNT} sources without unrelated rereads`, async () => {
+  const target = createFileRecord("Parent/Subdir/Target.md");
+  let files = Array.from({ length: FILE_COUNT }, (_, i) => createFileRecord(`Sources/Source-${i}.md`));
+  const previous = new LinkIndex(files);
+  const sourceSnapshot = (path: string, exists: boolean) => snapshot(path, [occurrence(path, path, {
+    linkpath: "Subdir/Target", lookupKey: "subdir/target",
+    fileStatus: exists ? "resolved" : "missing", targetPath: exists ? target.path : null,
+  })]);
+  for (const file of files) previous.replaceSourceSnapshot(file.path, sourceSnapshot(file.path, false));
+  const store = new AtomicLinkIndexStore(previous);
+  let builds = 0;
+  let yields = 0;
+  const port: LinkIndexPort = {
+    listFiles: async () => files,
+    getFileRecord: async (path) => files.find((file) => file.path === path) ?? null,
+    buildSourceSnapshot: async (path) => {
+      builds += 1;
+      return path.startsWith("Sources/") ? sourceSnapshot(path, true) : snapshot(path, []);
+    },
+  };
+  const controller = new IncrementalIndexController(port, store, {
+    yieldEvery: 256, yieldControl: async () => { yields += 1; },
+  });
+  controller.start();
+  try {
+    files = [...files, target];
+    const started = performance.now();
+    controller.enqueue({ type: "create", path: target.path });
+    await controller.whenIdle();
+    const elapsed = performance.now() - started;
+    expect(builds).toBe(FILE_COUNT + 1);
+    expect(store.current.getIncomingNeighborCount(target.path)).toBe(FILE_COUNT);
+    expect(previous.getSourceSnapshot("Sources/Source-0.md")?.occurrences[0]?.fileStatus).toBe("missing");
+    expect(yields).toBeGreaterThan(0);
+    expect(elapsed).toBeLessThan(LARGE ? 20_000 : 10_000);
+    builds = 0;
+    files = [...files, createFileRecord("Other/Unrelated.md")];
+    controller.enqueue({ type: "create", path: "Other/Unrelated.md" });
+    await controller.whenIdle();
+    expect(builds).toBe(1);
+    console.log(`Suffix dependency: ${FILE_COUNT} sources, ${FILE_COUNT} affected builds, ${elapsed.toFixed(1)} ms; ` +
+      `${yields} cooperative yields, unrelated create/1 build`);
+  } finally { controller.stop(); }
+});
+
 it(`keeps editing a heavily referenced note local in a ${FILE_COUNT}-file Vault`, async () => {
   const files = Array.from({ length: FILE_COUNT }, (_, i) => createFileRecord(`Note-${i}.md`, {
     targetFingerprint: "ready", modifiedAt: 0,
