@@ -105,6 +105,33 @@ describe("scheduled sidebar rendering", () => {
     expect(document.activeElement).toBe(expected);
   });
 
+  it.each(["Home", "End"])("activates the focused endpoint with %s after canceled asynchronous focus", async (key) => {
+    const f = await fixture();
+    const tabs = f.view.contentEl.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    const endpoint = key === "Home" ? 0 : 1;
+    if (endpoint === 1) {
+      tabs[0]!.focus();
+      tabs[0]!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+      await vi.waitFor(() => expect(document.activeElement).toBe(tabs[1]));
+    }
+    tabs[endpoint]!.focus();
+    const prepare = f.query.prepareSnapshot.bind(f.query);
+    let release!: () => void;
+    vi.spyOn(f.query, "prepareSnapshot").mockImplementation(async (tab) => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return prepare(tab);
+    });
+    tabs[endpoint]!.dispatchEvent(new KeyboardEvent("keydown", { key: key === "Home" ? "End" : "Home", bubbles: true }));
+    window.dispatchEvent(new Event("blur"));
+    release();
+    await vi.waitFor(() => expect(tabs[1 - endpoint]!.getAttribute("aria-selected")).toBe("true"));
+    expect(document.activeElement).toBe(tabs[endpoint]);
+    tabs[endpoint]!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    release();
+    await vi.waitFor(() => expect(tabs[endpoint]!.getAttribute("aria-selected")).toBe("true"));
+    expect(document.activeElement).toBe(tabs[endpoint]);
+  });
+
   it("preserves the current page and focus across progress updates", async () => {
     const f = await fixture();
     const row = f.view.contentEl.querySelector<HTMLElement>(".link-integrity-result-row")!;

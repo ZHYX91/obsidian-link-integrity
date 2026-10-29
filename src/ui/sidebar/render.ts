@@ -148,10 +148,11 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
         : definitions.findIndex(([tabId]) => tabId === requestedTab);
       const nextIndex = moveHorizontalTabIndex(currentIndex, event.key, definitions.length,
         options.translator.direction);
-      if (nextIndex === null || nextIndex === currentIndex) return;
-      event.preventDefault();
+      if (nextIndex === null) return;
       const nextId = definitions[nextIndex]?.[0];
       if (nextId === undefined) return;
+      if (nextIndex === currentIndex && options.model.activeTab === nextId) return;
+      event.preventDefault();
       selectSidebarTab(options, nextId);
     });
     tabList.append(button);
