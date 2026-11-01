@@ -22,6 +22,37 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["fallback", "empty-cache", "cached"] as const)("excludes HTML attribute Wiki tokens from graph and diagnostics via %s", async (mode) => {
+    for (const exists of [false, true]) {
+      const source = fakeFile("Source.md");
+      const ghost = fakeFile("Ghost.md");
+      const content: Record<string, string> = {};
+      const caches = new Map<string, CachedMetadata>();
+      const { port } = createPort(exists ? [source, ghost] : [source], { content, caches,
+        destinations: new Map(exists ? [["Ghost", ghost]] : []) });
+      const store = new AtomicLinkIndexStore();
+      const incremental = new IncrementalIndexController(port, store); incremental.start();
+      try {
+        for (const [step, body] of [false, true, false].entries()) {
+          const text = `<span data-value="[[Ghost]]">${body ? "[[Ghost]]" : "visible"}</span>`;
+          content[source.path] = text;
+          if (mode !== "fallback") caches.set(source.path, { links: mode === "empty-cache" ? [] : [
+            positioned(text, "Ghost", "[[Ghost]]"),
+            ...(body ? [positioned(text, "Ghost", "[[Ghost]]", text.indexOf(">"))] : []),
+          ] });
+          if (step === 0) await new FullRebuildController(port, store).rebuild();
+          else { incremental.enqueue({ type: "modify", path: source.path }); await incremental.whenIdle(); }
+          expect(store.current.getSourceSnapshot(source.path)!.occurrences).toHaveLength(body ? 1 : 0);
+          expect(store.current.getIncomingContributionCount(ghost.path)).toBe(body && exists ? 1 : 0);
+          expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText)).toEqual(body && !exists ? ["Ghost"] : []);
+          const rebuilt = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+          expect(store.current.toCanonicalState()).toEqual(rebuilt.toCanonicalState());
+          expect(content[source.path]).toBe(text);
+        }
+      } finally { incremental.stop(); }
+    }
+  });
+
   it.each(["\n", "\r\n", "\r"])("preserves a differing native destination until its exact token coverage is removed with %j", async (newline) => {
     const source = fakeFile("Source.md");
     const nativeTarget = fakeFile("Escaped&B.md");

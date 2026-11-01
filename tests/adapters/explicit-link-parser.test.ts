@@ -116,6 +116,27 @@ describe("extractMarkdownExplicitReferences", () => {
     expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(["Shown"]);
   });
 
+  it.each([
+    '<span data-value="[[Ghost]]">[[Shown]]</span>',
+    "<span data-value='[[Ghost]]'>[[Shown]]</span>",
+    '<span data-value="[ghost](Missing) ![[Ghost]]">[[Shown]]</span>',
+    '<span data-value="\n[[Ghost]]\n">[[Shown]]</span>',
+    '<span data-value="a > [[Ghost]]">[[Shown]]</span>',
+  ])("does not create references from valid HTML attributes: %s", async (markup) => {
+    for (const ending of ["\n", "\r\n", "\r"]) {
+      const source = `😀 ${markup.replaceAll("\n", ending)} [[After]]`;
+      const parsed = await parseMarkdownSourceAsync(source);
+      expect(parsed.references.map(({ linktext }) => linktext)).toEqual(["Shown", "After"]);
+      for (const reference of parsed.references) {
+        expect(source.slice(reference.startOffset, reference.endOffset)).toBe(reference.raw);
+      }
+      expect(extractMarkdownExplicitReferences(source)).toEqual(parsed.references);
+      const attribute = source.indexOf("Ghost");
+      expect(parsed.syntaxRanges.some((range) => range.kind === "raw-html"
+        && range.start <= attribute && range.end > attribute)).toBe(true);
+    }
+  });
+
   it("retains an angle-bracket destination whose filename resembles a raw tag", () => {
     expect(extractMarkdownExplicitReferences("[label](<pre>) [[Shown]]").map(({ linktext }) => linktext))
       .toEqual(["pre", "Shown"]);

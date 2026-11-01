@@ -665,10 +665,12 @@ function maskDelimitedBlocks(
           const openingEnd = htmlTagEnd(source, rawOpening.lastIndex, containers, linesByStart);
           end = nextOpaqueEnd(opaqueClosers.get(name), openingEnd) ?? source.length;
         } else if (/^\/?[A-Za-z]/u.test(source.slice(cursor + 1, cursor + 3))) {
-          // Attributes are literal HTML, not new raw tags/comments. Keep their
-          // bytes for the link parser, which also recognizes angle destinations.
+          // HTML tag attributes are literal syntax, never WikiLink body text.
+          // Established angle destinations were already handled by their link
+          // opener; preserve source bytes and mask only this valid tag token.
           const tag = scanLiteralHtmlTag(source, cursor, containers, linesByStart);
           if (tag.valid) {
+            mask(cursor, tag.end, "raw-html");
             literalTagEnd = tag.end;
             cursor = literalTagEnd;
             continue;
