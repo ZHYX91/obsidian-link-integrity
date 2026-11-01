@@ -74,6 +74,7 @@ export class LinkIntegritySidebarView extends ItemView {
         if (visible === this.visible) return;
         this.visible = visible;
         this.renderGeneration += 1;
+        if (!visible) this.mount?.cancelPendingTabFocus();
         if (visible) this.render();
       });
       this.visibilityObserver.observe(this.contentEl);

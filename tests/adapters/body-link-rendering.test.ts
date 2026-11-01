@@ -18,6 +18,17 @@ function anchor(destination = "Missing", label = "Label"): HTMLAnchorElement {
 }
 
 describe("native body annotation ownership", () => {
+  it("does not create Reading links when a renderer turns a CommonMark definition continuation into code", async () => {
+    const test = bodySetup("[id]: /url\n    [[Target]] [[Missing]]\n");
+    const source = await test.service.source(test.path, test.text);
+    expect(test.index.getSourceSnapshot(test.path)?.occurrences).toHaveLength(2);
+    const element = document.createElement("pre"); const code = document.createElement("code");
+    code.textContent = "[[Target]] [[Missing]]"; element.append(code);
+    const before = element.innerHTML;
+    expect(mapBodyReadingHints(element, source, 0, 2).size).toBe(0);
+    expect(element.innerHTML).toBe(before);
+    expect(element.querySelector("a,.link-integrity-broken-body-hint")).toBeNull();
+  });
   it("maps exact native anchors without modifying content or intercepting navigation", async () => {
     const test = bodySetup(); const source = await test.service.source(test.path, test.text);
     const element = document.createElement("p"); const link = anchor(); element.append(link);

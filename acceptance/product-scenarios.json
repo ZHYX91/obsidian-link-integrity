@@ -13,6 +13,114 @@
   },
   "scenarios": [
     {
+      "id": "resolution-semantics-and-tab-focus",
+      "title": "Host suffix targets, Markdown destination decoding and asynchronous tab focus",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "In a fresh disposable fixture Vault run create-resolution-regression-fixtures once; record the Source, Board and fixed target bytes",
+        "Run record-native-resolution-observation explicitly to save public cache tuples, source slices and official API results in the provider's own data.json. Preserve complete and incomplete observations separately from product verdicts; the command does not navigate or rebuild",
+        "Observe native navigation and Link Integrity target identities for the Markdown and Canvas destination inputs; compare incremental and rebuilt projections for the same stable source and native cache, recording host interpretation differences without creating missing targets",
+        "For Parent/Source.md create Parent/Subdir/Suffix Target.md, then add an Archive/Subdir/Suffix Target.md competitor; record the host resolver's actual best match after each create/delete/rename and source move, comparing both business projections to Rebuild",
+        "With the physical keyboard on desktop or emulator hardware-key input, focus Broken links and press one direction key, then rapid End/Home; observe selected tab, keyboard focus and visible panel after queries settle",
+        "During a delayed tab transition move focus to search, leave the window, hide or close the view; confirm completion does not reclaim focus"
+      ],
+      "expected": [
+        "Source supplementation and Canvas text decode Markdown destinations once before official host resolution. Wiki names and percent spellings retain their interpretation. Markdown tokens covered by native caches retain the native destination instead of substituting the source-decoded spelling; record actual per-token targets and diagnostics rather than requiring identical cross-platform totals",
+        "Suffix dependency changes revalidate the source and agree with the actual host resolver and a clean rebuild; a newly linked target is not high-confidence isolated",
+        "The latest completed tab selection and keyboard focus agree unless the user or lifecycle canceled the focus request",
+        "Preparation creates inert inputs once, refuses an existing root, does not force native cache readiness or modify product settings, and issues no product verdict. The explicit observer writes only its bounded provider receipt, preserves invalid or unstable facts as incomplete, and never treats a missing native tuple as a fabricated source interpretation"
+      ]
+    },
+    {
+      "id": "inline-proof-boundaries",
+      "title": "Block ownership, nested labels, quote continuation and metadata-safe body hints",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline in this disposable Vault",
+        "Run prepare-inline-atx-boundary; after native indexing inspect Broken links and Isolated files, then open the unique Missing source on L2",
+        "Run prepare-inline-nested-image; inspect both tabs after indexing settles",
+        "Run prepare-inline-reference-inner; inspect both tabs and verify the native reference-style Target link independently",
+        "Run prepare-inline-quote-continuation; inspect both tabs after indexing settles",
+        "Run prepare-inline-hint-metadata; turn body diagnostics On through Settings, inspect Reading and Live Preview hints and native navigation for both actual Missing occurrences, then restore the prior setting",
+        "Rebuild after each selected input and compare both projections to its incremental observation; record Source bytes, fixed targets, original fixture identities and actual native renderer limitations"
+      ],
+      "expected": [
+        "ATX boundary yields six broken/seven isolated: Missing remains on L2 and no Target edge crosses the heading boundary",
+        "Nested image yields five broken/four isolated: the outer Ghost image and inner Target link both connect, with no Missing diagnostic",
+        "Reference inner yields six broken/five isolated with a ready accurate native cache: Target connects through the inner reference, Ghost remains isolated and Missing is body text",
+        "Quote continuation yields five broken/five isolated: Target connects, Ghost is isolated and title Wiki text creates no diagnostics",
+        "Hint metadata yields seven broken/seven isolated: both actual Missing occurrences remain eligible for hints when native source/anchor and resolver proof succeeds; title text cannot start an HTML comment",
+        "The provider creates only the same three known notes and later changes Source among nine exact states; no mode forces cache readiness, creates Missing, changes user settings or issues a product verdict"
+      ]
+    },
+    {
+      "id": "inline-metadata-boundaries",
+      "title": "Inline link and image metadata versus body references",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline in this disposable Vault",
+        "Run prepare-inline-quoted; wait for native indexing, then inspect Broken links and Isolated files",
+        "Run prepare-inline-parenthesized; inspect both tabs after native indexing settles",
+        "Run prepare-inline-label-wiki; inspect both tabs and activate the unique Missing diagnostic source location",
+        "Run prepare-inline-invalid-outer; inspect both tabs and activate the unique Missing diagnostic source location",
+        "Rebuild after every selected input and compare both projections with the incremental observations; record Source bytes and verify Target, Ghost and the original fixture files did not change between modes"
+      ],
+      "expected": [
+        "Quoted link/image titles and parenthesized titles each produce five broken/five isolated files: Source connects to Target, Ghost is isolated and Missing has no diagnostic",
+        "Label Wiki produces six broken/four isolated files: Source connects to Target and Ghost, with exactly one Missing diagnostic on Source L1",
+        "Invalid outer syntax produces six broken/five isolated files: Source connects to Ghost, Target is isolated and Missing appears once on Source L1",
+        "Every rebuilt projection agrees with the corresponding incremental result, and actual diagnostic source navigation opens the known Source note",
+        "Preparation creates only Source, Target and Ghost once, then changes only Source between nine known byte states; Missing is never created and unknown files or edits are refused",
+        "Provider notices prepare input only; this scenario does not force a cold/partial metadata cache or issue an automated product verdict"
+      ]
+    },
+    {
+      "id": "container-block-boundaries",
+      "title": "Container-relative code and reference-definition boundaries",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline in this disposable Vault",
+        "Run prepare-block-quote-code, wait for indexing and inspect Broken links and Isolated files",
+        "Run prepare-block-list-prose, then prepare-block-definition-continuation; inspect both business tabs and the C5 Missing diagnostic after each transition",
+        "Run prepare-block-definition-non1-code, then prepare-block-definition-title; inspect both business tabs after each transition",
+        "Rebuild after each selected input and confirm its diagnostics and isolated files agree with the incremental results; verify only the known C5 Source fixture changed between modes"
+      ],
+      "expected": [
+        "Quote code has five broken and six isolated files; the new source and target have no connection",
+        "List prose and the definition continuation each have six broken and four isolated files: C5 Missing is reported once and C5 Source/C5 Target are connected",
+        "The definition non-1 marker followed by code and the definition title each have five broken and six isolated files, with no C5 Missing diagnostic or source/target connection",
+        "All rebuilt projections agree with incremental observations; provider commands prepare inert inputs and never issue a product verdict"
+      ]
+    },
+    {
       "id": "escaped-percent-and-source-context",
       "title": "Escaped delimiters, literal percent destinations and same-text source changes",
       "surfaces": [

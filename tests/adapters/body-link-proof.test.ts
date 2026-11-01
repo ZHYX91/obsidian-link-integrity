@@ -5,6 +5,20 @@ import { protectedBodySyntax, ordinaryListBodySyntax } from "../fixtures/body-pr
 import { bodySetup } from "../helpers/body-links";
 
 describe("current explicit body proof", () => {
+  it.each(["<!--", "`title", "%%", "<b>", "$title", "\\["])("keeps metadata %s literal without hiding a complete link or later hint", async (literal) => {
+    for (const newline of ["\n", "\r\n", "\r"]) {
+      const text = `😀${newline}[label](Missing "${literal}") [[Other]]`;
+      const test = bodySetup(text);
+      const source = await test.service.source(test.path, text);
+      expect(source.links.map(({ linktext }) => linktext)).toEqual(["Missing", "Other"]);
+      expect(source.hints.map(({ linktext }) => linktext)).toEqual(["Missing", "Other"]);
+    }
+  });
+  it.each(["<!--", "`title", "%%", "$title"])("keeps definition metadata %s from swallowing later hints", async (literal) => {
+    const text = `[r]: Target "${literal}"\n[[Missing]]`;
+    const test = bodySetup(text);
+    expect((await test.service.source(test.path, text)).hints).toHaveLength(1);
+  });
   it("projects all three confirmed missing reasons and keeps valid file graph contributions", async () => {
     const test = bodySetup("[[Missing]] [[Target#Heading]] [[Target#^block]] [[Target]]");
     const before = test.index.toCanonicalState();
@@ -34,9 +48,11 @@ describe("current explicit body proof", () => {
   it.each(["text\t[[Missing]]", "- item\n\tcontinuation [[Missing]]", ">\tcontinuation [[Missing]]"])("keeps ordinary tab-separated body links: %s", async (text) => {
     const test = bodySetup(text); expect((await test.service.source(test.path, text)).hints).toHaveLength(1);
   });
-  it.each(["~~~\n[[Missing]]\n~~~", "%%\n[[Missing]]\n%%", "---\nfield: '[[Missing]]'\n---", "<!-- [[Missing]] -->", "`[[Missing]]`", "$[[Missing]]$"])("protects non-body syntax: %s", async (text) => {
+  it.each(["~~~\n[[Missing]]\n~~~", "%%\n[[Missing]]\n%%", "%% [[Missing]]", "%%\n[[Missing]]", "---\nfield: '[[Missing]]'\n---", "<!-- [[Missing]] -->", "`[[Missing]]`", "$[[Missing]]$"])("protects non-body syntax: %s", async (text) => {
     const ranges = await extractMarkdownNonLinkExclusions(text); const from = text.indexOf("[[Missing]]");
     expect(ranges.some((range) => range.from <= from && range.to >= from + 11)).toBe(true);
+    const test = bodySetup(text);
+    expect((await test.service.source(test.path, text)).hints).toEqual([]);
   });
   it("rejects a stale same-offset link after an equal-length prefix becomes a code fence", async () => {
     const test = bodySetup("abc\n[[Missing]]"); const current = "```\n[[Missing]]";

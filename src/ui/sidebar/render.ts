@@ -3,7 +3,7 @@ import {
   renderFileTypeSelection,
   type FileTypeCategoryOption,
 } from "../file-type-selection";
-import { moveHorizontalTabIndex, revealHorizontalTab } from "../tab-navigation";
+import { moveHorizontalTabIndex } from "../tab-navigation";
 import {
   brokenSortOptions,
   compactSelect,
@@ -46,6 +46,9 @@ export interface SidebarRenderOptions {
   readonly mountElement?: HTMLElement;
   readonly disclosures?: Map<string, boolean>;
   readonly rows?: Map<string, { readonly signature: string; readonly element: HTMLLIElement }>;
+  readonly requestTabFocus?: (tabId: SidebarTabId) => void;
+  readonly commitTabFocus?: () => void;
+  readonly navigationTabId?: () => SidebarTabId | undefined;
 }
 
 export function updateTabs(root: HTMLElement, panel: HTMLElement, options: SidebarRenderOptions): void {
@@ -140,12 +143,16 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
       selectSidebarTab(options, id);
     });
     button.addEventListener("keydown", (event) => {
-      const nextIndex = moveHorizontalTabIndex(index, event.key, definitions.length,
+      const requestedTab = options.navigationTabId?.();
+      const currentIndex = requestedTab === undefined ? index
+        : definitions.findIndex(([tabId]) => tabId === requestedTab);
+      const nextIndex = moveHorizontalTabIndex(currentIndex, event.key, definitions.length,
         options.translator.direction);
-      if (nextIndex === null || nextIndex === index) return;
-      event.preventDefault();
+      if (nextIndex === null) return;
       const nextId = definitions[nextIndex]?.[0];
       if (nextId === undefined) return;
+      if (nextIndex === currentIndex && options.model.activeTab === nextId) return;
+      event.preventDefault();
       selectSidebarTab(options, nextId);
     });
     tabList.append(button);
@@ -166,13 +173,9 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
 }
 
 function selectSidebarTab(options: SidebarRenderOptions, tabId: SidebarTabId): void {
+  options.requestTabFocus?.(tabId);
   options.onStateChange({ ...options.state, activeTab: tabId });
-  queueMicrotask(() => {
-    const tab = options.mountElement
-      ?.querySelector<HTMLButtonElement>(`#link-integrity-sidebar-tab-${tabId}`);
-    if (tab?.getAttribute("aria-selected") !== "true") return;
-    revealHorizontalTab(tab, true);
-  });
+  options.commitTabFocus?.();
 }
 
 export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRenderOptions): void {

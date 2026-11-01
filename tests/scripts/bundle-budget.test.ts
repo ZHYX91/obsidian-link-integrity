@@ -17,9 +17,9 @@ interface BundleBudgetModule {
 const budget = budgetSource as unknown as BundleBudgetModule;
 
 describe("bundle budget", () => {
-  it("tracks the reviewed 0.2.8 runtime baseline with meaningful growth room", () => {
-    expect(budget.BUNDLE_REFERENCE_BYTES).toBe(499_922);
-    expect(budget.BUNDLE_MAXIMUM_BYTES).toBe(625_000);
+  it("tracks the reviewed 0.5.1 runtime baseline with meaningful growth room", () => {
+    expect(budget.BUNDLE_REFERENCE_BYTES).toBe(622_882);
+    expect(budget.BUNDLE_MAXIMUM_BYTES).toBe(779_000);
     expect(budget.BUNDLE_MAXIMUM_BYTES / budget.BUNDLE_REFERENCE_BYTES)
       .toBeGreaterThanOrEqual(1.2);
     expect(budget.BUNDLE_MAXIMUM_BYTES / budget.BUNDLE_REFERENCE_BYTES)
@@ -28,7 +28,7 @@ describe("bundle budget", () => {
     const measured = budget.measureBundleBudget(budget.BUNDLE_REFERENCE_BYTES);
     expect(measured).toMatchObject({
       actualBytes: budget.BUNDLE_REFERENCE_BYTES,
-      headroomBytes: 125_078,
+      headroomBytes: 156_118,
       maximumBytes: budget.BUNDLE_MAXIMUM_BYTES,
       referenceBytes: budget.BUNDLE_REFERENCE_BYTES,
     });

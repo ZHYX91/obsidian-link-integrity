@@ -7,6 +7,12 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-01
+
+- Exclude HTML attribute tokens and Markdown reference metadata from link indexing while retaining visible body links and supplementing incomplete host caches.
+- Preserve authored link destinations, container code boundaries and incremental graph results.
+- Keep tab activation and keyboard focus correct when asynchronous focus changes are cancelled or superseded.
+
 ## [0.5.1] - 2026-10-25
 
 - Exclude HTML comments, raw HTML code and fences inside quotes or lists from Canvas and fallback Markdown indexing, including their graph connections and isolation results.
@@ -236,7 +242,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.1...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...HEAD
+[0.5.2]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.3...0.5.0
 [0.4.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.2...0.4.3

@@ -114,9 +114,13 @@ export function normalizeLookupKey(key: string): string {
 export function makeFileLookupKeys(path: string): readonly string[] {
   const normalizedPath = normalizeVaultPath(path);
   const fullPathKey = normalizeLookupKey(normalizedPath);
-  const pathSegments = fullPathKey.split("/");
-  const basenameKey = pathSegments[pathSegments.length - 1] ?? fullPathKey;
-  return Array.from(new Set([fullPathKey, basenameKey]));
+  // The host can resolve any path suffix, not only the basename or full path.
+  // These are conservative dependencies; the host still chooses the target.
+  const keys = [fullPathKey];
+  for (let slash = fullPathKey.indexOf("/"); slash >= 0; slash = fullPathKey.indexOf("/", slash + 1)) {
+    keys.push(fullPathKey.slice(slash + 1));
+  }
+  return keys;
 }
 
 export function makeOccurrenceLookupKey(linkpath: string, sourcePath: string): string {

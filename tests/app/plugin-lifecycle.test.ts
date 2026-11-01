@@ -475,7 +475,7 @@ describe("plugin index lifecycle", () => {
     const metadataEvents = new TestEvents();
     let layoutReady: (() => void) | null = null;
     let source = JSON.stringify({ nodes: [] });
-    let cachedReadCount = 0;
+    const cachedReadPaths: string[] = [];
     let releaseFirstRead = (): void => undefined;
     let markFirstReadStarted = (): void => undefined;
     const firstReadStarted = new Promise<void>((resolve) => {
@@ -486,10 +486,11 @@ describe("plugin index lifecycle", () => {
     });
     const app = {
       vault: {
-        cachedRead: async () => {
-          cachedReadCount += 1;
+        cachedRead: async (file: TFile) => {
+          cachedReadPaths.push(file.path);
+          if (file.path === target.path) return "# Target\n";
           const captured = source;
-          if (cachedReadCount === 1) {
+          if (cachedReadPaths.filter((path) => path === canvas.path).length === 1) {
             markFirstReadStarted();
             await firstReadGate;
           }
@@ -537,7 +538,8 @@ describe("plugin index lifecycle", () => {
     const startupRebuild = runtime.coordinator.rebuildPromise;
     expect(startupRebuild).not.toBeNull();
     await startupRebuild;
-    expect(cachedReadCount).toBe(2);
+    expect(cachedReadPaths.filter((path) => path === canvas.path)).toHaveLength(2);
+    expect(cachedReadPaths.filter((path) => path === target.path)).toHaveLength(1);
     expect(runtime.coordinator.index.getOutgoingNeighborCount(canvas.path)).toBe(1);
     plugin.onunload();
   });
