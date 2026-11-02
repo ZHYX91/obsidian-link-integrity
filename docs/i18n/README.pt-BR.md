@@ -82,7 +82,7 @@ A indexação é local. Link Integrity não envia o Vault, não exige conta nem 
 
 Use Node.js 24.19.0 e npm 11.17.0. Execute `npm ci` e depois `npm run check`.
 
-Documentação para desenvolvimento: [produto](../product-requirements.en.md), [UX](../ux-spec.en.md), [arquitetura](../architecture.en.md), [testes](../testing-strategy.en.md). As fontes chinesas correspondentes ficam na mesma pasta.
+Documentação para desenvolvimento: [produto](../product-requirements.md), [UX](../ux-spec.md), [arquitetura](../architecture.md), [testes](../testing-strategy.md). As fontes chinesas correspondentes ficam na mesma pasta.
 
 ## Suporte
 

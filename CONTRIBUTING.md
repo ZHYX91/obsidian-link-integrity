@@ -31,10 +31,10 @@ of Obsidian imports, and use Conventional Commit subjects.
 
 Stable requirements live in these synchronized pairs:
 
-- `docs/product-requirements.{zh-CN,en}.md`
-- `docs/ux-spec.{zh-CN,en}.md`
-- `docs/architecture.{zh-CN,en}.md`
-- `docs/testing-strategy.{zh-CN,en}.md`
+- `docs/product-requirements.md` / `docs/product-requirements.zh-CN.md`
+- `docs/ux-spec.md` / `docs/ux-spec.zh-CN.md`
+- `docs/architecture.md` / `docs/architecture.zh-CN.md`
+- `docs/testing-strategy.md` / `docs/testing-strategy.zh-CN.md`
 
 Simplified Chinese is the source language. Update the `.zh-CN.md` source first, update its English
 translation in the same change, preserve matching heading structure, and keep the canonical

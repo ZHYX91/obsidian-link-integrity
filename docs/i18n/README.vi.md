@@ -82,7 +82,7 @@ Lập chỉ mục chạy cục bộ. Plugin không tải Vault lên, không yêu
 
 Dùng Node.js 24.19.0 và npm 11.17.0. Chạy `npm ci`, sau đó `npm run check`.
 
-Tài liệu cho nhà phát triển: [sản phẩm](../product-requirements.en.md), [UX](../ux-spec.en.md), [kiến trúc](../architecture.en.md), [kiểm thử](../testing-strategy.en.md). Bản gốc tiếng Trung tương ứng nằm trong cùng thư mục.
+Tài liệu cho nhà phát triển: [sản phẩm](../product-requirements.md), [UX](../ux-spec.md), [kiến trúc](../architecture.md), [kiểm thử](../testing-strategy.md). Bản gốc tiếng Trung tương ứng nằm trong cùng thư mục.
 
 ## Hỗ trợ
 

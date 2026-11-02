@@ -93,7 +93,7 @@ npm ci
 npm run check
 ```
 
-تتوفر الوثائق التقنية في [متطلبات المنتج](../product-requirements.en.md) و[مواصفات الواجهة](../ux-spec.en.md) و[الهندسة](../architecture.en.md) و[خطة الاختبارات](../testing-strategy.en.md). كما يمكنك مراجعة [دليل المساهمة](../../CONTRIBUTING.md) و[سجل التغييرات](../../CHANGELOG.md) و[سياسة الأمان](../../SECURITY.md).
+تتوفر الوثائق التقنية في [متطلبات المنتج](../product-requirements.md) و[مواصفات الواجهة](../ux-spec.md) و[الهندسة](../architecture.md) و[خطة الاختبارات](../testing-strategy.md). كما يمكنك مراجعة [دليل المساهمة](../../CONTRIBUTING.md) و[سجل التغييرات](../../CHANGELOG.md) و[سياسة الأمان](../../SECURITY.md).
 
 ## الدعم
 

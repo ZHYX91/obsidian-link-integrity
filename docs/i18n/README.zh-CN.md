@@ -89,10 +89,10 @@ Bases 动态查询得到的文件不会自动算作链接。如果目标文件�
 
 开发文档：
 
-- 产品需求：[English](../product-requirements.en.md) · [简体中文](../product-requirements.zh-CN.md)
-- UX 规范：[English](../ux-spec.en.md) · [简体中文](../ux-spec.zh-CN.md)
-- 架构：[English](../architecture.en.md) · [简体中文](../architecture.zh-CN.md)
-- 测试：[English](../testing-strategy.en.md) · [简体中文](../testing-strategy.zh-CN.md)
+- 产品需求：[English](../product-requirements.md) · [简体中文](../product-requirements.zh-CN.md)
+- UX 规范：[English](../ux-spec.md) · [简体中文](../ux-spec.zh-CN.md)
+- 架构：[English](../architecture.md) · [简体中文](../architecture.zh-CN.md)
+- 测试：[English](../testing-strategy.md) · [简体中文](../testing-strategy.zh-CN.md)
 
 ## 支持
 

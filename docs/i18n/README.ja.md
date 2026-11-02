@@ -82,7 +82,7 @@ Bases の動的クエリ結果は、自動的にリンクとして扱いませ�
 
 Node.js 24.19.0 と npm 11.17.0 を使用し、`npm ci` の後に `npm run check` を実行します。
 
-開発者向け資料：[製品](../product-requirements.en.md)、[UX](../ux-spec.en.md)、[アーキテクチャ](../architecture.en.md)、[テスト](../testing-strategy.en.md)。対応する中国語の原文は同じフォルダーにあります。
+開発者向け資料：[製品](../product-requirements.md)、[UX](../ux-spec.md)、[アーキテクチャ](../architecture.md)、[テスト](../testing-strategy.md)。対応する中国語の原文は同じフォルダーにあります。
 
 ## サポート
 

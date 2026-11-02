@@ -33,19 +33,19 @@ describe("stable documentation contract", () => {
 
   it("rejects translation metadata that does not name its source", async () => {
     await replaceInDocument(
-      "docs/product-requirements.en.md",
+      "docs/product-requirements.md",
       "translation_of: product-requirements.zh-CN.md",
       "translation_of: product.zh-CN.md",
     );
 
     await expect(checkDocsI18n(fixtureRoot)).rejects.toThrow(
-      /product-requirements\.en\.md frontmatter must be exactly/u,
+      /product-requirements\.md frontmatter must be exactly/u,
     );
   });
 
   it("rejects structural drift between a source and its translation", async () => {
     await replaceInDocument(
-      "docs/ux-spec.en.md",
+      "docs/ux-spec.md",
       "## 7. Accessibility and mobile",
       "### 7. Accessibility and mobile",
     );
@@ -53,10 +53,13 @@ describe("stable documentation contract", () => {
     await expect(checkDocsI18n(fixtureRoot)).rejects.toThrow(/matching heading structures/u);
   });
 
-  it("rejects a retired document name as a second authority", async () => {
+  it.each([
+    "product.md", "product.en.md", "product.zh-CN.md", "ux.md", "ux.en.md", "ux.zh-CN.md",
+    "product-requirements.en.md", "ux-spec.en.md", "architecture.en.md", "testing-strategy.en.md",
+  ])("rejects retired %s as a second authority", async (name) => {
     await cp(
-      path.join(fixtureRoot, "docs/product-requirements.en.md"),
-      path.join(fixtureRoot, "docs/product.en.md"),
+      path.join(fixtureRoot, "docs/product-requirements.md"),
+      path.join(fixtureRoot, "docs", name),
     );
 
     await expect(checkDocsI18n(fixtureRoot)).rejects.toThrow(/retired authority/u);

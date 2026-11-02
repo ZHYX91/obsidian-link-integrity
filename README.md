@@ -89,10 +89,10 @@ Use Node.js 24.19.0 and npm 11.17.0. Run `npm ci`, then `npm run check`.
 
 Developer documentation:
 
-- Product requirements: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product-requirements.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product-requirements.zh-CN.md)
-- UX specification: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.zh-CN.md)
-- Architecture: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.zh-CN.md)
-- Testing: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.en.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.zh-CN.md)
+- Product requirements: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product-requirements.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/product-requirements.zh-CN.md)
+- UX specification: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/ux-spec.zh-CN.md)
+- Architecture: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/architecture.zh-CN.md)
+- Testing: [English](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.md) · [简体中文](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/docs/testing-strategy.zh-CN.md)
 
 Project links: [Contributing](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CONTRIBUTING.md) · [Changelog](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/CHANGELOG.md) · [Security](https://github.com/ZHYX91/obsidian-link-integrity/blob/main/SECURITY.md)
 

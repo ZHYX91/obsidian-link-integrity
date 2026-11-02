@@ -82,7 +82,7 @@ Die Indexierung erfolgt lokal. Link Integrity lädt keine Vault-Inhalte hoch, be
 
 Node.js 24.19.0 und npm 11.17.0 verwenden. `npm ci` und danach `npm run check` ausführen.
 
-Entwicklerdokumentation: [Produkt](../product-requirements.en.md), [UX](../ux-spec.en.md), [Architektur](../architecture.en.md), [Tests](../testing-strategy.en.md). Die chinesischen Quelldokumente liegen im selben Ordner.
+Entwicklerdokumentation: [Produkt](../product-requirements.md), [UX](../ux-spec.md), [Architektur](../architecture.md), [Tests](../testing-strategy.md). Die chinesischen Quelldokumente liegen im selben Ordner.
 
 ## Support
 
