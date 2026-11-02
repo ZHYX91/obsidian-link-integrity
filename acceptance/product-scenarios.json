@@ -13,6 +13,28 @@
   },
   "scenarios": [
     {
+      "id": "canvas-exact-path-regression",
+      "title": "Canvas exact file and background paths",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "Observe the untouched five-broken/four-isolated baseline in a fresh disposable fixture Vault. Explicitly run the acceptance provider command create-canvas-exact-path-fixtures; it refuses an existing Canvas Exact Path Acceptance folder. Open its Exact-paths.canvas and the Link Integrity broken-link review, keep its Missing folder absent and record all three generated file hashes.",
+        "Inspect the file node targeting Canvas Exact Path Acceptance/Missing/Shadow.md and the group background targeting Canvas Exact Path Acceptance/Missing/background.svg. Compare the valid exact file node and the text node's [[Shadow]] link without creating missing files.",
+        "Using the host's file explorer create Canvas Exact Path Acceptance/Missing/Shadow.md with a heading named Target; wait for incremental indexing and compare the result with Rebuild. Remove only that new scratch file using the host and repeat the comparison. Recheck the three original generated file hashes. Use a fresh disposable fixture Vault before any other baseline-count scenario."
+      ],
+      "expected": [
+        "The missing Canvas file and background remain broken despite same-basename files under Canvas Exact Path Acceptance/Elsewhere. The exact Elsewhere/Shadow.md node with subpath #Target resolves, and Canvas text keeps the host's ordinary link resolution.",
+        "Creating the exact missing note clears only its file-path failure; its removal restores the failure even though the elsewhere note remains. Incremental and rebuilt projections agree.",
+        "The original Canvas, target note and image bytes remain unchanged; opening a review does not create or rewrite targets."
+      ]
+    },
+    {
       "id": "resolution-semantics-and-tab-focus",
       "title": "Host suffix targets, Markdown destination decoding and asynchronous tab focus",
       "surfaces": [

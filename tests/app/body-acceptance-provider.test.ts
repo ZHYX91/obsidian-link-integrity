@@ -34,6 +34,7 @@ interface FixtureProvider {
   createFixtures: () => Promise<void>;
   createContextRegressionFixtures: () => Promise<void>;
   createResolutionRegressionFixtures: () => Promise<void>;
+  createCanvasExactPathFixtures: () => Promise<void>;
   prepareBlockContextFixtures: (mode: string) => Promise<void>;
   prepareInlineMetadataFixtures: (mode: string) => Promise<void>;
   repair: () => Promise<void>;
@@ -64,6 +65,37 @@ async function loadProvider() {
 }
 
 describe("self-contained explicit body fixture provider", () => {
+  it("prepares exact Canvas paths only on request and preserves the default fixture baseline", async () => {
+    const { provider, files, folders, mutations, commands, opened, notices } = await loadProvider();
+    const baseline = new Map(files);
+    provider.onload();
+    expect(mutations).toEqual([]);
+    await commands.find(({ id }) => id === "create-canvas-exact-path-fixtures")!.callback();
+    const root = "Canvas Exact Path Acceptance";
+    const canvas = JSON.parse(files.get(`${root}/Exact-paths.canvas`)!) as { nodes: Array<Record<string, unknown>>; edges: unknown[] };
+    expect(canvas.nodes.map(({ type, file, background, subpath, text }) => ({ type, file, background, subpath, text }))).toEqual([
+      { type: "file", file: `${root}/Missing/Shadow.md` },
+      { type: "file", file: `${root}/Elsewhere/Shadow.md`, subpath: "#Target" },
+      { type: "group", background: `${root}/Missing/background.svg` },
+      { type: "text", text: "[[Shadow]]" },
+    ]);
+    expect(files.get(`${root}/Elsewhere/Shadow.md`)).toBe("# Target\n\nExact-path regression marker.\n");
+    expect(files.get(`${root}/Elsewhere/background.svg`)).toContain("<svg");
+    expect([...files.keys()].filter((file) => file.startsWith(`${root}/`))).toHaveLength(3);
+    expect(folders.has(`${root}/Missing`)).toBe(false);
+    expect(new Map([...files].filter(([file]) => !file.startsWith(`${root}/`)))).toEqual(baseline);
+    expect(mutations.every((file) => file === root || file.startsWith(`${root}/`))).toBe(true);
+    expect(opened).toEqual([`${root}/Exact-paths.canvas`]);
+    expect(notices.at(-1)).toContain("no verdict is assigned");
+    files.set(`${root}/Elsewhere/Shadow.md`, "Foreign edit");
+    const before = new Map(files); const writes = mutations.length;
+    await expect(provider.createCanvasExactPathFixtures()).rejects.toThrow("already exist");
+    expect(files).toEqual(before); expect(mutations).toHaveLength(writes);
+    files.delete("Standalone.md");
+    await expect(provider.createCanvasExactPathFixtures()).rejects.toThrow("disposable acceptance fixture");
+    expect(mutations).toHaveLength(writes);
+  });
+
   it("prepares inert resolution inputs once without changing existing fixture bytes", async () => {
     const { provider, files, mutations, commands, notices } = await loadProvider();
     const baseline = new Map(files);
@@ -91,7 +123,7 @@ describe("self-contained explicit body fixture provider", () => {
 
   it("preserves base bytes and verifies prepare/repair/restore transitions without filesystem writes", async () => {
     const { provider, files, commands } = await loadProvider();
-    provider.onload(); expect(commands.map(({ id }) => id)).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "create-resolution-regression-fixtures", "record-native-resolution-observation", "repair-body-hint-fixtures", "restore-body-hint-fixtures",
+    provider.onload(); expect(commands.map(({ id }) => id)).toEqual(["create-body-hint-fixtures", "create-context-regression-fixtures", "create-resolution-regression-fixtures", "create-canvas-exact-path-fixtures", "record-native-resolution-observation", "repair-body-hint-fixtures", "restore-body-hint-fixtures",
       "prepare-block-quote-code", "prepare-block-list-prose", "prepare-block-definition-continuation", "prepare-block-definition-non1-code", "prepare-block-definition-title",
       "prepare-inline-quoted", "prepare-inline-parenthesized", "prepare-inline-label-wiki", "prepare-inline-invalid-outer",
       "prepare-inline-atx-boundary", "prepare-inline-nested-image", "prepare-inline-reference-inner", "prepare-inline-quote-continuation", "prepare-inline-hint-metadata"]);

@@ -51,6 +51,8 @@ interface OccurrenceInput {
   readonly kind: LinkOccurrenceKind;
   readonly position: SourcePosition | null;
   readonly ordinal?: number;
+  readonly vaultPath?: string;
+  readonly subpath?: string;
 }
 
 interface OccurrenceIdentityOrdinal {
@@ -174,6 +176,8 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
           raw: node.file + subpath,
           linktext: node.file + subpath,
           kind: "canvas-file",
+          vaultPath: node.file,
+          subpath,
           position: canvasPosition(nodeId),
         });
       }
@@ -187,6 +191,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
           raw: node.background,
           linktext: node.background,
           kind: "canvas-background",
+          vaultPath: node.background,
           position: canvasPosition(nodeId),
         });
       }
@@ -244,10 +249,13 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     input: OccurrenceInput,
     identity: OccurrenceIdentityOrdinal,
   ): LinkOccurrence {
-    const external = isExternalReference(input.linktext);
+    const exactPath = input.kind === "canvas-file" || input.kind === "canvas-background";
+    const external = !exactPath && isExternalReference(input.linktext);
     let parsed: { path: string; subpath: string };
     try {
-      parsed = parseLinktext(input.linktext);
+      parsed = exactPath
+        ? { path: input.vaultPath ?? input.linktext, subpath: input.subpath ?? "" }
+        : parseLinktext(input.linktext);
     } catch {
       return {
         id: occurrenceId(sourcePath, input, identity),
@@ -264,7 +272,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         subpathStatus: "none",
       };
     }
-    const linkpath = parsed.path.trim();
+    const linkpath = exactPath ? parsed.path : parsed.path.trim();
     const subpath = parsed.subpath.length === 0 ? null : parsed.subpath;
     const lookupLinkpath = linkpath.length === 0 ? sourcePath : linkpath;
     if (external) {
@@ -283,9 +291,11 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         subpathStatus: "none",
       };
     }
-    const target = linkpath.length === 0
-      ? this.vault.getFileByPath(sourcePath)
-      : this.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
+    const target = exactPath
+      ? (linkpath.length === 0 ? null : this.vault.getFileByPath(linkpath))
+      : (linkpath.length === 0
+        ? this.vault.getFileByPath(sourcePath)
+        : this.metadataCache.getFirstLinkpathDest(linkpath, sourcePath));
     if (target === null) {
       return {
         id: occurrenceId(sourcePath, input, identity),

@@ -675,6 +675,69 @@ describe("ObsidianLinkIndexPort", () => {
     expect(snapshot?.occurrences[3]?.position).toMatchObject({ property: "related" });
   });
 
+  it("resolves Canvas file paths exactly while preserving best-match text links across namespace changes", async () => {
+    const canvas = fakeFile("Boards/Board.canvas");
+    const alternate = fakeFile("archive/Target.md");
+    const exact = fakeFile("Target.md");
+    const files = new Map([canvas, alternate].map((file) => [file.path, file]));
+    const content = JSON.stringify({ nodes: [
+      { id: "file", type: "file", file: "Target.md", subpath: "#Heading" },
+      { id: "background", type: "group", background: "Target.md" },
+      { id: "text", type: "text", text: "[[Target]]" },
+    ] });
+    const bestMatch = vi.fn((_linkpath: string) => alternate);
+    const port = new ObsidianLinkIndexPort({
+      getFiles: () => [...files.values()],
+      getFileByPath: (path: string) => files.get(path) ?? null,
+      cachedRead: async (file: FakeFile) => file === canvas ? content : "",
+    } as unknown as Vault, {
+      getFileCache: () => ({ headings: [{ heading: "Heading", level: 1 }] }),
+      getFirstLinkpathDest: bestMatch,
+    } as unknown as MetadataCache);
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      await new FullRebuildController(port, store).rebuild();
+      for (const state of ["missing", "created", "deleted"] as const) {
+        if (state === "created") { files.set(exact.path, exact); incremental.enqueue({ type: "create", path: exact.path }); }
+        if (state === "deleted") { files.delete(exact.path); incremental.enqueue({ type: "delete", path: exact.path }); }
+        await incremental.whenIdle();
+        const occurrences = store.current.getSourceSnapshot(canvas.path)!.occurrences;
+        expect(occurrences.slice(0, 2).map(({ fileStatus, targetPath }) => ({ fileStatus, targetPath })))
+          .toEqual(Array.from({ length: 2 }, () => ({ fileStatus: state === "created" ? "resolved" : "missing", targetPath: state === "created" ? exact.path : null })));
+        expect(occurrences[0]?.subpath).toBe("#Heading");
+        expect(occurrences[2]).toMatchObject({ fileStatus: "resolved", targetPath: alternate.path });
+        // The host mock reports every heading missing; the resolved file still contributes an edge.
+        expect(queryBrokenLinks(store.current)).toHaveLength(state === "created" ? 1 : 2);
+        expect(store.current.getIncomingContributionCount(alternate.path)).toBe(1);
+        expect(store.current.getIncomingContributionCount(exact.path)).toBe(state === "created" ? 2 : 0);
+        const rebuilt = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(store.current.toCanonicalState()).toEqual(rebuilt.toCanonicalState());
+      }
+      expect(bestMatch.mock.calls.every(([path]) => path === "Target")).toBe(true);
+    } finally { incremental.stop(); }
+  });
+
+  it("preserves literal Canvas path characters and does not resolve an empty file path to itself", async () => {
+    const canvas = fakeFile("Board.canvas");
+    const target = fakeFile("Assets/A#B & C%.png");
+    const { port } = createPort([canvas, target], {
+      content: { [canvas.path]: JSON.stringify({ nodes: [
+        { type: "file", file: target.path },
+        { type: "group", background: target.path },
+        { type: "file", file: "" },
+      ] }) },
+      caches: new Map(), destinations: new Map(),
+    });
+    const snapshot = await port.buildSourceSnapshot(canvas.path);
+    expect(snapshot?.occurrences.slice(0, 2)).toMatchObject([
+      { targetPath: target.path, subpath: null, fileStatus: "resolved" },
+      { targetPath: target.path, subpath: null, fileStatus: "resolved" },
+    ]);
+    expect(snapshot?.occurrences[2]).toMatchObject({ targetPath: null, fileStatus: "invalid" });
+  });
+
   it("reads Canvas file, background, and Markdown text references", async () => {
     const canvas = fakeFile("Board.canvas");
     const image = fakeFile("image.png");
