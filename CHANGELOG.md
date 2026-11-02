@@ -246,7 +246,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...HEAD
+[0.5.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...0.5.3
 [0.5.2]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.3...0.5.0
