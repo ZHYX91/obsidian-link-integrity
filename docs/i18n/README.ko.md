@@ -82,7 +82,7 @@ Bases의 동적 쿼리 결과는 자동으로 링크로 취급하지 않습니�
 
 Node.js 24.19.0과 npm 11.17.0을 사용합니다. `npm ci` 다음 `npm run check`를 실행하세요.
 
-개발 문서: [제품](../product-requirements.en.md), [UX](../ux-spec.en.md), [아키텍처](../architecture.en.md), [테스트](../testing-strategy.en.md). 해당 중국어 원문은 같은 폴더에 있습니다.
+개발 문서: [제품](../product-requirements.md), [UX](../ux-spec.md), [아키텍처](../architecture.md), [테스트](../testing-strategy.md). 해당 중국어 원문은 같은 폴더에 있습니다.
 
 ## 지원
 

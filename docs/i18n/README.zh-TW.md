@@ -84,10 +84,10 @@ Bases 動態查詢得到的檔案不會自動算成連結。如果目標檔案�
 
 開發文件：
 
-- 產品需求：[English](../product-requirements.en.md) · [简体中文](../product-requirements.zh-CN.md)
-- UX 規範：[English](../ux-spec.en.md) · [简体中文](../ux-spec.zh-CN.md)
-- 架構：[English](../architecture.en.md) · [简体中文](../architecture.zh-CN.md)
-- 測試：[English](../testing-strategy.en.md) · [简体中文](../testing-strategy.zh-CN.md)
+- 產品需求：[English](../product-requirements.md) · [简体中文](../product-requirements.zh-CN.md)
+- UX 規範：[English](../ux-spec.md) · [简体中文](../ux-spec.zh-CN.md)
+- 架構：[English](../architecture.md) · [简体中文](../architecture.zh-CN.md)
+- 測試：[English](../testing-strategy.md) · [简体中文](../testing-strategy.zh-CN.md)
 
 ## 支援
 

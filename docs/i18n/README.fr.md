@@ -82,7 +82,7 @@ L’indexation est locale. Link Integrity ne téléverse pas le Vault, ne demand
 
 Utilisez Node.js 24.19.0 et npm 11.17.0. Exécutez `npm ci`, puis `npm run check`.
 
-Documentation développeur : [produit](../product-requirements.en.md), [UX](../ux-spec.en.md), [architecture](../architecture.en.md), [tests](../testing-strategy.en.md). Les sources chinoises correspondantes se trouvent dans le même dossier.
+Documentation développeur : [produit](../product-requirements.md), [UX](../ux-spec.md), [architecture](../architecture.md), [tests](../testing-strategy.md). Les sources chinoises correspondantes se trouvent dans le même dossier.
 
 ## Assistance
 
