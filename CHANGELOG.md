@@ -5,7 +5,11 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
-## [Unreleased]
+## [0.5.3] - 2026-11-02
+
+- Update the development-only minimatch dependencies to 11.0.4 with reviewed legacy lint-call adaptations and installed-caller regression checks.
+
+- Resolve Canvas file cards and background images by their exact Vault paths so another folder's same-named file cannot hide a broken reference or gain an incorrect graph connection; keep Canvas text link matching unchanged.
 
 ## [0.5.2] - 2026-11-01
 
@@ -242,7 +246,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...HEAD
+[0.5.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...0.5.3
 [0.5.2]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.4.3...0.5.0

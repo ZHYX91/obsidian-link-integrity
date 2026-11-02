@@ -67,6 +67,7 @@ module.exports = class extends Plugin {
       ["create-body-hint-fixtures", "Create body-hint fixtures in this disposable acceptance Vault", () => this.createFixtures()],
       ["create-context-regression-fixtures", "Create escaped, percent and source-context regression fixtures", () => this.createContextRegressionFixtures()],
       ["create-resolution-regression-fixtures", "Create suffix and Markdown destination regression fixtures", () => this.createResolutionRegressionFixtures()],
+      ["create-canvas-exact-path-fixtures", "Create Canvas exact-path regression fixtures in this disposable Vault", () => this.createCanvasExactPathFixtures()],
       ["record-native-resolution-observation", "Record native resolution facts (provider receipt only)", () => this.recordNativeResolutionObservation()],
       ["repair-body-hint-fixtures", "Repair body-hint fixtures in this disposable acceptance Vault", () => this.repair()],
       ["restore-body-hint-fixtures", "Restore broken body-hint fixtures in this disposable acceptance Vault", () => this.restore()],
@@ -282,6 +283,25 @@ module.exports = class extends Plugin {
     ]) await vault.create(`${root}/${name}`, text);
     new Notice("Context fixtures created. Observe native links and Link Integrity results separately.");
     await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${root}/Escaped.md`));
+  }
+  async createCanvasExactPathFixtures() {
+    this.guard();
+    const vault = this.app.vault;
+    const root = "Canvas Exact Path Acceptance";
+    if (vault.getAbstractFileByPath(root) !== null) throw new Error("Canvas exact-path fixtures already exist; use a fresh disposable Vault.");
+    await vault.createFolder(root);
+    await vault.createFolder(`${root}/Elsewhere`);
+    await vault.create(`${root}/Elsewhere/Shadow.md`, "# Target\n\nExact-path regression marker.\n");
+    await vault.create(`${root}/Elsewhere/background.svg`, '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#467a9b"/></svg>\n');
+    const nodes = [
+      { id: "missing-file", type: "file", file: `${root}/Missing/Shadow.md`, x: 0, y: 0, width: 300, height: 200 },
+      { id: "exact-file", type: "file", file: `${root}/Elsewhere/Shadow.md`, subpath: "#Target", x: 340, y: 0, width: 300, height: 200 },
+      { id: "missing-background", type: "group", background: `${root}/Missing/background.svg`, x: 0, y: 250, width: 300, height: 200, label: "Missing exact background" },
+      { id: "text-host-link", type: "text", text: "[[Shadow]]", x: 340, y: 250, width: 300, height: 200 },
+    ];
+    await vault.create(`${root}/Exact-paths.canvas`, JSON.stringify({ nodes, edges: [] }, null, 2) + "\n");
+    new Notice("Canvas inputs prepared. Observe native paths and Link Integrity results separately; no verdict is assigned.");
+    await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${root}/Exact-paths.canvas`));
   }
   async createResolutionRegressionFixtures() {
     this.guard();

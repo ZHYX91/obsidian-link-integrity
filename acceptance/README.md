@@ -15,6 +15,14 @@ With the packaged `link-integrity` candidate enabled and the startup scan comple
 
 Fixture setup is not product evidence. Candidate identity, host lifecycle, product observations, screenshots, and navigation checks must be recorded as separate claims by the environment performing the run.
 
+The focused `canvas-exact-path-regression` scenario starts from that unchanged baseline.
+Explicitly run `create-canvas-exact-path-fixtures` in the bundled acceptance provider to create
+`Canvas Exact Path Acceptance/` with a Canvas, one target note and one SVG. The command refuses
+an existing root, never creates the missing targets and assigns no verdict. Compare missing
+exact file/background paths with the same-basename alternatives, native text-link resolution
+and create/remove/rebuild transitions. Use a fresh disposable Vault for another baseline-count
+scenario; enabling the provider alone creates no extra notes.
+
 The review regression also exercises CRLF/empty/adjacent Canvas fences, Bases dynamic arguments and display names, and YAML-decoded position fallback. The seeded `Bounded regex` rule matches no fixture filename; previewing it exercises the bounded matcher through the settings UI without changing the default isolation counts.
 
 ## Body diagnostic scenarios

@@ -29,6 +29,7 @@ Pure fixtures should cover:
 - successful, missing, pending, and unsupported heading or block states;
 - retention of a file-level edge when the file exists but its subpath is missing;
 - Markdown, embed, Frontmatter, Canvas, and Bases explicit source kinds;
+- missing exact Canvas file/background paths cannot resolve to same-named files elsewhere; separately verify best-match Canvas text links, literal path characters and independent subpaths, and broken links, connection counts and full/incremental agreement after exact targets are created or deleted;
 - fallback-parser exclusion of fenced and indented code, HTML comments, raw HTML code, and frontmatter YAML comments, while retaining links in frontmatter values and paragraph continuations; regressions cover LF/CRLF/CR, empty and adjacent blocks, both fence characters, variable lengths, nested quote/list containers, unclosed blocks and container termination, and UTF-16 offsets after astral prefixes; HTML literals inside code, fences inside HTML, quoted attributes, and tag-like Markdown destinations must not affect adjacent prose;
 - self-links, external URLs, and repeated occurrences;
 - absence of explicit edges from dynamic Bases results; semantic tests allow static explicit references only from `filters`, `formulas`, custom `summaries`, and view `filters`, with view names, `properties` display strings, ordinary formula string literals, and dynamic first link arguments as negative cases; escaped/folded YAML must never fabricate link coordinates or collapse repeated occurrences;

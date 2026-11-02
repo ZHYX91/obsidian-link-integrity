@@ -28,6 +28,7 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 - 标题和块成功、缺失、等待或无法验证状态；
 - 文件存在但子路径缺失时仍保留文件级边；
 - Markdown、嵌入、Frontmatter、Canvas 和 Bases 显式来源类型；
+- Canvas 文件与背景的精确路径缺失时，不接受其他目录的同名文件；单独验证 Canvas 文本继续使用宿主最佳匹配，路径字面字符与独立 subpath 保真，以及精确目标新建、删除后的坏链、连接计数和全量／增量索引一致性；
 - 降级解析器屏蔽 fenced/indented code、HTML comment、原始 HTML code 和 frontmatter YAML comment，同时保留 frontmatter value 与 paragraph continuation 中的链接；回归覆盖 LF/CRLF/CR、空块、相邻块、两种围栏字符、不同长度、引用/列表嵌套、未闭合块及容器终止，以及 astral 字符前缀下的 UTF-16 offset；代码中的 HTML 字面、HTML 中的围栏、带引号的属性与类似标签的 Markdown 目标不能污染相邻正文；
 - 自链接、外部 URL 和重复引用；
 - Bases 动态结果不形成显式边；语义测试只允许 `filters`、`formulas`、自定义 `summaries` 与视图 `filters` 中的静态显式引用，并用视图名称、`properties` 展示字符串、公式内部普通字符串和 link 的动态第一参数作为负例；转义或折叠 YAML 不得伪造链接坐标或合并重复引用；
