@@ -47,15 +47,13 @@ export function resolvePluginLocale(
 ): SupportedLocale {
   if (configuredLocale !== "auto") return configuredLocale;
   const normalized = normalizeLanguageTag(hostLocale);
-  const parts = normalized.split("-");
-  const language = parts[0] ?? "en";
+  const [language = "en", ...allSubtags] = normalized.split("-");
+  const extensionIndex = allSubtags.findIndex((part) => part.length === 1);
+  const subtags = extensionIndex < 0 ? allSubtags : allSubtags.slice(0, extensionIndex);
   if (language === "zh") {
-    return parts.includes("hant") ||
-        parts.includes("tw") ||
-        parts.includes("hk") ||
-        parts.includes("mo")
-      ? "zh-TW"
-      : "zh-CN";
+    if (subtags.includes("hant")) return "zh-TW";
+    if (subtags.includes("hans")) return "zh-CN";
+    return subtags.some((part) => part === "tw" || part === "hk" || part === "mo") ? "zh-TW" : "zh-CN";
   }
   if (language === "pt") return "pt-BR";
   return isSupportedLocale(language) ? language : "en";
