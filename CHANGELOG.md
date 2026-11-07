@@ -5,6 +5,11 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
+## [Unreleased]
+
+- Match whole-target ignores by exact Vault file identity across relative paths, note-extension spelling, headings/blocks, previews and incremental file creation. Preserve host-selected targets and exact Canvas paths without folding file-name case or removing literal hashes.
+- Pause old target rules whose missing source context makes the target ambiguous; retain their text and notes, and require explicit full-path confirmation plus a fresh preview. Missing short-name targets remain available for single-reference ignores.
+
 ## [0.5.3] - 2026-11-02
 
 - Update the development-only minimatch dependencies to 11.0.4 with reviewed legacy lint-call adaptations and installed-caller regression checks.
