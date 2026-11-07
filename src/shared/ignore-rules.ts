@@ -36,8 +36,8 @@ export interface IgnoreRule {
   readonly matcher: {
     readonly kind: IgnoreMatcherKind;
     readonly value: string;
-    /** Confirmed exact Vault path; absent old target text requires selection. */
-    readonly pathKind?: "vault";
+    /** Only "vault" confirms a path; unknown markers stay paused until selection. */
+    readonly pathKind?: string;
   };
   readonly createdAt: number;
   readonly note: string;
@@ -172,10 +172,18 @@ export function normalizeIgnoreRule(value: unknown): IgnoreRule | null {
 
   let matcher: IgnoreRule["matcher"] = { kind, value: matcherValue };
   if (kind === "target-path") {
+    const hasMarker = Object.hasOwn(value.matcher, "pathKind");
     const path = value.matcher.pathKind === "vault"
-      ? normalizeExactTargetPath(matcherValue) : recoverTargetRulePath(matcherValue);
+      ? normalizeExactTargetPath(matcherValue)
+      : hasMarker ? null : recoverTargetRulePath(matcherValue);
     if (value.matcher.pathKind === "vault" && path === null) return null;
     if (path !== null) matcher = { kind, value: path, pathKind: "vault" };
+    else if (hasMarker) {
+      // Keep a marker even when it is malformed so a later save/load cannot
+      // reinterpret this rule as recoverable legacy text.
+      matcher = { kind, value: matcherValue,
+        pathKind: typeof value.matcher.pathKind === "string" ? value.matcher.pathKind : "unrecognized" };
+    }
   }
   return {
     id,

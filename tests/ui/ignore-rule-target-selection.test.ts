@@ -146,6 +146,24 @@ describe("target-path selection in the ignore-rule settings DOM", () => {
     expect(view.settings().ignoreRules[0]?.matcher).toEqual({ kind: "source-path", value: "Topic.md" });
   });
 
+  it("retains an unknown target marker until the user confirms the full path", async () => {
+    const view = setup({ kind: "target-path", value: "Archive/Topic.md", pathKind: "future-vault" });
+    view.change("Note", "Keep this rule");
+    view.redraw();
+    expect(view.drafts.get("target")?.draft.matcher.pathKind).toBe("future-vault");
+    expect(view.enabled().disabled).toBe(true);
+    view.action("Preview").click();
+    await vi.waitFor(() => expect(view.container.textContent).toContain("Matches 0 items"));
+    expect(view.action("Save").disabled).toBe(true);
+    view.action("Use this Vault path").click();
+    view.setEnabled(true);
+    await view.previewAndSave();
+    expect(view.settings().ignoreRules[0]).toMatchObject({
+      enabled: true,
+      matcher: { kind: "target-path", value: "Archive/Topic.md", pathKind: "vault" },
+    });
+  });
+
   it.each(["./Topic.md", "../Topic.md", "Archive/../Topic.md"])(
     "cannot confirm or save the relative target %s", async (path) => {
       const view = setup({ kind: "target-path", value: path });

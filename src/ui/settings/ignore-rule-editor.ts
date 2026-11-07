@@ -129,11 +129,13 @@ function createRuleEditor(
     const kind = matcher.value as IgnoreRule["matcher"]["kind"];
     const selectedTarget = kind === "target-path" && (selectTarget ||
       (draft.matcher.kind === "target-path" && draft.matcher.pathKind === "vault"));
+    const pathKind = selectedTarget ? "vault"
+      : kind === "target-path" && draft.matcher.kind === "target-path" ? draft.matcher.pathKind : undefined;
     draft = {
       ...draft,
       enabled: enabled.checked,
       scope: scope.value as IgnoreRule["scope"],
-      matcher: { kind, value: value.value, ...(selectedTarget ? { pathKind: "vault" as const } : {}) },
+      matcher: { kind, value: value.value, ...(pathKind === undefined ? {} : { pathKind }) },
       note: note.value,
     };
     const needsSelection = targetRuleNeedsSelection(draft);
