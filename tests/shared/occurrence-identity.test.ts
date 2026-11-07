@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createOccurrenceId,
   occurrenceIdMatches,
+  occurrenceIdSource,
+  renameOccurrenceIdSource,
 } from "../../src/core/occurrence-identity";
 import {
   ignoreRuleMatches,
@@ -12,8 +14,8 @@ import {
 
 describe("occurrence identity", () => {
   it("rewrites persisted source identity for file and folder renames", () => {
-    const savedId = id("Folder/Source.md", "1:0", 1);
-    const currentId = id("Renamed/Source.md", "8:0", 4);
+    const savedId = id("Folder/Source.md");
+    const currentId = id("Renamed/Source.md");
     const rule: IgnoreRule = {
       id: "occurrence-rule",
       enabled: true,
@@ -27,13 +29,16 @@ describe("occurrence identity", () => {
     expect(ignoreRuleMatches(renamed ?? rule, { occurrenceId: currentId })).toBe(true);
   });
 
-  it("keeps legacy IDs compatible at their original location", () => {
-    const currentId = id("Source.md", "3:0", 2);
-    expect(occurrenceIdMatches("Source.md\u0000markdown-link\u00003:0\u00002", currentId)).toBe(true);
+  it("does not match or rewrite an unidentifiable positional rule", () => {
+    const legacy = "Source.md\u0000markdown-link\u00003:0\u00002";
+    expect(occurrenceIdMatches(legacy, id("Source.md"))).toBe(false);
+    expect(occurrenceIdMatches(legacy, legacy)).toBe(false);
+    expect(occurrenceIdSource(legacy)).toBeNull();
+    expect(renameOccurrenceIdSource(legacy, "Source.md", "Renamed.md")).toBe(legacy);
   });
 });
 
-function id(sourcePath: string, location: string, legacyOrdinal: number): string {
+function id(sourcePath: string): string {
   return createOccurrenceId({
     sourcePath,
     kind: "markdown-link",
@@ -41,7 +46,5 @@ function id(sourcePath: string, location: string, legacyOrdinal: number): string
     linktext: "Missing",
     duplicateIndex: 0,
     duplicateCount: 1,
-    location,
-    legacyOrdinal,
   });
 }

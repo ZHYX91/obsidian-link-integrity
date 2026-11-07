@@ -11,15 +11,16 @@ import { occurrence, snapshot } from "../core/test-helpers";
 
 describe("diagnostic preview and navigation regressions", () => {
   it.each([false, true])("preview agrees with actual filtering after link movement=%s", async (moved) => {
-    const id = (location: string) => createOccurrenceId({
+    const saved = createOccurrenceId({
       sourcePath: "Notes/A.md", kind: "markdown-link", raw: "[[Missing]]", linktext: "Missing",
-      duplicateIndex: 0, duplicateCount: 1, location, legacyOrdinal: 0,
+      duplicateIndex: 0, duplicateCount: 1,
     });
-    const saved = id("0:0");
-    const current = id(moved ? "5:0" : "0:0");
+    const current = saved;
     const index = new LinkIndex([createFileRecord("Notes/A.md")]);
     index.replaceSourceSnapshot("Notes/A.md", snapshot("Notes/A.md", [{
       ...occurrence(current, "Notes/A.md", { fileStatus: "missing", linkpath: "Missing" }),
+      position: { line: moved ? 5 : 0, column: 0, endLine: moved ? 5 : 0, endColumn: 11,
+        property: null, canvasNodeId: null },
     }]));
     const rule = { id: "review-rule", enabled: true, scope: "ignore-occurrence" as const,
       matcher: { kind: "occurrence-id" as const, value: saved }, createdAt: 1, note: "" };

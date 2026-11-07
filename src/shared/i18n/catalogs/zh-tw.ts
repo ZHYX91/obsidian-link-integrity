@@ -254,6 +254,7 @@ export const ZH_TW_MESSAGES = {
   "settings.ignore.valueRequired": "請輸入要比對的路徑、參照識別碼或檔案類型。",
   "settings.ignore.targetSelectionRequired": "目標路徑缺少來源資訊，此規則已暫停。請確認完整儲存庫內路徑（含副檔名），再重新預覽。",
   "settings.ignore.confirmTargetPath": "使用此儲存庫內路徑",
+  "settings.ignore.occurrenceSelectionRequired": "無法確認原來對應的連結，此規則已暫停。請在側欄找到要忽略的參照，重新選擇「{action}」。舊規則和備註已保留。",
   "settings.ignore.targetPathRequired": "請輸入完整儲存庫內路徑（含副檔名），不要使用 ./ 或 ../ 路徑區段。",
   "settings.ignore.candidateEffect": "只從孤立候選中排除符合的檔案；其有效連結仍參與連接分析。",
   "settings.ignore.displayEffect": "只隱藏符合的失效連結結果；有效連結仍參與連接分析。",

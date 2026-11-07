@@ -61,7 +61,7 @@ describe("plugin index lifecycle", () => {
         scope: "ignore-occurrence",
         matcher: {
           kind: "occurrence-id",
-          value: testOccurrenceId("Dormant.md", "2:0", 1),
+          value: testOccurrenceId("Dormant.md"),
         },
         createdAt: 1,
         note: "",
@@ -86,7 +86,7 @@ describe("plugin index lifecycle", () => {
     const dormantRule = plugin.getSettings().ignoreRules[0];
     expect(occurrenceIdMatches(
       dormantRule?.matcher.value ?? "",
-      testOccurrenceId("Moved.md", "12:0", 7),
+      testOccurrenceId("Moved.md"),
     )).toBe(true);
     vaultEvents.emit("modify", file);
     await Promise.resolve();
@@ -158,7 +158,7 @@ describe("plugin index lifecycle", () => {
       folder: { path: "Archive", mode: "recursive" as const },
       namingPatterns: [],
     };
-    const folderOccurrenceId = testOccurrenceId("Archive/Single.md", "3:0", 2);
+    const folderOccurrenceId = testOccurrenceId("Archive/Single.md");
     plugin.updateSettings({
       ...plugin.getSettings(),
       isolatedFiles: {
@@ -195,7 +195,7 @@ describe("plugin index lifecycle", () => {
     expect(renamedFolderRule?.matcher.kind).toBe("occurrence-id");
     expect(occurrenceIdMatches(
       renamedFolderRule?.matcher.value ?? "",
-      testOccurrenceId("Stored/Single.md", "18:0", 9),
+      testOccurrenceId("Stored/Single.md"),
     )).toBe(true);
 
     let queryNotifications = 0;
@@ -431,7 +431,7 @@ describe("plugin index lifecycle", () => {
         scope: "ignore-occurrence",
         matcher: {
           kind: "occurrence-id",
-          value: testOccurrenceId(fileB.path, "4:0", 3),
+          value: testOccurrenceId(fileB.path),
         },
         createdAt: 1,
         note: "",
@@ -461,7 +461,7 @@ describe("plugin index lifecycle", () => {
     const renamedFileRule = plugin.getSettings().ignoreRules[0];
     expect(occurrenceIdMatches(
       renamedFileRule?.matcher.value ?? "",
-      testOccurrenceId("C.md", "7:0", 5),
+      testOccurrenceId("C.md"),
     )).toBe(true);
     expect(snapshotBuildCount).toBe(2); // File target metadata and one source snapshot.
     plugin.onunload();
@@ -722,7 +722,7 @@ describe("plugin index lifecycle", () => {
   });
 });
 
-function testOccurrenceId(sourcePath: string, location: string, legacyOrdinal: number): string {
+function testOccurrenceId(sourcePath: string): string {
   return createOccurrenceId({
     sourcePath,
     kind: "markdown-link",
@@ -730,8 +730,6 @@ function testOccurrenceId(sourcePath: string, location: string, legacyOrdinal: n
     linktext: "Missing",
     duplicateIndex: 0,
     duplicateCount: 1,
-    location,
-    legacyOrdinal,
   });
 }
 

@@ -254,6 +254,7 @@ export const PT_BR_MESSAGES = localizedCatalog({
   "settings.ignore.valueRequired": "Digite um caminho, identificador de referência ou tipo de arquivo.",
   "settings.ignore.targetSelectionRequired": "Esta regra está pausada porque o caminho de destino não tem contexto de origem. Confirme o caminho completo no cofre, incluindo a extensão, e visualize novamente.",
   "settings.ignore.confirmTargetPath": "Usar este caminho do cofre",
+  "settings.ignore.occurrenceSelectionRequired": "Esta regra está pausada porque não é possível identificar com segurança o link original. Encontre a referência na barra lateral e escolha “{action}” novamente. A regra salva e sua nota foram mantidas.",
   "settings.ignore.targetPathRequired": "Insira o caminho completo no cofre, incluindo a extensão, sem segmentos ./ ou ../.",
   "settings.ignore.candidateEffect": "Remove os arquivos correspondentes dos candidatos isolados. Seus links válidos continuam contando como conexões.",
   "settings.ignore.displayEffect": "Oculta os links quebrados correspondentes. Links válidos continuam contando como conexões.",

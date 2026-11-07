@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createOccurrenceId } from "../../src/core/occurrence-identity";
 
 import {
   createOccurrenceIgnoreContext,
@@ -9,11 +10,13 @@ import {
   type IgnoreRule,
 } from "../../src/shared/ignore-rules";
 
+const occurrenceId = createOccurrenceId({ sourcePath: "Notes/A.md", kind: "markdown-link",
+  raw: "[[../Missing.md#Heading]]", linktext: "../Missing.md#Heading", duplicateIndex: 0, duplicateCount: 1 });
 const RULES: readonly IgnoreRule[] = [
   rule("source", "hide-broken-result", "source-path", "Notes/A.md"),
   rule("folder", "exclude-isolated-candidate", "path-prefix", "Archive"),
   rule("target", "ignore-target", "target-path", "Missing.md"),
-  rule("occ", "ignore-occurrence", "occurrence-id", "occ-1"),
+  rule("occ", "ignore-occurrence", "occurrence-id", occurrenceId),
   rule("format", "exclude-isolated-candidate", "format-family", "pdf"),
   rule("extension", "exclude-isolated-candidate", "extension", ".drawio"),
   rule("graph", "exclude-graph-contribution", "path-prefix", "Generated"),
@@ -48,7 +51,7 @@ describe("IgnoreService", () => {
 
   it("builds one canonical occurrence context for previews and execution", () => {
     const context = createOccurrenceIgnoreContext({
-      id: "occ-1",
+      id: occurrenceId,
       sourcePath: "Notes/A.md",
       raw: "[[../Missing.md#Heading]]",
       linkpath: "../Missing.md",
@@ -64,7 +67,7 @@ describe("IgnoreService", () => {
     expect(context).toEqual(expect.objectContaining({
       sourcePath: "Notes/A.md",
       targetPath: "Missing.md",
-      occurrenceId: "occ-1",
+      occurrenceId,
       formatFamilyIds: ["markdown"],
       extension: "md",
     }));

@@ -254,6 +254,7 @@ export const JA_MESSAGES = localizedCatalog({
   "settings.ignore.valueRequired": "照合するパス、参照識別子、またはファイルの種類を入力してください。",
   "settings.ignore.targetSelectionRequired": "対象パスの参照元が不明なため、このルールは一時停止されています。拡張子を含む保管庫内の完全なパスを確認し、もう一度プレビューしてください。",
   "settings.ignore.confirmTargetPath": "この保管庫内パスを使用",
+  "settings.ignore.occurrenceSelectionRequired": "元のリンクを確実に特定できないため、このルールは一時停止されています。サイドバーで対象の参照を見つけ、もう一度「{action}」を選んでください。保存済みのルールとメモは保持されています。",
   "settings.ignore.targetPathRequired": "拡張子を含む保管庫内の完全なパスを入力してください。./ や ../ は使用できません。",
   "settings.ignore.candidateEffect": "一致するファイルを孤立候補から除外します。有効なリンクは引き続き接続として数えます。",
   "settings.ignore.displayEffect": "一致するリンク切れの結果を非表示にします。有効なリンクは引き続き接続として数えます。",

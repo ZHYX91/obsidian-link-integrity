@@ -254,6 +254,7 @@ export const VI_MESSAGES = localizedCatalog({
   "settings.ignore.valueRequired": "Nhập đường dẫn, mã tham chiếu hoặc loại tệp cần khớp.",
   "settings.ignore.targetSelectionRequired": "Quy tắc này đã tạm dừng vì đường dẫn đích thiếu ngữ cảnh nguồn. Hãy xác nhận đường dẫn đầy đủ trong kho, gồm phần mở rộng tệp, rồi xem trước lại.",
   "settings.ignore.confirmTargetPath": "Dùng đường dẫn này trong kho",
+  "settings.ignore.occurrenceSelectionRequired": "Quy tắc này đã tạm dừng vì không thể xác định chắc chắn liên kết ban đầu. Hãy tìm tham chiếu trong thanh bên và chọn lại “{action}”. Quy tắc đã lưu và ghi chú vẫn được giữ lại.",
   "settings.ignore.targetPathRequired": "Nhập đường dẫn đầy đủ trong kho, gồm phần mở rộng tệp, không dùng đoạn ./ hoặc ../.",
   "settings.ignore.candidateEffect": "Loại các tệp khớp khỏi danh sách ứng viên biệt lập. Liên kết hợp lệ của chúng vẫn được tính là kết nối.",
   "settings.ignore.displayEffect": "Ẩn các kết quả liên kết hỏng khớp quy tắc. Liên kết hợp lệ vẫn được tính là kết nối.",

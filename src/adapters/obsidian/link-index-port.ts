@@ -50,15 +50,13 @@ interface OccurrenceInput {
   readonly linktext: string;
   readonly kind: LinkOccurrenceKind;
   readonly position: SourcePosition | null;
-  readonly ordinal?: number;
   readonly vaultPath?: string;
   readonly subpath?: string;
 }
 
-interface OccurrenceIdentityOrdinal {
+interface OccurrenceIdentity {
   readonly duplicateIndex: number;
   readonly duplicateCount: number;
-  readonly index: number;
 }
 
 export class ObsidianLinkIndexPort implements LinkIndexPort {
@@ -116,7 +114,6 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     const lineStarts = createLineStarts(source);
     const inputs: OccurrenceInput[] = [];
     const covered = new Map<string, number>();
-    let ordinal = 0;
     const appendPositioned = (
       references: readonly ReferenceCache[] | undefined,
       kind: LinkOccurrenceKind,
@@ -125,7 +122,6 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         const range = cachedSourceRange(reference, source, lineStarts);
         const key = sourceReferenceKey(kind, reference.original, range);
         if (range && masked[range[0]] !== source[range[0]]) continue;
-        const nativeOrdinal = ordinal++;
         if (range) {
           if (covered.has(key)) continue;
           covered.set(key, 1);
@@ -135,7 +131,6 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
           linktext: reference.link,
           kind,
           position: positionFromCache(reference),
-          ordinal: nativeOrdinal,
         });
       }
     };
@@ -143,7 +138,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     appendPositioned(cache?.embeds, "markdown-embed");
     const frontmatter = (cache?.frontmatterLinks ?? []).map((reference): OccurrenceInput => ({
       raw: reference.original, linktext: reference.link, kind: "frontmatter",
-      position: frontmatterPosition(reference), ordinal: ordinal++,
+      position: frontmatterPosition(reference),
     }));
     const bodyStart = cache === null ? 0 : findMarkdownFrontmatterRange(source)?.end ?? 0;
     for (const reference of sourceReferences) {
@@ -155,7 +150,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       // Unprovable cache coordinates remain native. Match their token counts,
       // never invent a source position or suppress every identical occurrence.
       if (remaining > 0) { covered.set(ambiguous, remaining - 1); continue; }
-      inputs.push({ ...parsedOccurrenceInput(reference, lineStarts, kind), ordinal: ordinal++ });
+      inputs.push(parsedOccurrenceInput(reference, lineStarts, kind));
     }
     inputs.sort(({ position: left }, { position: right }) => left!.line! - right!.line! || left!.column! - right!.column!);
     return this.resolveSnapshot(file.path, [...inputs, ...frontmatter], scheduler);
@@ -236,7 +231,6 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       occurrences.push(this.resolveOccurrence(sourcePath, input, {
         duplicateIndex,
         duplicateCount: totals.get(key) ?? 1,
-        index: input.ordinal ?? index,
       }));
       const pause = scheduler?.checkpoint();
       if (pause != null) await pause;
@@ -247,7 +241,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
   private resolveOccurrence(
     sourcePath: string,
     input: OccurrenceInput,
-    identity: OccurrenceIdentityOrdinal,
+    identity: OccurrenceIdentity,
   ): LinkOccurrence {
     const exactPath = input.kind === "canvas-file" || input.kind === "canvas-background";
     const external = !exactPath && isExternalReference(input.linktext);
@@ -469,10 +463,8 @@ function offsetToLineColumn(
 function occurrenceId(
   sourcePath: string,
   input: OccurrenceInput,
-  identity: OccurrenceIdentityOrdinal,
+  identity: OccurrenceIdentity,
 ): string {
-  const location = input.position?.canvasNodeId ??
-    `${String(input.position?.line ?? "-")}:${String(input.position?.column ?? "-")}`;
   return createOccurrenceId({
     sourcePath,
     kind: input.kind,
@@ -480,8 +472,6 @@ function occurrenceId(
     linktext: input.linktext,
     duplicateIndex: identity.duplicateIndex,
     duplicateCount: identity.duplicateCount,
-    location,
-    legacyOrdinal: identity.index,
   });
 }
 
