@@ -1,34 +1,38 @@
-const EXACT_SEMVER = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
+import assert from "node:assert/strict";
 
-export function parseNpmVersion(userAgent) {
-  const match = /^npm\/([^\s]+)/u.exec(userAgent ?? "");
-  if (match?.[1] == null) {
-    throw new Error("npm_config_user_agent must identify the running npm version");
-  }
-  return match[1];
-}
 export function assertRuntimeContract({
   configuredNodeVersion,
   currentNodeVersion,
   currentNpmVersion,
   packageJson,
 }) {
-  if (!EXACT_SEMVER.test(configuredNodeVersion)) {
-    throw new Error(".node-version must contain an exact x.y.z version");
-  }
-  if (packageJson?.engines?.node !== configuredNodeVersion) {
-    throw new Error("package.json engines.node must match .node-version exactly");
-  }
-  if (currentNodeVersion !== configuredNodeVersion) {
-    throw new Error(
-      `Expected Node.js ${configuredNodeVersion}, received ${currentNodeVersion}`,
-    );
-  }
-  const expectedNpmVersion = String(packageJson?.packageManager ?? "").replace(/^npm@/u, "");
-  if (!EXACT_SEMVER.test(expectedNpmVersion)) {
-    throw new Error("packageManager must pin npm using npm@x.y.z");
-  }
-  if (currentNpmVersion !== expectedNpmVersion) {
-    throw new Error(`Expected npm ${expectedNpmVersion}, received ${currentNpmVersion}`);
-  }
+  const packageManagerMatch = /^npm@(\d+\.\d+\.\d+)$/u.exec(packageJson.packageManager ?? "");
+  assert.ok(packageManagerMatch, "package.json packageManager must pin npm to an exact version");
+
+  assert.match(
+    configuredNodeVersion,
+    /^\d+\.\d+\.\d+$/u,
+    ".node-version must pin an exact Node.js version",
+  );
+  assert.equal(
+    packageJson.engines?.node,
+    configuredNodeVersion,
+    "package.json engines.node must match .node-version exactly",
+  );
+  assert.equal(
+    currentNodeVersion,
+    configuredNodeVersion,
+    `Node.js ${configuredNodeVersion} is required; received ${currentNodeVersion}`,
+  );
+  assert.equal(
+    currentNpmVersion,
+    packageManagerMatch[1],
+    `npm ${packageManagerMatch[1]} is required; received ${currentNpmVersion}`,
+  );
+}
+
+export function parseNpmVersion(userAgent) {
+  const match = /(?:^|\s)npm\/(\d+\.\d+\.\d+)(?:\s|$)/u.exec(userAgent ?? "");
+  assert.ok(match, "Run the runtime check through npm so its exact version can be verified");
+  return match[1];
 }
