@@ -1,15 +1,15 @@
+import { LINK_OCCURRENCE_KINDS, type LinkOccurrenceKind } from "./model";
+
 const OCCURRENCE_ID_PREFIX = "occ-v2";
 const SEPARATOR = "\u0000";
 
 export interface OccurrenceIdentityInput {
   readonly sourcePath: string;
-  readonly kind: string;
+  readonly kind: LinkOccurrenceKind;
   readonly raw: string;
   readonly linktext: string;
   readonly duplicateIndex: number;
   readonly duplicateCount: number;
-  readonly location: string;
-  readonly legacyOrdinal: number;
 }
 
 export function occurrenceSemanticKey(
@@ -26,29 +26,30 @@ export function createOccurrenceId(input: OccurrenceIdentityInput): string {
     stableTextHash(occurrenceSemanticKey(input)),
     String(input.duplicateIndex),
     String(input.duplicateCount),
-    input.location,
-    String(input.legacyOrdinal),
   ].join(SEPARATOR);
 }
 
 export function occurrenceIdMatches(expected: string, actual: string | null | undefined): boolean {
-  if (actual === null || actual === undefined) return false;
-  if (expected === actual) return true;
-  const saved = expected.split(SEPARATOR);
-  const current = actual.split(SEPARATOR);
-  if (saved.length === 8 && current.length === 8 &&
-      saved[0] === OCCURRENCE_ID_PREFIX && current[0] === OCCURRENCE_ID_PREFIX) {
-    return saved.slice(1, 6).every((part, index) => part === current[index + 1]);
+  return expected === actual && isCurrentOccurrenceId(expected);
+}
+
+/** Import known persisted semantic IDs once; positional and unknown IDs need review. */
+export function normalizeOccurrenceRuleId(value: string): string | null {
+  const parts = value.split(SEPARATOR);
+  if (parts.length === 8) {
+    if (!isUnsignedInteger(parts[7])) return null;
+    parts.length = 6;
   }
-  return saved.length === 4 && current.length === 8 && current[0] === OCCURRENCE_ID_PREFIX &&
-    saved[0] === current[1] && saved[1] === current[2] &&
-    saved[2] === current[6] && saved[3] === current[7];
+  return isSemanticIdentity(parts) ? parts.join(SEPARATOR) : null;
+}
+
+export function isCurrentOccurrenceId(value: string): boolean {
+  return isSemanticIdentity(value.split(SEPARATOR));
 }
 
 export function occurrenceIdSource(occurrenceId: string): string | null {
   const parts = occurrenceId.split(SEPARATOR);
-  if (parts.length === 8 && parts[0] === OCCURRENCE_ID_PREFIX) return parts[1] ?? null;
-  return parts.length === 4 ? parts[0] ?? null : null;
+  return isSemanticIdentity(parts) ? parts[1] ?? null : null;
 }
 
 export function renameOccurrenceIdSource(
@@ -57,10 +58,8 @@ export function renameOccurrenceIdSource(
   newPathInput: string,
 ): string {
   const parts = occurrenceId.split(SEPARATOR);
-  const sourceIndex = parts[0] === OCCURRENCE_ID_PREFIX ? 1 : parts.length === 4 ? 0 : -1;
-  if (sourceIndex < 0) return occurrenceId;
-  const sourcePath = parts[sourceIndex];
-  if (sourcePath === undefined) return occurrenceId;
+  if (!isSemanticIdentity(parts)) return occurrenceId;
+  const sourcePath = parts[1]!;
   const oldPath = normalizePath(oldPathInput);
   const newPath = normalizePath(newPathInput);
   const renamed = sourcePath === oldPath
@@ -69,8 +68,21 @@ export function renameOccurrenceIdSource(
       ? `${newPath}${sourcePath.slice(oldPath.length)}`
       : sourcePath;
   if (renamed === sourcePath) return occurrenceId;
-  parts[sourceIndex] = renamed;
+  parts[1] = renamed;
   return parts.join(SEPARATOR);
+}
+
+function isSemanticIdentity(parts: readonly string[]): boolean {
+  const [prefix, source, kind, hash, duplicateIndex, duplicateCount] = parts;
+  return parts.length === 6 && prefix === OCCURRENCE_ID_PREFIX && source !== undefined && source.length > 0 &&
+    normalizePath(source) === source && LINK_OCCURRENCE_KINDS.includes(kind as LinkOccurrenceKind) &&
+    hash !== undefined && /^[0-9a-f]{32}$/u.test(hash) &&
+    isUnsignedInteger(duplicateIndex) && isUnsignedInteger(duplicateCount) &&
+    Number(duplicateIndex) < Number(duplicateCount);
+}
+
+function isUnsignedInteger(value: string | undefined): boolean {
+  return value !== undefined && /^(?:0|[1-9][0-9]*)$/u.test(value) && Number.isSafeInteger(Number(value));
 }
 
 function normalizePath(value: string): string {

@@ -8,6 +8,7 @@ import {
   type LinkOccurrence,
 } from "../../src/core";
 import { SidebarQueryService } from "../../src/app/sidebar-query-service";
+import { createOccurrenceId } from "../../src/core/occurrence-identity";
 import { createDefaultSettings } from "../../src/shared/settings";
 
 describe("SidebarQueryService", () => {
@@ -82,13 +83,15 @@ describe("SidebarQueryService", () => {
   });
 
   it("applies broken-result and isolated-candidate rules without changing the graph", () => {
+    const ignoredId = createOccurrenceId({ sourcePath: "Hidden-source.md", kind: "markdown-link",
+      raw: "[[Missing]]", linktext: "Missing", duplicateIndex: 0, duplicateCount: 1 });
     const index = new LinkIndex([
       createFileRecord("Hidden-source.md"),
       createFileRecord("Hidden-candidate.pdf"),
     ]);
     index.replaceSourceSnapshot("Hidden-source.md", {
       sourcePath: "Hidden-source.md",
-      occurrences: [missing("Hidden-source.md", "Missing", "hidden-occurrence")],
+      occurrences: [missing("Hidden-source.md", "Missing", ignoredId)],
     });
     const defaults = createDefaultSettings();
     const settings = {
@@ -98,7 +101,7 @@ describe("SidebarQueryService", () => {
           id: "hide-one",
           enabled: true,
           scope: "ignore-occurrence" as const,
-          matcher: { kind: "occurrence-id" as const, value: "hidden-occurrence" },
+          matcher: { kind: "occurrence-id" as const, value: ignoredId },
           createdAt: 0,
           note: "",
         },

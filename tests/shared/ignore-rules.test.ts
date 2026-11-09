@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createOccurrenceId } from "../../src/core/occurrence-identity";
 
 import {
   createOccurrenceIgnoreContext,
@@ -9,11 +10,13 @@ import {
   type IgnoreRule,
 } from "../../src/shared/ignore-rules";
 
+const occurrenceId = createOccurrenceId({ sourcePath: "Notes/A.md", kind: "markdown-link",
+  raw: "[[../Missing.md#Heading]]", linktext: "../Missing.md#Heading", duplicateIndex: 0, duplicateCount: 1 });
 const RULES: readonly IgnoreRule[] = [
   rule("source", "hide-broken-result", "source-path", "Notes/A.md"),
   rule("folder", "exclude-isolated-candidate", "path-prefix", "Archive"),
   rule("target", "ignore-target", "target-path", "Missing.md"),
-  rule("occ", "ignore-occurrence", "occurrence-id", "occ-1"),
+  rule("occ", "ignore-occurrence", "occurrence-id", occurrenceId),
   rule("format", "exclude-isolated-candidate", "format-family", "pdf"),
   rule("extension", "exclude-isolated-candidate", "extension", ".drawio"),
   rule("graph", "exclude-graph-contribution", "path-prefix", "Generated"),
@@ -39,18 +42,19 @@ describe("IgnoreService", () => {
     expect(ignoreRuleMatches(markdown, { sourcePath: "Notes/A.pdf", extension: "pdf" })).toBe(false);
   });
 
-  it("treats ignore-target rules as file targets rather than subpath identities", () => {
-    const target = rule("target-heading", "ignore-target", "target-path", "Missing.md#Heading");
-    expect(ignoreRuleMatches(target, { targetPath: "Missing.md" })).toBe(true);
-    expect(ignoreRuleMatches(RULES[2]!, { targetPath: "Missing.md#Another heading" })).toBe(true);
+  it("treats target values as exact file paths without stripping literal filename hashes", () => {
+    const target = rule("target-hash", "ignore-target", "target-path", "Missing#Heading.md");
+    expect(ignoreRuleMatches(target, { targetPath: "Missing#Heading.md" })).toBe(true);
+    expect(ignoreRuleMatches(target, { targetPath: "Missing.md" })).toBe(false);
+    expect(ignoreRuleMatches(RULES[2]!, { targetPath: "Missing#Heading.md" })).toBe(false);
   });
 
   it("builds one canonical occurrence context for previews and execution", () => {
     const context = createOccurrenceIgnoreContext({
-      id: "occ-1",
+      id: occurrenceId,
       sourcePath: "Notes/A.md",
-      raw: "[[Missing.md#Heading]]",
-      linkpath: "Missing.md",
+      raw: "[[../Missing.md#Heading]]",
+      linkpath: "../Missing.md",
       subpath: "#Heading",
       lookupKey: "missing.md",
       kind: "markdown-link",
@@ -62,8 +66,8 @@ describe("IgnoreService", () => {
     }, "md");
     expect(context).toEqual(expect.objectContaining({
       sourcePath: "Notes/A.md",
-      targetPath: "Missing.md#Heading",
-      occurrenceId: "occ-1",
+      targetPath: "Missing.md",
+      occurrenceId,
       formatFamilyIds: ["markdown"],
       extension: "md",
     }));
@@ -103,7 +107,7 @@ function rule(
     id,
     enabled: true,
     scope,
-    matcher: { kind, value },
+    matcher: kind === "target-path" ? { kind, value, pathKind: "vault" } : { kind, value },
     createdAt: 1,
     note: "",
   };

@@ -1,6 +1,8 @@
 import {
   IGNORE_MATCHER_KINDS,
   normalizeIgnoreRule,
+  targetRuleNeedsSelection,
+  occurrenceRuleNeedsSelection,
   type IgnoreRule,
   type IgnoreRulePreview,
   type IgnoreRuleScope,
@@ -108,9 +110,13 @@ function createRuleEditor(
     rule, currentRevision(),
   ]);
   const currentCandidate = (): IgnoreRule | null => normalizeIgnoreRule(draft);
+  const ruleNeedsSelection = (rule: IgnoreRule): boolean =>
+    targetRuleNeedsSelection(rule) || occurrenceRuleNeedsSelection(rule);
+  const confirmationCandidate = (): IgnoreRule | null => draft.matcher.kind === "target-path"
+    ? normalizeIgnoreRule({ ...draft, matcher: { ...draft.matcher, pathKind: "vault" } }) : null;
   const refreshSave = (): void => {
     const candidate = currentCandidate();
-    save.disabled = context.writeProtected || !indexReady() || candidate === null ||
+    save.disabled = context.writeProtected || !indexReady() || candidate === null || ruleNeedsSelection(draft) ||
       previewIdentity !== identity(candidate);
   };
   const invalidate = (message = t("settings.ignore.previewRequired")): void => {
@@ -118,18 +124,34 @@ function createRuleEditor(
     previewIdentity = null;
     preview.textContent = indexReady() ? message : t("settings.ignore.indexRequired");
     previewButton.disabled = context.writeProtected || !indexReady() || currentCandidate() === null ||
+      occurrenceRuleNeedsSelection(draft) ||
       context.requestIgnoreRulePreview === undefined;
     refreshSave();
   };
-  const update = (): void => {
+  const update = (selectTarget = false): void => {
     if (disposed) return;
+    const kind = matcher.value as IgnoreRule["matcher"]["kind"];
+    const selectedTarget = kind === "target-path" && (selectTarget ||
+      (draft.matcher.kind === "target-path" && draft.matcher.pathKind === "vault"));
+    const pathKind = selectedTarget ? "vault"
+      : kind === "target-path" && draft.matcher.kind === "target-path" ? draft.matcher.pathKind : undefined;
     draft = {
       ...draft,
       enabled: enabled.checked,
       scope: scope.value as IgnoreRule["scope"],
-      matcher: { kind: matcher.value as IgnoreRule["matcher"]["kind"], value: value.value },
+      matcher: { kind, value: value.value, ...(pathKind === undefined ? {} : { pathKind }) },
       note: note.value,
     };
+    const needsTargetSelection = targetRuleNeedsSelection(draft);
+    const needsOccurrenceSelection = occurrenceRuleNeedsSelection(draft);
+    const needsSelection = needsTargetSelection || needsOccurrenceSelection;
+    if (needsSelection) {
+      draft = { ...draft, enabled: false };
+      enabled.checked = false;
+    }
+    enabled.disabled = context.writeProtected || needsSelection;
+    confirmTarget.hidden = !needsTargetSelection;
+    confirmTarget.disabled = context.writeProtected || confirmationCandidate() === null;
     entry.draft = draft;
     entry.open = details.open;
     summary.textContent = draft.note || draft.matcher.value || t("settings.ignore.addRule");
@@ -139,13 +161,24 @@ function createRuleEditor(
     help.textContent = graph ? t("settings.ignore.graphWarning")
       : draft.scope === "exclude-isolated-candidate" ? t("settings.ignore.candidateEffect")
         : t("settings.ignore.displayEffect");
-    validation.textContent = currentCandidate() === null ? t("settings.ignore.valueRequired") : "";
+    validation.classList.toggle("link-integrity-warning", needsSelection);
+    validation.textContent = needsOccurrenceSelection ? t("settings.ignore.occurrenceSelectionRequired", {
+      action: t("ignore.scope.ignoreOccurrence"),
+    })
+      : needsTargetSelection ? t("settings.ignore.targetSelectionRequired")
+      : currentCandidate() === null ? t(kind === "target-path"
+        ? "settings.ignore.targetPathRequired" : "settings.ignore.valueRequired") : "";
     invalidate();
   };
+  const confirmTarget = button(actions, t("settings.ignore.confirmTargetPath"), () => {
+    if (disposed || context.writeProtected || !targetRuleNeedsSelection(draft) || confirmationCandidate() === null) return;
+    update(true);
+  });
   const previewButton = button(actions, t("common.preview"), () => {
     if (disposed) return;
     const candidate = currentCandidate();
-    if (!indexReady() || candidate === null || context.requestIgnoreRulePreview === undefined) return;
+    if (!indexReady() || candidate === null || occurrenceRuleNeedsSelection(draft) ||
+      context.requestIgnoreRulePreview === undefined) return;
     const requestedIdentity = identity(candidate);
     void requests.request(candidate.id,
       (signal) => context.requestIgnoreRulePreview!(candidate, signal),
@@ -176,7 +209,8 @@ function createRuleEditor(
   const save = button(actions, t("common.save"), () => {
     if (disposed) return;
     const candidate = currentCandidate();
-    if (context.writeProtected || !indexReady() || candidate === null || previewIdentity !== identity(candidate)) {
+    if (context.writeProtected || !indexReady() || candidate === null || ruleNeedsSelection(draft) ||
+      previewIdentity !== identity(candidate)) {
       invalidate();
       return;
     }
@@ -243,7 +277,9 @@ function createRuleEditor(
   }
   for (const control of [enabled, scope, matcher, value, note]) {
     control.disabled = context.writeProtected;
-    control.addEventListener(control === value || control === note ? "input" : "change", update);
+    control.addEventListener(control === value || control === note ? "input" : "change", () => {
+      update(control === value || control === matcher);
+    });
   }
   const onIndexChanged = (): void => {
     const revision = currentRevision();

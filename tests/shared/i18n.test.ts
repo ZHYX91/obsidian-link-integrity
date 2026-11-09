@@ -33,6 +33,9 @@ describe("i18n", () => {
     ["ar_EG", "ar"],
     ["zh-Hans", "zh-CN"],
     ["zh_Hant_TW", "zh-TW"],
+    ["zh-Hans-HK", "zh-CN"], ["zh-Hans-TW", "zh-CN"], ["zh-Hant-CN", "zh-TW"],
+    ["zh-CN-x-tw", "zh-CN"], ["zh-CN-u-ca-chinese-x-hant", "zh-CN"],
+    ["zh-TW-u-ca-chinese", "zh-TW"], ["zh-x-hk", "zh-CN"],
     ["nl-NL", "en"],
   ] as const)("maps host locale %s to %s", (hostLocale, expected) => {
     expect(resolvePluginLocale("auto", hostLocale)).toBe(expected);

@@ -3,9 +3,12 @@ import {
   type LinkOccurrence,
 } from "../core";
 import {
+  isCurrentOccurrenceId,
+  normalizeOccurrenceRuleId,
   occurrenceIdMatches,
   renameOccurrenceIdSource,
 } from "../core/occurrence-identity";
+import { normalizeExactTargetPath, occurrenceTargetFilePath, recoverTargetRulePath } from "./target-file-identity";
 
 export const IGNORE_RULE_SCOPES = [
   "hide-broken-result",
@@ -35,6 +38,8 @@ export interface IgnoreRule {
   readonly matcher: {
     readonly kind: IgnoreMatcherKind;
     readonly value: string;
+    /** Only "vault" confirms a path; unknown markers stay paused until selection. */
+    readonly pathKind?: string;
   };
   readonly createdAt: number;
   readonly note: string;
@@ -72,7 +77,7 @@ export function createOccurrenceIgnoreContext(
   const classification = classifyFileExtension(sourceExtension ?? occurrence.sourcePath);
   return {
     sourcePath: occurrence.sourcePath,
-    targetPath: occurrence.targetPath ?? unresolvedOccurrenceTarget(occurrence),
+    targetPath: occurrenceTargetFilePath(occurrence),
     occurrenceId: occurrence.id,
     formatFamilyIds: classification.familyIds,
     extension: sourceExtension ?? classification.extension,
@@ -159,7 +164,7 @@ export function normalizeIgnoreRule(value: unknown): IgnoreRule | null {
   const id = normalizeRuleId(value.id);
   const scope = value.scope;
   const kind = value.matcher.kind;
-  const matcherValue = normalizeMatcherValue(value.matcher.value);
+  const matcherValue = normalizeMatcherValue(value.matcher.value, kind === "occurrence-id");
   if (
     id === null ||
     !isIgnoreRuleScope(scope) ||
@@ -167,14 +172,42 @@ export function normalizeIgnoreRule(value: unknown): IgnoreRule | null {
     matcherValue === null
   ) return null;
 
+  let matcher: IgnoreRule["matcher"] = { kind, value: matcherValue };
+  if (kind === "target-path") {
+    const hasMarker = Object.hasOwn(value.matcher, "pathKind");
+    const path = value.matcher.pathKind === "vault"
+      ? normalizeExactTargetPath(matcherValue)
+      : hasMarker ? null : recoverTargetRulePath(matcherValue);
+    if (value.matcher.pathKind === "vault" && path === null) return null;
+    if (path !== null) matcher = { kind, value: path, pathKind: "vault" };
+    else if (hasMarker) {
+      // Keep a marker even when it is malformed so a later save/load cannot
+      // reinterpret this rule as recoverable legacy text.
+      matcher = { kind, value: matcherValue,
+        pathKind: typeof value.matcher.pathKind === "string" ? value.matcher.pathKind : "unrecognized" };
+    }
+  }
+  if (kind === "occurrence-id") {
+    matcher = { kind, value: normalizeOccurrenceRuleId(matcherValue) ?? matcherValue };
+  }
   return {
     id,
-    enabled: typeof value.enabled === "boolean" ? value.enabled : true,
+    enabled: (kind === "target-path" && matcher.pathKind !== "vault") ||
+      (kind === "occurrence-id" && !isCurrentOccurrenceId(matcher.value)) ? false
+      : typeof value.enabled === "boolean" ? value.enabled : true,
     scope,
-    matcher: { kind, value: matcherValue },
+    matcher,
     createdAt: normalizeTimestamp(value.createdAt),
     note: typeof value.note === "string" ? value.note.trim().slice(0, 500) : "",
   };
+}
+
+export function targetRuleNeedsSelection(rule: IgnoreRule): boolean {
+  return rule.matcher.kind === "target-path" && rule.matcher.pathKind !== "vault";
+}
+
+export function occurrenceRuleNeedsSelection(rule: IgnoreRule): boolean {
+  return rule.matcher.kind === "occurrence-id" && !isCurrentOccurrenceId(rule.matcher.value);
 }
 
 export function ignoreRuleMatches(
@@ -195,14 +228,16 @@ function ignoreMatcherMatches(
         .some((path) => path !== null && path !== undefined && normalizePath(path) === expected);
     case "path-prefix": {
       const paths = rule.scope === "ignore-target"
-        ? [context.targetPath == null ? context.targetPath : normalizeTargetPath(context.targetPath)]
+        ? [context.targetPath]
         : [context.sourcePath, context.candidatePath];
       return paths.some((path) => path !== null && path !== undefined &&
         isPathWithinPrefix(normalizePath(path), expected));
     }
-    case "target-path":
-      return context.targetPath !== null && context.targetPath !== undefined &&
-        normalizeTargetPath(context.targetPath) === normalizeTargetPath(expected);
+    case "target-path": {
+      const target = normalizeExactTargetPath(expected);
+      return !targetRuleNeedsSelection(rule) && target !== null && context.targetPath != null &&
+        normalizeExactTargetPath(context.targetPath) === target;
+    }
     case "occurrence-id":
       return occurrenceIdMatches(rule.matcher.value, context.occurrenceId);
     case "format-family":
@@ -257,28 +292,6 @@ export function* previewIgnoreRuleSteps(
   return { matchCount, samples };
 }
 
-function unresolvedOccurrenceTarget(occurrence: LinkOccurrence): string {
-  return occurrence.linkpath + (occurrence.subpath ?? "");
-}
-
-function normalizeTargetPath(value: string): string {
-  const normalized = normalizePath(value);
-  let escaped = false;
-  for (let index = 0; index < normalized.length; index += 1) {
-    const character = normalized[index];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (character === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (character === "#") return normalized.slice(0, index);
-  }
-  return normalized;
-}
-
 function resolveContextFormatFamilyIds(context: IgnoreEvaluationContext): readonly string[] {
   if (context.formatFamilyIds !== undefined) return context.formatFamilyIds;
   const value = context.extension ?? context.candidatePath ?? context.sourcePath ?? context.targetPath;
@@ -291,8 +304,9 @@ function normalizeRuleId(value: unknown): string | null {
   return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trimmed) ? trimmed : null;
 }
 
-function normalizeMatcherValue(value: unknown): string | null {
+function normalizeMatcherValue(value: unknown, opaque = false): string | null {
   if (typeof value !== "string") return null;
+  if (opaque) return value.trim().length > 0 && value.length <= 1_024 ? value : null;
   const trimmed = value.trim().replaceAll("\\", "/");
   return trimmed.length > 0 && trimmed.length <= 1_024 ? trimmed : null;
 }

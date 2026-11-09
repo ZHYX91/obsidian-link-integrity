@@ -13,7 +13,7 @@ import {
 import { normalizeIgnoreRules, type IgnoreRule } from "./ignore-rules";
 import { isPluginLocale, type PluginLocale } from "./i18n";
 
-export const SETTINGS_SCHEMA_VERSION = 2;
+export const SETTINGS_SCHEMA_VERSION = 4;
 
 export type SidebarTabId = "broken-links" | "isolated-files";
 export type BrokenViewMode = "group" | "list";

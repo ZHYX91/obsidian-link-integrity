@@ -28,7 +28,8 @@ export async function applySidebarIgnore(
   const suffix = document.defaultView?.crypto.randomUUID?.() ?? Date.now().toString(36);
   const rule: IgnoreRule = {
     id: `ignore-rule:${suffix}`, enabled: true, scope,
-    matcher: { kind, value }, createdAt: Date.now(), note: label,
+    matcher: kind === "target-path" ? { kind, value, pathKind: "vault" } : { kind, value },
+    createdAt: Date.now(), note: label,
   };
   const preview = await port.preview(rule);
   if (!port.isActive()) return;
