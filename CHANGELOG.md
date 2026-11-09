@@ -7,6 +7,9 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-11-09
+
+- When following Obsidian’s language, honor explicit Simplified or Traditional Chinese scripts before region and ignore locale extensions.
 - Stop matching old reference ignores by position so changing a link target cannot hide the new reference. Keep unidentifiable rules and their notes paused, explain how to select the reference again, and import existing semantic rules once without navigation metadata.
 - Match whole-target ignores by exact Vault file identity across relative paths, note-extension spelling, headings/blocks, previews and incremental file creation. Preserve host-selected targets and exact Canvas paths without folding file-name case or removing literal hashes.
 - Pause old target rules whose missing source context makes the target ambiguous; retain their text and notes, and require explicit full-path confirmation plus a fresh preview. Missing short-name targets remain available for single-reference ignores.
@@ -253,7 +256,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.4...HEAD
+[0.5.4]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...0.5.4
 [0.5.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...0.5.3
 [0.5.2]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...0.5.1
