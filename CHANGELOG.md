@@ -5,8 +5,9 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
-## [Unreleased]
+## [0.5.4] - 2026-11-09
 
+- When following Obsidian’s language, honor explicit Simplified or Traditional Chinese scripts before region and ignore locale extensions.
 - Stop matching old reference ignores by position so changing a link target cannot hide the new reference. Keep unidentifiable rules and their notes paused, explain how to select the reference again, and import existing semantic rules once without navigation metadata.
 - Match whole-target ignores by exact Vault file identity across relative paths, note-extension spelling, headings/blocks, previews and incremental file creation. Preserve host-selected targets and exact Canvas paths without folding file-name case or removing literal hashes.
 - Pause old target rules whose missing source context makes the target ambiguous; retain their text and notes, and require explicit full-path confirmation plus a fresh preview. Missing short-name targets remain available for single-reference ignores.
