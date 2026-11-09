@@ -5,6 +5,8 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
+## [Unreleased]
+
 ## [0.5.4] - 2026-11-09
 
 - When following Obsidian’s language, honor explicit Simplified or Traditional Chinese scripts before region and ignore locale extensions.
@@ -254,7 +256,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.4...HEAD
+[0.5.4]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...0.5.4
 [0.5.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...0.5.3
 [0.5.2]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.0...0.5.1
