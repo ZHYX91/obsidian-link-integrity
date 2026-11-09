@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@codemirror/state": "6.7.6",
-    "@codemirror/view": "6.43.15",
+    "@codemirror/view": "6.43.13",
     "@eslint/js": "10.0.1",
     "@types/node": "24.19.2",
     "@vitest/coverage-v8": "4.1.12",
