@@ -272,6 +272,7 @@ export const EN_MESSAGES = {
   "settings.ignore.valueRequired": "Enter a path, reference identifier, or file type to match.",
   "settings.ignore.targetSelectionRequired": "This rule is paused because its target path has no source context. Confirm the full Vault path, including the file extension, then preview again.",
   "settings.ignore.confirmTargetPath": "Use this Vault path",
+  "settings.ignore.occurrenceSelectionRequired": "Paused because the original link cannot be identified safely. Find the reference in the sidebar and choose “{action}” again. The saved rule and note have been kept.",
   "settings.ignore.targetPathRequired": "Enter the full Vault path, including the file extension, without ./ or ../ segments.",
   "settings.ignore.candidateEffect": "Removes matching files from isolated candidates. Their valid links still count as connections.",
   "settings.ignore.displayEffect": "Hides matching broken-link results. Valid links still count as connections.",

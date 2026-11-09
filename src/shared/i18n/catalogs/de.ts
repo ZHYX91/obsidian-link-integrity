@@ -254,6 +254,7 @@ export const DE_MESSAGES = localizedCatalog({
   "settings.ignore.valueRequired": "Gib einen Pfad, eine Verweiskennung oder einen Dateityp ein.",
   "settings.ignore.targetSelectionRequired": "Diese Regel ist pausiert, weil dem Zielpfad der Quellkontext fehlt. Bestätige den vollständigen Vault-Pfad einschließlich Dateierweiterung und erstelle dann erneut eine Vorschau.",
   "settings.ignore.confirmTargetPath": "Diesen Vault-Pfad verwenden",
+  "settings.ignore.occurrenceSelectionRequired": "Diese Regel ist pausiert, weil sich der ursprüngliche Link nicht sicher zuordnen lässt. Suche den Verweis in der Seitenleiste und wähle erneut „{action}“. Die gespeicherte Regel und die Notiz bleiben erhalten.",
   "settings.ignore.targetPathRequired": "Gib den vollständigen Vault-Pfad einschließlich Dateierweiterung ohne ./ oder ../ ein.",
   "settings.ignore.candidateEffect": "Entfernt passende Dateien aus den Kandidaten für isolierte Dateien. Ihre gültigen Links zählen weiterhin als Verbindungen.",
   "settings.ignore.displayEffect": "Blendet passende defekte Links aus. Gültige Links zählen weiterhin als Verbindungen.",

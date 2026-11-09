@@ -254,6 +254,7 @@ export const ES_MESSAGES = localizedCatalog({
   "settings.ignore.valueRequired": "Introduce una ruta, un identificador de referencia o un tipo de archivo.",
   "settings.ignore.targetSelectionRequired": "Esta regla está en pausa porque la ruta de destino no tiene contexto de origen. Confirma la ruta completa dentro de la bóveda, incluida la extensión, y vuelve a generar la vista previa.",
   "settings.ignore.confirmTargetPath": "Usar esta ruta de la bóveda",
+  "settings.ignore.occurrenceSelectionRequired": "Esta regla está en pausa porque no se puede identificar con certeza el enlace original. Busca la referencia en la barra lateral y vuelve a elegir «{action}». La regla guardada y su nota se conservan.",
   "settings.ignore.targetPathRequired": "Introduce la ruta completa dentro de la bóveda, incluida la extensión, sin segmentos ./ ni ../.",
   "settings.ignore.candidateEffect": "Excluye los archivos coincidentes de los candidatos aislados. Sus enlaces válidos siguen contando como conexiones.",
   "settings.ignore.displayEffect": "Oculta los enlaces rotos coincidentes. Los enlaces válidos siguen contando como conexiones.",

@@ -254,6 +254,7 @@ export const KO_MESSAGES = localizedCatalog({
   "settings.ignore.valueRequired": "일치시킬 경로, 참조 식별자 또는 파일 유형을 입력하세요.",
   "settings.ignore.targetSelectionRequired": "대상 경로의 출처 정보가 없어 이 규칙이 일시 중지되었습니다. 파일 확장자를 포함한 보관함 내 전체 경로를 확인한 후 다시 미리 보세요.",
   "settings.ignore.confirmTargetPath": "이 보관함 경로 사용",
+  "settings.ignore.occurrenceSelectionRequired": "원래 링크를 확실히 식별할 수 없어 이 규칙이 일시 중지되었습니다. 사이드바에서 해당 참조를 찾아 “{action}”를 다시 선택하세요. 저장된 규칙과 메모는 유지됩니다.",
   "settings.ignore.targetPathRequired": "파일 확장자를 포함한 보관함 내 전체 경로를 입력하세요. ./ 또는 ../ 경로 구간은 사용할 수 없습니다.",
   "settings.ignore.candidateEffect": "일치하는 파일을 고립 후보에서 제외합니다. 유효한 링크는 여전히 연결로 계산됩니다.",
   "settings.ignore.displayEffect": "일치하는 끊어진 링크 결과를 숨깁니다. 유효한 링크는 여전히 연결로 계산됩니다.",

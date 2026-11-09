@@ -3,6 +3,8 @@ import {
   type LinkOccurrence,
 } from "../core";
 import {
+  isCurrentOccurrenceId,
+  normalizeOccurrenceRuleId,
   occurrenceIdMatches,
   renameOccurrenceIdSource,
 } from "../core/occurrence-identity";
@@ -162,7 +164,7 @@ export function normalizeIgnoreRule(value: unknown): IgnoreRule | null {
   const id = normalizeRuleId(value.id);
   const scope = value.scope;
   const kind = value.matcher.kind;
-  const matcherValue = normalizeMatcherValue(value.matcher.value);
+  const matcherValue = normalizeMatcherValue(value.matcher.value, kind === "occurrence-id");
   if (
     id === null ||
     !isIgnoreRuleScope(scope) ||
@@ -185,9 +187,13 @@ export function normalizeIgnoreRule(value: unknown): IgnoreRule | null {
         pathKind: typeof value.matcher.pathKind === "string" ? value.matcher.pathKind : "unrecognized" };
     }
   }
+  if (kind === "occurrence-id") {
+    matcher = { kind, value: normalizeOccurrenceRuleId(matcherValue) ?? matcherValue };
+  }
   return {
     id,
-    enabled: kind === "target-path" && matcher.pathKind !== "vault" ? false
+    enabled: (kind === "target-path" && matcher.pathKind !== "vault") ||
+      (kind === "occurrence-id" && !isCurrentOccurrenceId(matcher.value)) ? false
       : typeof value.enabled === "boolean" ? value.enabled : true,
     scope,
     matcher,
@@ -198,6 +204,10 @@ export function normalizeIgnoreRule(value: unknown): IgnoreRule | null {
 
 export function targetRuleNeedsSelection(rule: IgnoreRule): boolean {
   return rule.matcher.kind === "target-path" && rule.matcher.pathKind !== "vault";
+}
+
+export function occurrenceRuleNeedsSelection(rule: IgnoreRule): boolean {
+  return rule.matcher.kind === "occurrence-id" && !isCurrentOccurrenceId(rule.matcher.value);
 }
 
 export function ignoreRuleMatches(
@@ -294,8 +304,9 @@ function normalizeRuleId(value: unknown): string | null {
   return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(trimmed) ? trimmed : null;
 }
 
-function normalizeMatcherValue(value: unknown): string | null {
+function normalizeMatcherValue(value: unknown, opaque = false): string | null {
   if (typeof value !== "string") return null;
+  if (opaque) return value.trim().length > 0 && value.length <= 1_024 ? value : null;
   const trimmed = value.trim().replaceAll("\\", "/");
   return trimmed.length > 0 && trimmed.length <= 1_024 ? trimmed : null;
 }

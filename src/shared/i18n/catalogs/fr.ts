@@ -254,6 +254,7 @@ export const FR_MESSAGES = localizedCatalog({
   "settings.ignore.valueRequired": "Saisissez un chemin, un identifiant de référence ou un type de fichier.",
   "settings.ignore.targetSelectionRequired": "Cette règle est suspendue, car le chemin cible ne possède pas de contexte source. Confirmez le chemin complet dans le coffre, extension comprise, puis relancez l’aperçu.",
   "settings.ignore.confirmTargetPath": "Utiliser ce chemin du coffre",
+  "settings.ignore.occurrenceSelectionRequired": "Cette règle est suspendue, car le lien d’origine ne peut pas être identifié avec certitude. Retrouvez la référence dans la barre latérale et choisissez à nouveau « {action} ». La règle et sa note sont conservées.",
   "settings.ignore.targetPathRequired": "Saisissez le chemin complet dans le coffre, extension comprise, sans segments ./ ou ../.",
   "settings.ignore.candidateEffect": "Retire les fichiers correspondants des candidats isolés. Leurs liens valides comptent toujours comme connexions.",
   "settings.ignore.displayEffect": "Masque les liens rompus correspondants. Les liens valides comptent toujours comme connexions.",

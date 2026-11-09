@@ -7,6 +7,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Stop matching old reference ignores by position so changing a link target cannot hide the new reference. Keep unidentifiable rules and their notes paused, explain how to select the reference again, and import existing semantic rules once without navigation metadata.
 - Match whole-target ignores by exact Vault file identity across relative paths, note-extension spelling, headings/blocks, previews and incremental file creation. Preserve host-selected targets and exact Canvas paths without folding file-name case or removing literal hashes.
 - Pause old target rules whose missing source context makes the target ambiguous; retain their text and notes, and require explicit full-path confirmation plus a fresh preview. Missing short-name targets remain available for single-reference ignores.
 - Save the target-rule conversion as a one-time settings migration, and keep unknown path markers paused across edits and reloads until the full path is confirmed.

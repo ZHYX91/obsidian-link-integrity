@@ -255,6 +255,7 @@ export const ZH_CN_MESSAGES = {
   "settings.ignore.valueRequired": "请输入要匹配的路径、引用标识或文件类型。",
   "settings.ignore.targetSelectionRequired": "目标路径缺少来源信息，此规则已暂停。请确认完整库内路径（含文件扩展名），再重新预览。",
   "settings.ignore.confirmTargetPath": "使用此库内路径",
+  "settings.ignore.occurrenceSelectionRequired": "无法确认原来对应的链接，此规则已暂停。请在侧栏找到要忽略的引用，重新选择“{action}”。旧规则和备注已保留。",
   "settings.ignore.targetPathRequired": "请输入完整库内路径（含文件扩展名），不要使用 ./ 或 ../ 路径段。",
   "settings.ignore.candidateEffect": "只从孤立候选中排除匹配文件；它们的有效链接仍参与连接分析。",
   "settings.ignore.displayEffect": "只隐藏匹配的失效链接结果；有效链接仍参与连接分析。",

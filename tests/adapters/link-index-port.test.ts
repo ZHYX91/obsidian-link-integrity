@@ -8,6 +8,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
 import { occurrenceIdMatches } from "../../src/core/occurrence-identity";
 import { createFileRecord, LinkIndex } from "../../src/core";
+import { createOccurrenceIgnoreContext, IgnoreService } from "../../src/shared/ignore-rules";
+import { loadSettings } from "../../src/shared/settings";
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { AtomicLinkIndexStore, FullRebuildController, IncrementalIndexController } from "../../src/features/index";
 import { queryBrokenLinks, queryIsolatedFiles } from "../../src/features/queries";
@@ -527,7 +529,7 @@ describe("ObsidianLinkIndexPort", () => {
     expect(occurrences[0]?.position?.column).toBe(source.lastIndexOf("[[Target]]"));
   });
 
-  it("preserves native legacy ignore ordinals when source order differs or body references are supplemented", async () => {
+  it("keeps semantic identities when native cache order changes or body references are supplemented", async () => {
     const file = fakeFile("Source.md");
     const source = "---\nrelated: '[[Property]]'\n---\n![[Image.png]] [[Missing]] [[Supplement]]";
     const missing = positioned(source, "Missing", "[[Missing]]");
@@ -536,16 +538,14 @@ describe("ObsidianLinkIndexPort", () => {
       caches: new Map([[file.path, { links: [missing], embeds: [image],
         frontmatterLinks: [{ link: "Property", original: "[[Property]]", key: "related" }] }]]) });
     const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
-    const legacy = (kind: string, location: string, ordinal: number) => [file.path, kind, location, String(ordinal)].join("\u0000");
-    expect(occurrenceIdMatches(legacy("markdown-link", `${missing.position.start.line}:${missing.position.start.col}`, 0),
-      occurrences.find(({ raw }) => raw === "[[Missing]]")!.id)).toBe(true);
-    expect(occurrenceIdMatches(legacy("markdown-embed", `${image.position.start.line}:${image.position.start.col}`, 1),
-      occurrences.find(({ raw }) => raw === "![[Image.png]]")!.id)).toBe(true);
-    expect(occurrenceIdMatches(legacy("frontmatter", "-:-", 2), occurrences.at(-1)!.id)).toBe(true);
     expect(occurrences.map(({ raw }) => raw)).toEqual(["![[Image.png]]", "[[Missing]]", "[[Supplement]]", "[[Property]]"]);
+    const complete = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [positioned(source, "Supplement", "[[Supplement]]"), missing], embeds: [image],
+        frontmatterLinks: [{ link: "Property", original: "[[Property]]", key: "related" }] }]]) });
+    expect((await complete.port.buildSourceSnapshot(file.path))?.occurrences).toEqual(occurrences);
   });
 
-  it("consumes exact duplicate native ordinals before deduplication for legacy ignores", async () => {
+  it("does not let masked or duplicate native entries change later semantic identities", async () => {
     const file = fakeFile("Source.md");
     const source = "%% [[Masked]] %%\n[[First]] [[Missing]]";
     const first = positioned(source, "First", "[[First]]");
@@ -554,8 +554,9 @@ describe("ObsidianLinkIndexPort", () => {
       caches: new Map([[file.path, { links: [positioned(source, "Masked", "[[Masked]]"), first, first, missing] }]]) });
     const occurrences = (await test.port.buildSourceSnapshot(file.path))!.occurrences;
     expect(occurrences.map(({ linkpath }) => linkpath)).toEqual(["First", "Missing"]);
-    const legacy = [file.path, "markdown-link", `${missing.position.start.line}:${missing.position.start.col}`, "2"].join("\u0000");
-    expect(occurrenceIdMatches(legacy, occurrences[1]!.id)).toBe(true);
+    const clean = createPort([file], { content: { [file.path]: source }, destinations: new Map(),
+      caches: new Map([[file.path, { links: [first, missing] }]]) });
+    expect((await clean.port.buildSourceSnapshot(file.path))?.occurrences).toEqual(occurrences);
   });
 
   it("does not duplicate a native token whose raw text only normalizes source CRLF", async () => {
@@ -902,14 +903,55 @@ describe("ObsidianLinkIndexPort", () => {
       destinations: new Map(),
     });
 
-    const savedId = (await before.port.buildSourceSnapshot(sourceFile.path))?.occurrences
-      .find(({ linkpath }) => linkpath === "Missing")?.id;
-    const currentId = (await after.port.buildSourceSnapshot(sourceFile.path))?.occurrences
-      .find(({ linkpath }) => linkpath === "Missing")?.id;
+    const savedOccurrence = (await before.port.buildSourceSnapshot(sourceFile.path))?.occurrences
+      .find(({ linkpath }) => linkpath === "Missing");
+    const currentOccurrence = (await after.port.buildSourceSnapshot(sourceFile.path))?.occurrences
+      .find(({ linkpath }) => linkpath === "Missing");
+    const savedId = savedOccurrence?.id;
+    const currentId = currentOccurrence?.id;
     expect(savedId).toBeDefined();
     expect(currentId).toBeDefined();
-    expect(savedId).not.toBe(currentId);
+    expect(savedId).toBe(currentId);
+    expect(savedOccurrence?.position?.line).toBe(1);
+    expect(currentOccurrence?.position?.line).toBe(2);
     expect(occurrenceIdMatches(savedId ?? "", currentId)).toBe(true);
+  });
+
+  it.each([false, true])("does not rebind an old ignore after retargeting with native cache=%s", async (cached) => {
+    const file = fakeFile("Source.md");
+    const content: Record<string, string> = { [file.path]: "[[Old]]" };
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([file], { content, caches, destinations: new Map() });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    let oldSemanticId = "";
+    try {
+      for (const [step, target] of ["Old", "New", "Old"].entries()) {
+        content[file.path] = `[[${target}]]`;
+        if (cached) caches.set(file.path, { links: [positioned(content[file.path]!, target, `[[${target}]]`)] });
+        if (step === 0) await new FullRebuildController(port, store).rebuild();
+        else { incremental.enqueue({ type: "modify", path: file.path }); await incremental.whenIdle(); }
+        const occurrence = store.current.getSourceSnapshot(file.path)!.occurrences[0]!;
+        expect(occurrence.position?.line).toBe(0);
+        expect(occurrence.position?.column).toBe(0);
+        if (step === 0) oldSemanticId = `${occurrence.id}\u00000:0\u00000`;
+        const loaded = loadSettings({ schemaVersion: 3, ignoreRules: [
+          { id: "positional", enabled: true, scope: "ignore-occurrence",
+            matcher: { kind: "occurrence-id", value: "Source.md\u0000markdown-link\u00000:0\u00000" } },
+          { id: "semantic", enabled: true, scope: "ignore-occurrence",
+            matcher: { kind: "occurrence-id", value: oldSemanticId } },
+        ] });
+        expect(loaded.settings.ignoreRules[0]?.enabled).toBe(false);
+        const ignores = new IgnoreService(loaded.settings.ignoreRules);
+        const visible = queryBrokenLinks(store.current)
+          .filter(({ occurrence: candidate }) => !ignores.shouldHideBrokenResult(createOccurrenceIgnoreContext(candidate)));
+        expect(visible.map(({ targetText }) => targetText)).toEqual(target === "Old" ? [] : ["New"]);
+        const rebuilt = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(store.current.toCanonicalState()).toEqual(rebuilt.toCanonicalState());
+        expect(content[file.path]).toBe(`[[${target}]]`);
+      }
+    } finally { incremental.stop(); }
   });
 
   it("fails an old identity closed when an indistinguishable duplicate is inserted", async () => {
