@@ -36,14 +36,14 @@ describe("runtime contract", () => {
       currentNodeVersion: "24.18.1",
       currentNpmVersion: "11.17.0",
       packageJson,
-    })).toThrow("Expected Node.js 24.19.0");
+    })).toThrow("Node.js 24.19.0 is required");
 
     expect(() => runtimeContract.assertRuntimeContract({
       configuredNodeVersion: "24.19.0",
       currentNodeVersion: "24.19.0",
       currentNpmVersion: "11.15.0",
       packageJson,
-    })).toThrow("Expected npm 11.17.0");
+    })).toThrow("npm 11.17.0 is required");
   });
 
   it("rejects floating configuration and malformed npm user agents", () => {
@@ -52,9 +52,9 @@ describe("runtime contract", () => {
       currentNodeVersion: "24.19.0",
       currentNpmVersion: "11.17.0",
       packageJson,
-    })).toThrow(".node-version must contain an exact x.y.z version");
+    })).toThrow(".node-version must pin an exact Node.js version");
     expect(() => runtimeContract.parseNpmVersion("pnpm/10.0.0")).toThrow(
-      "npm_config_user_agent",
+      "through npm",
     );
     expect(runtimeContract.parseNpmVersion("npm/11.17.0 node/v24.19.0 win32 x64")).toBe(
       "11.17.0",
