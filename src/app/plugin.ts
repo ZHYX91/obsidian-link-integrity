@@ -1,6 +1,7 @@
 import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
 import { IgnorePreviewService } from "./ignore-preview-service";
 import { applySidebarIgnore } from "./sidebar-ignore-actions";
+import { occurrenceTargetFilePath } from "../shared/target-file-identity";
 import { BodyLinkRuntime } from "./body-link-runtime";
 import {
   MarkdownView,
@@ -630,11 +631,13 @@ export default class LinkIntegrityPlugin extends Plugin {
   private showBrokenLinkActions(result: BrokenLinkResult, anchor: HTMLElement): void {
     const translator = createTranslator(this.settings.general.locale, getLanguage());
     const menu = new Menu().setParentElement(anchor);
+    const occurrence = this.coordinator.index.getOccurrence(result.id);
+    const targetPath = occurrence === null ? null : occurrenceTargetFilePath(occurrence);
     const rules: readonly {
       readonly title: string;
       readonly scope: IgnoreRuleScope;
       readonly kind: IgnoreMatcherKind;
-      readonly value: string;
+      readonly value: string | null;
     }[] = [
       {
         title: translator.t("ignore.scope.ignoreOccurrence"),
@@ -646,7 +649,7 @@ export default class LinkIntegrityPlugin extends Plugin {
         title: translator.t("ignore.scope.ignoreTarget"),
         scope: "ignore-target",
         kind: "target-path",
-        value: result.resolvedTargetPath ?? result.targetText,
+        value: targetPath,
       },
       {
         title: translator.t("ignore.scope.hideBroken"),
@@ -658,11 +661,15 @@ export default class LinkIntegrityPlugin extends Plugin {
     for (const rule of rules) {
       menu.addItem((item) => item
         .setTitle(rule.title)
+        .setDisabled(rule.value === null)
         .onClick(() => {
+          if (rule.value === null) return;
           void this.addIgnoreRule(rule.scope, rule.kind, rule.value, rule.title, anchor)
             .catch((error: unknown) => this.reportError(error));
         }));
     }
+    if (targetPath === null) menu.addItem((item) => item
+      .setTitle(translator.t("ignore.targetUnavailable")).setDisabled(true));
     showMenuAtAnchor(menu, anchor);
   }
 

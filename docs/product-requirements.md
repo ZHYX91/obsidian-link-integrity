@@ -40,6 +40,8 @@ Ordinary result-hiding rules change diagnostic visibility only. They do not chan
 
 Target ignores match the entire file, including its heading and block references, without changing graph contribution. Occurrence ignores retain position-independent semantic identities. Rule previews run in slices, restart when the index is replaced, and cancel superseded requests.
 
+Whole-file ignores use an exact Vault path with the file extension and original case. A host-resolved target takes precedence over authored link text. For a missing target, explicit `./` and `../` paths are relative to the source folder; folder paths start at the Vault root, and omitted note extensions become `.md`. Canvas file cards and backgrounds retain their exact paths, including extensionless names and literal hashes. Missing short names, ambiguous encoded names or unknown dotted suffixes, and paths outside the Vault cannot authorize a whole-file ignore; the menu explains the need for a full Vault path and retains the single-reference action. Old unambiguous folder-path rules with explicit known extensions are converted once; rules without enough context remain visible but paused until the user confirms a full path and previews again. No setting restores raw-text target matching.
+
 ## Isolated files
 
 A file is isolated by default only when both conditions are true in the valid graph:
