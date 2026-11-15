@@ -68,6 +68,7 @@ module.exports = class extends Plugin {
       ["create-context-regression-fixtures", "Create escaped, percent and source-context regression fixtures", () => this.createContextRegressionFixtures()],
       ["create-resolution-regression-fixtures", "Create suffix and Markdown destination regression fixtures", () => this.createResolutionRegressionFixtures()],
       ["create-canvas-exact-path-fixtures", "Create Canvas exact-path regression fixtures in this disposable Vault", () => this.createCanvasExactPathFixtures()],
+      ["create-hash-background-fixtures", "Create hash-prefixed Canvas background fixtures in this disposable Vault", () => this.createHashBackgroundFixtures()],
       ["record-native-resolution-observation", "Record native resolution facts (provider receipt only)", () => this.recordNativeResolutionObservation()],
       ["repair-body-hint-fixtures", "Repair body-hint fixtures in this disposable acceptance Vault", () => this.repair()],
       ["restore-body-hint-fixtures", "Restore broken body-hint fixtures in this disposable acceptance Vault", () => this.restore()],
@@ -283,6 +284,23 @@ module.exports = class extends Plugin {
     ]) await vault.create(`${root}/${name}`, text);
     new Notice("Context fixtures created. Observe native links and Link Integrity results separately.");
     await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(`${root}/Escaped.md`));
+  }
+  async createHashBackgroundFixtures() {
+    this.guard();
+    const vault = this.app.vault;
+    const paths = ["Hash Background Acceptance.canvas", "#pr-cover.svg", "#pr-missing.svg"];
+    if (paths.some((name) => vault.getAbstractFileByPath(name) !== null)) {
+      throw new Error("Hash-background fixture paths already exist; use a fresh disposable Vault.");
+    }
+    const nodes = [
+      { id: "present-background", type: "group", background: "#pr-cover.svg", x: 0, y: 0, width: 300, height: 200, label: "Existing hash-prefixed image" },
+      { id: "missing-background", type: "group", background: "#pr-missing.svg", x: 340, y: 0, width: 300, height: 200, label: "Missing hash-prefixed image" },
+      { id: "color-only", type: "group", color: "#ffffff", x: 0, y: 240, width: 300, height: 200, label: "Color only" },
+    ];
+    await vault.create("#pr-cover.svg", '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#467a9b"/></svg>\n');
+    await vault.create(paths[0], JSON.stringify({ nodes, edges: [] }, null, 2) + "\n");
+    new Notice("Hash-background inputs prepared. Observe indexing and native rendering separately; no verdict is assigned.");
+    await this.app.workspace.getLeaf(false).openFile(vault.getFileByPath(paths[0]));
   }
   async createCanvasExactPathFixtures() {
     this.guard();
