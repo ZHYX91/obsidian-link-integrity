@@ -565,6 +565,7 @@ export default class LinkIntegrityPlugin extends Plugin {
     } else {
       this.rebuildCommand.name = rebuildLabel;
     }
+    this.bodyLinks?.refreshCommandName();
   }
 
   public ensureIndex(): Promise<void> {
