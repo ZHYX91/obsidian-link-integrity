@@ -15,8 +15,14 @@
     {
       "id": "hash-background-and-command-locale",
       "title": "Hash-prefixed Canvas backgrounds and live command localization",
-      "surfaces": ["desktop", "android-emulator"],
-      "requiredCapabilities": { "desktop": [], "android-emulator": [] },
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
       "steps": [
         "In the fresh disposable fixture Vault, explicitly run create-hash-background-fixtures. Record the generated Canvas and image bytes. Wait for incremental indexing and inspect the broken-link and isolated-file views for these exact paths.",
         "Verify #pr-missing.svg is reported as a missing Canvas background, #pr-cover.svg connects the Canvas and image, and the group with only color #ffffff creates no file diagnostic. Run Rebuild and compare these same results; the original fixture bytes must remain unchanged.",
