@@ -176,11 +176,11 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
           position: canvasPosition(nodeId),
         });
       }
+      // Group colors use a separate field; background is an exact file path.
       if (
         node.type === "group" &&
         typeof node.background === "string" &&
-        node.background.trim().length > 0 &&
-        !node.background.trim().startsWith("#")
+        node.background.trim().length > 0
       ) {
         inputs.push({
           raw: node.background,
