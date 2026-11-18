@@ -3,7 +3,8 @@ import { inlineMarkdownCases } from "../helpers/inline-markdown-cases";
 import { inlineBoundaryCases } from "../helpers/inline-boundary-cases";
 
 import { WorkScheduler } from "../../src/scheduling/work-scheduler";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as containers from "../../src/adapters/obsidian/markdown-containers";
 
 import {
   extractBasesExplicitReferences,
@@ -210,6 +211,29 @@ describe("extractMarkdownExplicitReferences", () => {
     expect(extractMarkdownExplicitReferences(unit.repeat(16_000))).toEqual([]);
     expect(extractMarkdownExplicitReferences(`${unit.repeat(100)}\n[kept](Present.md)`)
       .map(({ linktext }) => linktext)).toEqual(["Present.md"]);
+  });
+
+  it("bounds block normalization between scheduling checkpoints", async () => {
+    const source = "## Daily review\n\n> Meeting notes.\n\nSee [[Project]].\n\n".repeat(1500);
+    const normalize = vi.spyOn(containers, "normalizeMarkdownContainerLine");
+    let previous = 0;
+    let longest = 0;
+    const observe = () => {
+      const visits = normalize.mock.calls.length;
+      longest = Math.max(longest, visits - previous);
+      previous = visits;
+      return Promise.resolve();
+    };
+    try {
+      const scheduler = new WorkScheduler({ yieldEvery: 1, yieldControl: observe });
+      const result = await parseMarkdownSourceAsync(source, scheduler);
+      await observe();
+      expect(result.references).toHaveLength(1500);
+      expect(previous).toBeGreaterThan(1500);
+      expect(longest).toBeLessThanOrEqual(256);
+    } finally {
+      normalize.mockRestore();
+    }
   });
 
   it("yields while parsing a large source and preserves synchronous results", async () => {
