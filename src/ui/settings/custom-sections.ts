@@ -137,6 +137,8 @@ function renderIndexMaintenance(
   ));
   const details = document.createElement("details");
   details.className = "link-integrity-index-details";
+  details.open = context.indexDetailsExpanded === true;
+  details.addEventListener("toggle", () => context.onIndexDetailsToggle?.(details.open));
   const detailsSummary = document.createElement("summary");
   detailsSummary.textContent = t("index.details.title");
   const metrics = document.createElement("dl");

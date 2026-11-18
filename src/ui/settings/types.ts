@@ -88,6 +88,9 @@ export interface SettingsUiContext {
     listener: (snapshot: IndexDiagnosticsView) => void,
   ) => () => void;
   readonly rebuildIndex?: () => void | Promise<void>;
+  /** Session-only state for the already optional index diagnostics. */
+  readonly indexDetailsExpanded?: boolean;
+  readonly onIndexDetailsToggle?: (open: boolean) => void;
   readonly fileExists?: (path: string) => boolean;
   readonly openFile?: (path: string) => void | Promise<void>;
   readonly onError?: (error: unknown) => void;

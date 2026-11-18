@@ -155,3 +155,7 @@ The three imperative settings tabs remain. Broken links contains the Show broken
 Hints supplement native link display without wrapping or replacing reading text, changing href, or intercepting clicks and context menus. Reading hover/focus exposes the reason within the owning window's viewport, flipping above when bottom space is insufficient and allowing oversized content to scroll. Escape closes it while retaining or returning link focus. Touch and keyboard users can run Diagnose broken links in the current note to inspect reasons and navigate to proven source ranges.
 
 The diagnostic list shows at most 50 rows per page, hides single-page pagination and wraps long paths. Read-only actions select current source text without creating links. Pending saved text, caches or indexing shows an explicit waiting state; an empty list means no confirmed diagnostics with a proven body range, not that every link is valid. Unreliable reading mappings retain command/sidebar access without text-order guessing.
+
+## Index diagnostics disclosure
+
+The existing index metrics are a native summary/details panel and remain initially collapsed. The current settings window remembers their expansion across category redraws; closing settings clears that state in memory without new persisted keys. Index ready/scanning/error status, retry/rebuild controls and save errors remain outside the disclosure and are always readable. Expected rule dialogs, periodic presets and ignore-rule editors are functional controls, not tutorials; their behavior and warnings are unchanged.

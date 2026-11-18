@@ -1156,3 +1156,13 @@
 .link-integrity-settings-support a {
   cursor: var(--cursor, default);
 }
+
+/* Index metrics are optional details, unlike visible rebuild/errors. */
+.link-integrity-index-details > summary {
+  cursor: pointer; font-size: var(--font-ui-small);
+  font-weight: var(--font-medium); list-style: disclosure-closed inside;
+}
+.link-integrity-index-details[open] > summary { list-style: disclosure-open inside; }
+.link-integrity-index-details > summary:focus-visible {
+  outline: 2px solid var(--interactive-accent); outline-offset: -2px;
+}
