@@ -39,13 +39,47 @@ describe("scheduled ignore previews", () => {
     expect(swapped).toBe(true);
   });
 
+  it("refreshes source metadata and discards partial results when the same index changes", async () => {
+    const index = fixture(true);
+    const service = new IgnorePreviewService(() => index, {
+      yieldEvery: 8,
+      yieldControl: vi.fn(async () => undefined).mockImplementationOnce(async () => {
+        index.replaceFileRecord("A.md", { ...createFileRecord("A.md"), extension: "png" });
+      }),
+    });
+    expect(await service.preview(rule)).toEqual({
+      matchCount: 0, samples: [], affectedFileCount: 0, affectedConnectionCount: 0,
+    });
+    expect(await service.preview({ ...rule, matcher: { kind: "format-family", value: "png" } })).toEqual({
+      matchCount: 256, samples: Array<string>(5).fill("A.md"), affectedFileCount: 1, affectedConnectionCount: 0,
+    });
+    index.replaceFileRecord("A.md", createFileRecord("A.md"));
+    expect((await service.preview(rule)).matchCount).toBe(256);
+  });
+
+  it("refreshes a missing graph endpoint when the vault adds it during a preview", async () => {
+    const index = fixture(false);
+    index.replaceFileRecord("Target.md", null);
+    const service = new IgnorePreviewService(() => index, {
+      yieldEvery: 8,
+      yieldControl: vi.fn(async () => undefined).mockImplementationOnce(async () => {
+        index.replaceFileRecord("Target.md", createFileRecord("Target.md"));
+      }),
+    });
+    expect(await service.preview({ ...rule, scope: "exclude-graph-contribution" })).toEqual({
+      matchCount: 256, samples: Array<string>(5).fill("A.md"), affectedFileCount: 2, affectedConnectionCount: 1,
+    });
+  });
+
   it("counts disabled drafts and bounds samples while yielding", async () => {
     const index = fixture(true);
+    const fileReads = vi.spyOn(index, "getFile");
     const yields = vi.fn(async () => undefined);
     const service = new IgnorePreviewService(() => index, { yieldEvery: 8, yieldControl: yields });
     const result = await service.preview(rule);
     expect(result.matchCount).toBe(256);
     expect(result.samples).toHaveLength(5);
+    expect(fileReads.mock.calls).toEqual([["A.md"]]);
     expect(yields).toHaveBeenCalled();
   });
 
@@ -64,9 +98,12 @@ describe("scheduled ignore previews", () => {
       occurrence("two", "A.md", { fileStatus: "resolved", targetPath: "Target.md" }),
       occurrence("self", "A.md", { fileStatus: "resolved", targetPath: "A.md" }),
     ]));
+    index.replaceSourceSnapshot("Target.md", snapshot("Target.md", [
+      occurrence("reverse", "Target.md", { targetPath: "A.md" }),
+    ]));
     const preview = await new IgnorePreviewService(() => index).preview({
       ...rule, scope: "exclude-graph-contribution",
     });
-    expect(preview).toMatchObject({ matchCount: 2, affectedFileCount: 2, affectedConnectionCount: 1 });
+    expect(preview).toMatchObject({ matchCount: 3, affectedFileCount: 2, affectedConnectionCount: 2 });
   });
 });
