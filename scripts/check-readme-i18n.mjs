@@ -224,7 +224,7 @@ const config = {
         "Yêu cầu và khả năng tương thích",
         "Cài đặt",
         "Cách dùng",
-        "Cài đặt",
+        "Tùy chọn",
         "Giới hạn",
         "Quyền riêng tư và bảo mật",
         "Phát triển",

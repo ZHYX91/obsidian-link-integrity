@@ -45,6 +45,9 @@ describe("README marketplace link contract", () => {
       const { t } = createTranslator(locale, "en");
       expect(source, relativePath).toContain(t("sidebar.tab.broken"));
       expect(source, relativePath).toContain(t("sidebar.tab.isolated"));
+      for (const key of ["index.start", "index.rebuild"] as const) {
+        expect(source, relativePath).toContain(`**${t(key)}**`);
+      }
     }
   });
 

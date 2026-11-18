@@ -51,13 +51,13 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   }
 
   public override hide(): void {
-    this.indexDetailsExpanded = false;
     super.hide();
     this.imperativeVisible = false;
     this.surfaceActive = false;
     this.expectedPreviewRequests.invalidate();
     this.cleanup?.();
     this.cleanup = null;
+    this.indexDetailsExpanded = false;
     this.ignoreRuleDrafts.clear();
   }
 
@@ -89,7 +89,7 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
         this.owner.subscribeToIndexDiagnostics(listener),
       rebuildIndex: () => this.owner.rebuild(),
       indexDetailsExpanded: this.indexDetailsExpanded,
-      onIndexDetailsToggle: (open) => { this.indexDetailsExpanded = open; },
+      rememberIndexDetails: (open) => { this.indexDetailsExpanded = open; },
       fileExists: (path) => this.owner.hasVaultFile(path),
       openFile: (path) => this.owner.openVaultFile(path),
       onError: (error) => this.owner.reportSettingsError(error),

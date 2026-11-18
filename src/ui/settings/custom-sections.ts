@@ -138,7 +138,6 @@ function renderIndexMaintenance(
   const details = document.createElement("details");
   details.className = "link-integrity-index-details";
   details.open = context.indexDetailsExpanded === true;
-  details.addEventListener("toggle", () => context.onIndexDetailsToggle?.(details.open));
   const detailsSummary = document.createElement("summary");
   detailsSummary.textContent = t("index.details.title");
   const metrics = document.createElement("dl");
@@ -231,6 +230,7 @@ function renderIndexMaintenance(
   const unsubscribeStatus = context.subscribeIndexStatus?.(update);
   const unsubscribeDiagnostics = context.subscribeIndexDiagnostics?.(update);
   return () => {
+    context.rememberIndexDetails?.(details.open);
     unsubscribeStatus?.();
     unsubscribeDiagnostics?.();
   };
