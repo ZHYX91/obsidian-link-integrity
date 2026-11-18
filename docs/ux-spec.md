@@ -159,3 +159,5 @@ The diagnostic list shows at most 50 rows per page, hides single-page pagination
 ## Index diagnostics disclosure
 
 The existing index metrics are a native summary/details panel and remain initially collapsed. The current settings window remembers their expansion across category redraws; closing settings clears that state in memory without new persisted keys. Index ready/scanning/error status, retry/rebuild controls and save errors remain outside the disclosure and are always readable. Expected rule dialogs, periodic presets and ignore-rule editors are functional controls, not tutorials; their behavior and warnings are unchanged.
+
+The plain summary sits below the index status and action. Its chevron follows the reading direction when closed and points down when open. Keyboard focus is visible on the whole summary row.
