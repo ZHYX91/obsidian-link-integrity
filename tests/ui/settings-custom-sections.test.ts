@@ -285,7 +285,7 @@ describe("custom settings sections", () => {
     vi.advanceTimersByTime(300);
 
     const validation = dialog.querySelector<HTMLElement>(".link-integrity-rule-validation")!;
-    expect(validation.textContent).toContain("regex pattern > 512 chars");
+    expect(validation.textContent).toContain("Naming pattern must be at most 512 characters.");
     expect(requestExpectedRulePreview).not.toHaveBeenCalled();
     const save = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button"))
       .find(({ textContent }) => textContent === "Save");
@@ -293,6 +293,41 @@ describe("custom settings sections", () => {
     save?.click();
     expect(onSettingsChange).not.toHaveBeenCalled();
   });
+  it("translates rule validation and async preview failures in the dialog", () => {
+    vi.useFakeTimers();
+    const translator = createTranslator("zh-CN", "en");
+    const callbacks: Array<Parameters<NonNullable<SettingsUiContext["requestExpectedRulePreview"]>>[1]> = [];
+    const container = document.createElement("div");
+    const cleanup = renderCustomSetting(container, "expected-isolation-rules", context(
+      withExpectedRule(createDefaultSettings(), expectedRule()),
+      { translator, requestExpectedRulePreview: (_rule, callback) => { callbacks.push(callback); } },
+    ));
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === translator.t("common.edit"))?.click();
+    const dialog = document.querySelector<HTMLElement>('.link-integrity-rule-modal [role="dialog"]')!;
+    const patternInput = dialog.querySelector<HTMLInputElement>(
+      ".link-integrity-rule-pattern input:not(.link-integrity-regex-flags)",
+    )!;
+    patternInput.value = "yyyy";
+    patternInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(dialog.querySelector(".link-integrity-rule-validation")?.textContent)
+      .toContain(translator.t("settings.expected.validation.date"));
+    expect(dialog.textContent).not.toContain("Unsupported date-format");
+    expect(callbacks).toHaveLength(0);
+    patternInput.value = "YYYY-MM-DD";
+    patternInput.dispatchEvent(new Event("input", { bubbles: true }));
+    vi.advanceTimersByTime(250);
+    expect(callbacks).toHaveLength(1);
+    callbacks[0]!({
+      state: "ready",
+      stats: { ruleId: "daily", name: "Daily notes", matchCount: 0, samples: [], errors: ["Regex flags repeated."] },
+    });
+    expect(dialog.querySelector(".link-integrity-settings-rule-preview")?.textContent)
+      .toContain(translator.t("settings.expected.validation.regex"));
+    expect(dialog.textContent).not.toContain("Regex flags repeated.");
+    cleanup();
+  });
+
   it("shows a separate high-risk warning and explicit preview for graph contribution drafts", async () => {
     const graphRule: IgnoreRule = {
       id: "generated",

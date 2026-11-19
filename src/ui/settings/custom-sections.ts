@@ -32,6 +32,7 @@ import {
   textElement,
 } from "./dom-controls";
 import { renderIgnoreRules } from "./ignore-rule-editor";
+import { formatExpectedRuleErrors } from "./expected-rule-messages";
 import type {
   ExpectedRulePreviewState,
   SettingsCustomSectionId,
@@ -692,7 +693,7 @@ function openExpectedRuleDialog(
       const generation = ++previewGeneration;
       if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
       const errors = draft === null ? [] : validateExpectedIsolationRule(draft);
-      validation.textContent = errors.join(" ");
+      validation.textContent = formatExpectedRuleErrors(errors, t);
       validation.hidden = errors.length === 0;
       save.disabled = context.writeProtected || errors.length > 0;
       if (errors.length > 0 || draft === null || context.requestExpectedRulePreview === undefined) {
@@ -819,7 +820,7 @@ function renderExpectedPreview(
       : preview.stats === null
         ? ""
         : preview.stats.errors.length > 0
-          ? preview.stats.errors.join(" ")
+          ? formatExpectedRuleErrors(preview.stats.errors, t)
           : preview.stats.matchCount === 0
             ? t("settings.expected.previewEmpty")
             : t("settings.expected.preview", {
