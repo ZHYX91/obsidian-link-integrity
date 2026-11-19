@@ -484,12 +484,14 @@ function openExpectedRuleDialog(
   document.body.append(overlay);
 
   let closed = false;
+  let previewGeneration = 0;
   let previewTimer: number | null = null;
   let editorCleanup: (() => void) | null = null;
   let draft = sourceRule === null ? null : cloneExpectedRule(sourceRule);
   const close = (): void => {
     if (closed) return;
     closed = true;
+    previewGeneration += 1;
     if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
     editorCleanup?.();
     overlay.remove();
@@ -553,6 +555,8 @@ function openExpectedRuleDialog(
 
   const renderEditor = (advancedOpen = true): void => {
     if (draft === null) return;
+    // A rebuilt editor owns a new preview surface; callbacks from the old one are stale.
+    previewGeneration += 1;
     if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
     editorCleanup?.();
     editorCleanup = null;
@@ -685,6 +689,7 @@ function openExpectedRuleDialog(
     content.append(actions);
 
     const schedulePreview = (): void => {
+      const generation = ++previewGeneration;
       if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
       const errors = draft === null ? [] : validateExpectedIsolationRule(draft);
       validation.textContent = errors.join(" ");
@@ -698,7 +703,7 @@ function openExpectedRuleDialog(
       if (ownerWindow === null) return;
       previewTimer = ownerWindow.setTimeout(() => runAction(
         () => context.requestExpectedRulePreview?.(candidate, (state) => {
-          if (closed || !preview.isConnected) return;
+          if (closed || generation !== previewGeneration || !preview.isConnected) return;
           renderExpectedPreview(preview, state, context);
         }),
         context,
