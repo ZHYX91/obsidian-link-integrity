@@ -14,6 +14,7 @@ import { bodyReasonKey, openBodyLinkDiagnostics } from "../ui/body-links/diagnos
 export class BodyLinkRuntime {
   private closed = false;
   private proofActivated = false;
+  private hintsWereEnabled: boolean;
   private generation = 0;
   private readonly listeners = new Set<() => void>();
   private readonly reading = new Set<() => void>();
@@ -22,6 +23,7 @@ export class BodyLinkRuntime {
   private readonly service: BodyLinkService;
   public constructor(private readonly app: App, index: () => LinkIndex, private readonly ensureIndex: () => Promise<void>,
     private readonly settings: () => LinkIntegritySettings, ready: () => boolean, private readonly report: (error: unknown) => void) {
+    this.hintsWereEnabled = settings().brokenLinks.bodyHints;
     this.service = new BodyLinkService(index, () => !this.closed && ready(), new ObsidianBodyLinkPort(app, (path) => this.metadataReady(path)), (current) => {
       const value = settings(); const ignore = new IgnoreService(value.ignoreRules);
       return (diagnostic) => isBrokenDiagnosticVisible(diagnostic, current, value, ignore);
@@ -60,7 +62,12 @@ export class BodyLinkRuntime {
   public invalidate(): void {
     this.generation += 1; this.service.invalidate();
     for (const close of this.dialogs) close(); this.dialogs.clear();
-    for (const listener of this.listeners) listener();
+    const enabled = !this.closed && this.settings().brokenLinks.bodyHints;
+    const notifyViews = enabled || this.hintsWereEnabled;
+    this.hintsWereEnabled = enabled;
+    if (notifyViews) {
+      for (const listener of this.listeners) listener();
+    }
   }
   public close(): void {
     if (this.closed) return;

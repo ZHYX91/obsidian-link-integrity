@@ -116,7 +116,10 @@ export function decorateBodyLinkReading(element: HTMLElement, context: MarkdownP
       element[action]("keydown", this.key);
     }
     private deactivate(): void {
-      this.clear(); this.observer?.disconnect(); this.observer = null; this.listen(false);
+      this.clear();
+      if (this.observer !== null) {
+        this.observer.disconnect(); this.observer = null; this.listen(false);
+      }
       if (this.timer !== null) this.window.clearTimeout(this.timer); this.timer = null;
     }
     private readonly show = (event: Event): void => {
