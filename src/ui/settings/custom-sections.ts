@@ -324,6 +324,9 @@ function renderExpectedRules(
 ): () => void {
   const { t } = context.translator;
   const settings = currentSettings(context);
+  const help = textElement(container, "p", t("settings.expected.description"));
+  help.className = "link-integrity-help-text";
+  container.append(help);
   const individualHeading = textElement(
     container,
     "h4",
@@ -369,9 +372,6 @@ function renderExpectedRules(
     pathList.append(row);
   }
   container.append(pathList, textElement(container, "h4", t("settings.expected.rules")));
-  const help = textElement(container, "p", t("settings.expected.description"));
-  help.className = "link-integrity-help-text";
-  container.append(help);
 
   let closeEditor: (() => void) | null = null;
   const openEditor = (rule: ExpectedIsolationRule | null): void => {
