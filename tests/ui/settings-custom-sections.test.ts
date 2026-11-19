@@ -107,6 +107,43 @@ describe("custom settings sections", () => {
     cleanup();
   });
 
+  it("ignores an older expected-rule preview after the draft changes again", () => {
+    vi.useFakeTimers();
+    const rule = expectedRule();
+    const callbacks: Array<Parameters<NonNullable<SettingsUiContext["requestExpectedRulePreview"]>>[1]> = [];
+    const requestExpectedRulePreview: NonNullable<SettingsUiContext["requestExpectedRulePreview"]> =
+      (_candidate, callback) => { callbacks.push(callback); };
+    const container = document.createElement("div");
+    const cleanup = renderCustomSetting(container, "expected-isolation-rules",
+      context(withExpectedRule(createDefaultSettings(), rule), { requestExpectedRulePreview }));
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find(({ textContent }) => textContent === "Edit")?.click();
+    const dialog = document.querySelector<HTMLElement>('.link-integrity-rule-modal [role="dialog"]')!;
+    const name = Array.from(dialog.querySelectorAll("label"))
+      .find(({ textContent }) => textContent?.includes("Rule name"))
+      ?.querySelector<HTMLInputElement>('input[type="text"]')!;
+    name.value = "First draft";
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    vi.advanceTimersByTime(250);
+    expect(callbacks).toHaveLength(1);
+    name.value = "Second draft";
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+    callbacks[0]!({
+      state: "ready",
+      stats: { ruleId: rule.id, name: "First draft", matchCount: 1, samples: ["Old.md"], errors: [] },
+    });
+    expect(dialog.textContent).not.toContain("Old.md");
+    vi.advanceTimersByTime(250);
+    expect(callbacks).toHaveLength(2);
+    callbacks[1]!({
+      state: "ready",
+      stats: { ruleId: rule.id, name: "Second draft", matchCount: 2, samples: ["Current.md"], errors: [] },
+    });
+    expect(dialog.textContent).toContain("Current.md");
+    expect(dialog.textContent).not.toContain("Old.md");
+    cleanup();
+  });
+
   it("lists individual expected files, marks missing paths, and supports open and remove", () => {
     const defaults = createDefaultSettings();
     const settings: LinkIntegritySettings = {
