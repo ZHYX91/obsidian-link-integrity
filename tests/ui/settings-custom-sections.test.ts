@@ -121,7 +121,8 @@ describe("custom settings sections", () => {
     const dialog = document.querySelector<HTMLElement>('.link-integrity-rule-modal [role="dialog"]')!;
     const name = Array.from(dialog.querySelectorAll("label"))
       .find(({ textContent }) => textContent?.includes("Rule name"))
-      ?.querySelector<HTMLInputElement>('input[type="text"]')!;
+      ?.querySelector<HTMLInputElement>('input[type="text"]');
+    if (!name) throw new Error("Expected the rule name input in the open dialog");
     name.value = "First draft";
     name.dispatchEvent(new Event("input", { bubbles: true }));
     vi.advanceTimersByTime(250);
