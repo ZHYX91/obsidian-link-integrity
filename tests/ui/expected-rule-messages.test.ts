@@ -44,4 +44,10 @@ describe("expected isolation rule error messages", () => {
       expect(singular).toContain("One.md");
     }
   });
+
+  it.each([1, 2, 3])("labels the Arabic matching-file count for %i matches", (count) => {
+    const t = createTranslator("ar", "ar").t;
+    expect(t("settings.expected.preview", { count, samples: "A.md" }))
+      .toBe(`عدد الملفات المطابقة: ${count}؛ أمثلة: A.md`);
+  });
 });

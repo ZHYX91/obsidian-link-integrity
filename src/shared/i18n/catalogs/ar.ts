@@ -265,7 +265,7 @@ export const AR_MESSAGES = {
   "settings.expected.glob": "نمط Glob",
   "settings.expected.regex": "تعبير نمطي (متقدم)",
   "settings.expected.conditions": "يجب أن يطابق الملف شروط النوع والمجلد والاسم جميعًا. إذا أضفت عدة أنماط للأسماء، يكفي تطابق واحد منها.",
-  "settings.expected.preview": "تطابق القاعدة {count} ملفات؛ أمثلة: {samples}",
+  "settings.expected.preview": "عدد الملفات المطابقة: {count}؛ أمثلة: {samples}",
   "settings.expected.previewEmpty": "لا توجد ملفات مطابقة حاليًا.",
   "settings.expected.periodicPreset": "إعدادات الملاحظات الدورية",
   "settings.expected.periodicPreset.description": "يمكن ضبط أسماء الملاحظات اليومية والأسبوعية والشهرية والفصلية والسنوية على حدة. لا تقرأ الإضافة بيانات Chrono Notes.",
