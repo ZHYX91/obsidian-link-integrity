@@ -73,8 +73,9 @@ export interface IgnoreRulePreview {
 export function createOccurrenceIgnoreContext(
   occurrence: LinkOccurrence,
   sourceExtension?: string | null,
+  classifySource = classifyFileExtension,
 ): IgnoreEvaluationContext {
-  const classification = classifyFileExtension(sourceExtension ?? occurrence.sourcePath);
+  const classification = classifySource(sourceExtension ?? occurrence.sourcePath);
   return {
     sourcePath: occurrence.sourcePath,
     targetPath: occurrenceTargetFilePath(occurrence),
@@ -278,6 +279,7 @@ export function* previewIgnoreRuleSteps(
   rule: IgnoreRule,
   contexts: Iterable<IgnoreEvaluationContext | null>,
   sampleLimit = 5,
+  onMatch?: (context: IgnoreEvaluationContext) => void,
 ): Generator<void, IgnoreRulePreview> {
   const limit = Number.isFinite(sampleLimit) ? Math.max(0, Math.floor(sampleLimit)) : 5;
   let matchCount = 0;
@@ -285,6 +287,7 @@ export function* previewIgnoreRuleSteps(
   for (const context of contexts) {
     if (context !== null && ignoreMatcherMatches(rule, context)) {
       matchCount += 1;
+      onMatch?.(context);
       if (samples.length < limit) samples.push(describeContext(context));
     }
     yield;

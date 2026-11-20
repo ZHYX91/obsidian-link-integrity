@@ -1,9 +1,9 @@
-import { classifyFileExtension, type LinkIndex, type LinkOccurrence } from "../core";
+import { classifyFileExtension, type FileRecord, type LinkIndex, type LinkOccurrence } from "../core";
 import { occurrenceIdSource } from "../core/occurrence-identity";
 import { diagnoseOccurrence } from "../features/queries";
 import { WorkScheduler, type WorkSchedulerOptions } from "../scheduling/work-scheduler";
 import {
-  createOccurrenceIgnoreContext, ignoreRuleMatches, previewIgnoreRuleSteps,
+  createOccurrenceIgnoreContext, previewIgnoreRuleSteps,
   type IgnoreEvaluationContext, type IgnoreRule, type IgnoreRulePreview,
 } from "../shared/ignore-rules";
 
@@ -20,10 +20,25 @@ export class IgnorePreviewService {
       const version = index.version;
       const scheduler = new WorkScheduler(this.options);
       const files = new Set<string>();
-      const connections = new Set<string>();
-      const steps = previewIgnoreRuleSteps(rule, countAffectedContexts(
-        previewContexts(index, rule), rule, files, connections,
-      ));
+      const targetsBySource = new Map<string, Set<string>>();
+      let connectionCount = 0;
+      const steps = previewIgnoreRuleSteps(rule, previewContexts(index, rule), undefined, (context) => {
+        const source = context.candidatePath ?? context.sourcePath;
+        if (source == null) return;
+        files.add(source);
+        const target = context.targetPath;
+        if (rule.scope !== "exclude-graph-contribution" || target == null) return;
+        files.add(target);
+        let targets = targetsBySource.get(source);
+        if (targets === undefined) {
+          targets = new Set<string>();
+          targetsBySource.set(source, targets);
+        }
+        if (!targets.has(target)) {
+          targets.add(target);
+          connectionCount += 1;
+        }
+      });
       let step = steps.next();
       while (!step.done) {
         const pause = scheduler.checkpoint();
@@ -35,31 +50,11 @@ export class IgnorePreviewService {
       if (step.done) return {
         ...step.value,
         affectedFileCount: files.size,
-        affectedConnectionCount: connections.size,
+        affectedConnectionCount: connectionCount,
       };
       // A published index replaced the one being counted. Retry against its complete snapshot.
       steps.return({ matchCount: 0, samples: [] });
     }
-  }
-}
-
-function* countAffectedContexts(
-  contexts: Iterable<IgnoreEvaluationContext | null>,
-  rule: IgnoreRule,
-  files: Set<string>,
-  connections: Set<string>,
-): Iterable<IgnoreEvaluationContext | null> {
-  const enabled = { ...rule, enabled: true };
-  for (const context of contexts) {
-    if (context !== null && ignoreRuleMatches(enabled, context)) {
-      const source = context.candidatePath ?? context.sourcePath;
-      if (source != null) files.add(source);
-      if (rule.scope === "exclude-graph-contribution" && source != null && context.targetPath != null) {
-        files.add(context.targetPath);
-        connections.add(JSON.stringify([source, context.targetPath]));
-      }
-    }
-    yield context;
   }
 }
 
@@ -71,14 +66,34 @@ function* previewContexts(index: LinkIndex, rule: IgnoreRule): Iterable<IgnoreEv
     };
     return;
   }
+  // The index owns each file's extension. Cache classifications within this scan
+  // so a restart after a Vault change always uses fresh source metadata.
+  const records = new Map<string, FileRecord | null>();
+  const fileAt = (path: string) => {
+    let record = records.get(path);
+    if (record === undefined) {
+      record = index.getFile(path);
+      records.set(path, record);
+    }
+    return record;
+  };
+  const sourceTypes = new Map<string, ReturnType<typeof classifyFileExtension>>();
+  const classifySource = (value: string) => {
+    let type = sourceTypes.get(value);
+    if (type === undefined) {
+      type = classifyFileExtension(value);
+      sourceTypes.set(value, type);
+    }
+    return type;
+  };
   for (const occurrence of occurrenceCandidates(index, rule)) {
     const eligible = rule.scope === "exclude-graph-contribution"
       ? occurrence.fileStatus === "resolved" && occurrence.targetPath !== null &&
-        occurrence.sourcePath !== occurrence.targetPath && index.getFile(occurrence.targetPath) !== null
+        occurrence.sourcePath !== occurrence.targetPath && fileAt(occurrence.targetPath) !== null
       : diagnoseOccurrence(occurrence) !== null;
     // Even non-diagnostics are work units, so mostly valid Vaults also yield.
     yield eligible ? createOccurrenceIgnoreContext(
-      occurrence, index.getFile(occurrence.sourcePath)?.extension ?? null,
+      occurrence, fileAt(occurrence.sourcePath)?.extension ?? null, classifySource,
     ) : null;
   }
 }
