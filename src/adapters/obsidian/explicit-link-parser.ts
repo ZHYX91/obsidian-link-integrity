@@ -50,10 +50,7 @@ export interface MarkdownSyntaxRange {
 export function extractMarkdownExplicitReferences(
   source: string,
 ): readonly ParsedExplicitReference[] {
-  const steps = extractMarkdownSteps(source);
-  let step = steps.next();
-  while (!step.done) step = steps.next();
-  return step.value.references;
+  return finishSteps(extractMarkdownSteps(source)).references;
 }
 
 export async function parseMarkdownSourceAsync(source: string, scheduler = new WorkScheduler()) {
@@ -68,6 +65,13 @@ export async function parseMarkdownSourceAsync(source: string, scheduler = new W
 }
 
 function* extractMarkdownSteps(source: string) {
+  const lines = yield* scanSourceLines(source);
+  const linesByStart = new Map<number, SourceLineRange>();
+  for (const [i, line] of lines.entries()) {
+    if (i % 128 === 0) yield;
+    linesByStart.set(line.start, line);
+  }
+  const blocks = { lines, linesByStart, opaqueClosers: yield* indexOpaqueClosers(source) };
   let destinations = yield* indexMarkdownDestinations(source);
   const definitions = new Set<string>();
   let syntax = source;
@@ -75,16 +79,16 @@ function* extractMarkdownSteps(source: string) {
   // source grammar before reference links can deactivate outer inline labels.
   if (source.includes(">") || source.includes("]:")) {
     const projection = source.split("");
-    maskMarkdownNonContent(source, destinations, source, definitions, projection);
-    syntax = projection.join("");
+    yield* maskMarkdownNonContent(source, blocks, destinations, source, definitions, projection);
+    syntax = yield* joinMask(projection);
     if (syntax !== source) {
       destinations = yield* indexMarkdownDestinations(syntax);
       definitions.clear();
-      maskMarkdownNonContent(source, destinations, syntax, definitions, projection);
+      yield* maskMarkdownNonContent(source, blocks, destinations, syntax, definitions, projection);
     }
   }
   const { masked, inline: established, frontmatterEnd, syntaxRanges } =
-    maskMarkdownNonContent(source, destinations, syntax, definitions);
+    yield* maskMarkdownNonContent(source, blocks, destinations, syntax, definitions);
   const { wikiReferences, markdown } = yield* extractMarkdownLinks(source, masked, destinations, established, frontmatterEnd);
   const references: ParsedExplicitReference[] = [];
   let wiki = 0;
@@ -431,7 +435,13 @@ function isEmbedded(source: string, start: number): boolean {
 }
 
 /** Same-length UTF-16 mask shared by fallback parsing and positioned cache filtering. */
-function maskMarkdownNonContent(source: string, destinations: MarkdownDestinationIndex,
+interface BlockIndex {
+  lines: SourceLineRange[];
+  linesByStart: ReadonlyMap<number, SourceLineRange>;
+  opaqueClosers: ReadonlyMap<string, readonly MaskedRange[]>;
+}
+
+function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destinations: MarkdownDestinationIndex,
   syntax: string, definitions: Set<string>, projection?: string[]) {
   // Every offset used by RegExp, indexOf, and slice is a UTF-16 code-unit offset.
   // Keep the mask indexed in the same coordinate system; spreading a string
@@ -439,19 +449,29 @@ function maskMarkdownNonContent(source: string, destinations: MarkdownDestinatio
   const characters = source.split("");
   const inline = new Map<number, ParsedExplicitReference>();
   const syntaxRanges: MarkdownSyntaxRange[] = [];
-  const frontmatterRange = findMarkdownFrontmatterRange(source);
+  const frontmatterRange = yield* frontmatterFromLines(source, blocks.lines);
   if (frontmatterRange !== null) {
     syntaxRanges.push({ ...frontmatterRange, kind: "frontmatter" });
-    maskYamlCommentRanges(
+    yield* maskYamlCommentRanges(
       characters,
       source,
       frontmatterRange.start,
       frontmatterRange.end,
     );
   }
-  maskDelimitedBlocks(characters, source, frontmatterRange, destinations, inline,
+  yield* maskDelimitedBlocks(characters, source, blocks, frontmatterRange, destinations, inline,
     syntax, definitions, syntaxRanges, projection);
-  return { masked: characters.join(""), inline, syntaxRanges, frontmatterEnd: frontmatterRange?.end ?? 0 };
+  const masked = projection === undefined ? yield* joinMask(characters) : "";
+  return { masked, inline, syntaxRanges, frontmatterEnd: frontmatterRange?.end ?? 0 };
+}
+
+function* joinMask(characters: string[]): Generator<void, string> {
+  const pieces: string[] = [];
+  for (let i = 0; i < characters.length; i += 8192) {
+    if (i > 0) yield;
+    pieces.push(characters.slice(i, i + 8192).join(""));
+  }
+  return pieces.join("");
 }
 
 interface MaskedRange {
@@ -459,9 +479,10 @@ interface MaskedRange {
   readonly end: number;
 }
 
-function maskDelimitedBlocks(
+function* maskDelimitedBlocks(
   characters: string[],
   source: string,
+  blocks: BlockIndex,
   frontmatter: MaskedRange | null,
   destinations: MarkdownDestinationIndex,
   inline: Map<number, ParsedExplicitReference>,
@@ -469,7 +490,7 @@ function maskDelimitedBlocks(
   definitions: Set<string>,
   syntaxRanges: MarkdownSyntaxRange[],
   projection?: string[],
-): void {
+): Generator<void, void> {
   let fence: {
     readonly character: string;
     readonly length: number;
@@ -491,26 +512,30 @@ function maskDelimitedBlocks(
   // including openers behind image labels. Images remain eligible across epochs.
   let linkEpoch = 0;
   let paragraphEnd = 0;
-  const lines = sourceLineRanges(source);
-  const linesByStart = new Map(lines.map((line) => [line.start, line]));
-  const inlineClosers = indexInlineCodeClosers(characters.join(""));
-  const opaqueClosers = indexOpaqueClosers(source);
+  const { lines, linesByStart, opaqueClosers } = blocks;
+  const inlineClosers = source.includes("`")
+    ? yield* indexInlineCodeClosers(frontmatter === null ? source : yield* joinMask(characters))
+    : new Map<number, number>();
   const rawOpening = /<(pre|script|style|textarea)(?=[\s>])/iyu;
-  const mask = (start: number, end: number, kind: MarkdownSyntaxRange["kind"] = "code") => {
-    maskRange(characters, start, end);
+  const mask = function* (start: number, end: number, kind: MarkdownSyntaxRange["kind"] = "code") {
+    for (let offset = start; offset < end; offset += 4096) {
+      if (offset > start) yield;
+      maskRange(characters, offset, Math.min(offset + 4096, end));
+    }
     syntaxRanges.push({ start, end, kind });
   };
   for (let cursor = 0; cursor < (frontmatter?.end ?? 0); cursor += 1) {
+    if (cursor % 1024 === 0) yield;
     if (characters[cursor] !== source[cursor]) continue;
     const closing = source.startsWith("%%", cursor)
       ? findUnmaskedDelimiter(characters, source, "%%", cursor + 2) : -1;
     const end = closing >= 0 ? closing + 2 : inlineClosers.get(cursor) ?? 0;
     if (end > cursor && end <= frontmatter!.end) {
-      mask(cursor + (closing < 0 && isEscaped(source, cursor) ? 1 : 0), end);
+      yield* mask(cursor + (closing < 0 && isEscaped(source, cursor) ? 1 : 0), end);
       cursor = end - 1;
     }
   }
-  const inlineBoundary = (lineIndex: number, text: string): number => {
+  const inlineBoundary = function* (lineIndex: number, text: string): Generator<void, number> {
     if (/^ {0,3}#{1,6}(?:[ \t]|$)/u.test(text)) {
       paragraphEnd = lines[lineIndex]!.contentEnd;
       return paragraphEnd;
@@ -518,6 +543,7 @@ function maskDelimitedBlocks(
     if (paragraphEnd <= lines[lineIndex]!.start) {
       paragraphEnd = source.length;
       for (let next = lineIndex + 1; next < lines.length; next += 1) {
+        if (next % 128 === 0) yield;
         const following = lines[next]!;
         const content = normalizeMarkdownContainerLine(source.slice(following.start, following.contentEnd), containers, true);
         if (content.opensContainer || content.text.trim().length === 0 || startsMarkdownBlock(content.text) || isSetextUnderline(content.text)) {
@@ -529,6 +555,7 @@ function maskDelimitedBlocks(
     return paragraphEnd;
   };
   for (const [lineIndex, line] of lines.entries()) {
+    if (lineIndex % 64 === 0) yield;
     if (frontmatter !== null && line.start < frontmatter.end) continue;
     if (line.start < definitionEnd) continue;
     const text = source.slice(line.start, line.contentEnd);
@@ -544,12 +571,12 @@ function maskDelimitedBlocks(
     let cursor = line.start;
     if (opaque !== null) {
       if (!continuesContainers(text, opaque.containers)) {
-        mask(opaque.start, line.start, opaque.kind);
+        yield* mask(opaque.start, line.start, opaque.kind);
         opaque = null;
       } else if (opaque.end > line.end) continue;
       else {
         cursor = opaque.end;
-        mask(opaque.start, opaque.end, opaque.kind);
+        yield* mask(opaque.start, opaque.end, opaque.kind);
         opaque = null;
       }
     }
@@ -558,12 +585,12 @@ function maskDelimitedBlocks(
         const content = stripMarkdownContainers(expandMarkdownTabs(text), fence.containers).text;
         const closing = content === null ? undefined : /^ {0,3}(`+|~+)[ \t]*$/u.exec(content)?.[1];
         if (closing !== undefined && closing[0] === fence.character && closing.length >= fence.length) {
-          mask(fence.start, line.end);
+          yield* mask(fence.start, line.end);
           fence = null;
         }
         continue;
       }
-      mask(fence.start, line.start);
+      yield* mask(fence.start, line.start);
       fence = null;
     }
     const continues = continuesContainers(text, containers);
@@ -596,7 +623,7 @@ function maskDelimitedBlocks(
       paragraph = false;
       paragraphBody = false;
       emptyItemDepth = 0;
-      mask(line.start, line.contentEnd);
+      yield* mask(line.start, line.contentEnd);
       continue;
     }
     if (!blank) indentedCode = false;
@@ -622,11 +649,11 @@ function maskDelimitedBlocks(
         definitionEnd = lines[lineIndex + definitionLines - 1]!.end;
         // Definitions are metadata, not inline content. Their labels, titles and
         // literal delimiters must not create links or change following syntax.
-        mask(line.start, definitionEnd, "metadata");
+        yield* mask(line.start, definitionEnd, "metadata");
         cursor = definitionEnd;
       }
     }
-    const boundary = inlineBoundary(lineIndex, normalized.text);
+    const boundary = yield* inlineBoundary(lineIndex, normalized.text);
     // Definitions remain in the open paragraph until it closes. Only the body
     // left after stripping its leading definitions can become a setext heading.
     paragraph = !blank && !startsMarkdownBlock(normalized.text) &&
@@ -646,7 +673,12 @@ function maskDelimitedBlocks(
     // Recognize opaque syntax in source order so fences inside comments/raw HTML
     // and HTML openers inside code spans never become a second active block.
     let wiki = false;
+    let checkpointOffset = cursor + 1024;
     while (cursor < line.contentEnd) {
+      if (cursor >= checkpointOffset) {
+        yield;
+        checkpointOffset = cursor + 1024;
+      }
       if (cursor < inlineEnd) { cursor = inlineEnd; continue; }
       if (characters[cursor] !== source[cursor]) { cursor += 1; continue; }
       let end: number | null = null;
@@ -670,7 +702,7 @@ function maskDelimitedBlocks(
           // opener; preserve source bytes and mask only this valid tag token.
           const tag = scanLiteralHtmlTag(source, cursor, containers, linesByStart);
           if (tag.valid) {
-            mask(cursor, tag.end, "raw-html");
+            yield* mask(cursor, tag.end, "raw-html");
             literalTagEnd = tag.end;
             cursor = literalTagEnd;
             continue;
@@ -679,14 +711,14 @@ function maskDelimitedBlocks(
       }
       if (end !== null) {
         if (end > line.end) { opaque = { start: cursor, end, containers, kind }; break; }
-        mask(cursor, end, kind);
+        yield* mask(cursor, end, kind);
         cursor = end;
         continue;
       }
       inlineEnd = inlineClosers.get(cursor) ?? 0;
       if (inlineEnd > boundary) inlineEnd = 0;
       if (inlineEnd > cursor) {
-        mask(cursor + (isEscaped(source, cursor) ? 1 : 0), inlineEnd);
+        yield* mask(cursor + (isEscaped(source, cursor) ? 1 : 0), inlineEnd);
         cursor = inlineEnd;
         continue;
       }
@@ -709,7 +741,7 @@ function maskDelimitedBlocks(
         if (destination !== null) {
           // Only an established link outside code/comments makes its metadata
           // literal. Keep label content and invalid outer syntax as body text.
-          mask(cursor + 2, destination.linkEnd - 1, "metadata");
+          yield* mask(cursor + 2, destination.linkEnd - 1, "metadata");
           const reference = markdownReference(source, opening.offset, destination);
           if (reference.linktext.length > 0) inline.set(reference.startOffset, reference);
           literalTagEnd = destination.linkEnd;
@@ -735,8 +767,8 @@ function maskDelimitedBlocks(
       cursor += 1;
     }
   }
-  if (fence !== null) mask(fence.start, source.length);
-  if (opaque !== null) mask(opaque.start, source.length, opaque.kind);
+  if (fence !== null) yield* mask(fence.start, source.length);
+  if (opaque !== null) yield* mask(opaque.start, source.length, opaque.kind);
 }
 
 function startsMarkdownBlock(text: string): boolean {
@@ -824,11 +856,16 @@ function continuesContainers(text: string, containers: readonly MarkdownContaine
   return stripped.remainder.trim().length === 0 && !containers.slice(stripped.consumed.length).includes("quote");
 }
 
-function indexInlineCodeClosers(source: string): ReadonlyMap<number, number> {
-  const runs = [...source.matchAll(/`+/gu)];
+function* indexInlineCodeClosers(source: string): Generator<void, ReadonlyMap<number, number>> {
+  const runs = [];
+  for (const run of source.matchAll(/`+/gu)) {
+    runs.push(run);
+    if (runs.length % 128 === 0) yield;
+  }
   const nextByLength = new Map<number, number>();
   const result = new Map<number, number>();
   for (let index = runs.length - 1; index >= 0; index -= 1) {
+    if (index % 128 === 0) yield;
     const run = runs[index]!;
     const effectiveLength = run[0].length - (isEscaped(source, run.index) ? 1 : 0);
     const end = nextByLength.get(effectiveLength);
@@ -838,12 +875,13 @@ function indexInlineCodeClosers(source: string): ReadonlyMap<number, number> {
   return result;
 }
 
-function indexOpaqueClosers(source: string): ReadonlyMap<string, readonly MaskedRange[]> {
+function* indexOpaqueClosers(source: string): Generator<void, ReadonlyMap<string, readonly MaskedRange[]>> {
   const result = new Map<string, MaskedRange[]>();
   for (const match of source.matchAll(/-->|%%|<\/(pre|script|style|textarea)\s*>/giu)) {
     const key = match[1]?.toLowerCase() ?? match[0];
     const ranges = result.get(key) ?? [];
     ranges.push({ start: match.index, end: match.index + match[0].length });
+    if (ranges.length % 128 === 0) yield;
     result.set(key, ranges);
   }
   return result;
@@ -961,15 +999,16 @@ function htmlTagEnd(
   return source.length;
 }
 
-function maskYamlCommentRanges(
+function* maskYamlCommentRanges(
   characters: string[],
   source: string,
   start: number,
   end: number,
-): void {
+): Generator<void, void> {
   let quote: "'" | '"' | null = null;
   let escaped = false;
   for (let index = start; index < end; index += 1) {
+    if (index % 1024 === 0) yield;
     const character = source[index];
     if (character === "\n" || character === "\r") {
       quote = null;
@@ -995,7 +1034,10 @@ function maskYamlCommentRanges(
     ) {
       const newline = source.indexOf("\n", index);
       const commentEnd = Math.min(newline < 0 ? end : newline, end);
-      maskRange(characters, index, commentEnd);
+      for (let offset = index; offset < commentEnd; offset += 4096) {
+        if (offset > index) yield;
+        maskRange(characters, offset, Math.min(offset + 4096, commentEnd));
+      }
       index = commentEnd - 1;
     }
   }
@@ -1003,8 +1045,14 @@ function maskYamlCommentRanges(
 
 export function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
   if (!/^[^\S\r\n]*---[^\S\r\n]*(?:[\r\n]|$)/u.test(source)) return null;
-  const lines = sourceLineRanges(source);
-  for (const line of lines.slice(1)) {
+  return finishSteps(frontmatterFromLines(source, sourceLineRanges(source)));
+}
+
+function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Generator<void, MaskedRange | null> {
+  if (!/^[^\S\r\n]*---[^\S\r\n]*(?:[\r\n]|$)/u.test(source)) return null;
+  for (let i = 1; i < lines.length; i += 1) {
+    if (i % 128 === 0) yield;
+    const line = lines[i]!;
     const text = source.slice(line.start, line.contentEnd).trim();
     if (text === "---" || text === "...") {
       return { start: 0, end: line.end };
@@ -1019,13 +1067,25 @@ interface SourceLineRange {
   readonly end: number;
 }
 
+function finishSteps<T>(steps: Generator<void, T>): T {
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
 export function sourceLineRanges(source: string): SourceLineRange[] {
+  return finishSteps(scanSourceLines(source));
+}
+
+function* scanSourceLines(source: string): Generator<void, SourceLineRange[]> {
   const ranges: SourceLineRange[] = [];
   let start = 0;
   while (start < source.length) {
+    if (ranges.length % 128 === 0) yield;
     let contentEnd = start;
     while (contentEnd < source.length && source[contentEnd] !== "\n" && source[contentEnd] !== "\r") {
       contentEnd += 1;
+      if (contentEnd % 4096 === 0) yield;
     }
     let end = contentEnd;
     if (source[end] === "\r" && source[end + 1] === "\n") end += 2;
