@@ -7,6 +7,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Preserve Canvas background image paths beginning with a literal `#` so existing images contribute connections and missing images are reported as broken links instead of high-confidence isolated results.
+
 ## [0.5.4] - 2026-11-09
 
 - When following Obsidian’s language, honor explicit Simplified or Traditional Chinese scripts before region and ignore locale extensions.
