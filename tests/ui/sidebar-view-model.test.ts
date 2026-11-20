@@ -117,6 +117,31 @@ describe("sidebar view model", () => {
     expect(sourceModel.broken.sourceFileCount).toBe(2);
   });
 
+  it("reads each source path a bounded number of times when sorting distinct folders", () => {
+    const base = snapshot();
+    const size = 257;
+    let reads = 0;
+    const brokenLinks = Array.from({ length: size }, (_, index) => {
+      const folder = ((index * 73) % size).toString().padStart(3, "0");
+      return {
+        ...base.brokenLinks[0]!,
+        id: folder,
+        get sourcePath() {
+          reads += 1;
+          return `Folder-${folder}/Note.md`;
+        },
+      };
+    });
+    const model = createSidebarViewModel({ ...base, brokenLinks }, {
+      ...state(), brokenGrouping: "source-folder", brokenSort: "count",
+    });
+    expect(model.broken.sourceFolderCount).toBe(size);
+    expect(model.broken.items.map(({ id }) => id)).toEqual(
+      Array.from({ length: SIDEBAR_RESULT_BATCH_SIZE }, (_, index) => index.toString().padStart(3, "0")),
+    );
+    expect(reads).toBeLessThanOrEqual(8 * size);
+  });
+
   it("filters ambiguous media by every matching family rather than only its primary", () => {
     const base = snapshot();
     const webm = {

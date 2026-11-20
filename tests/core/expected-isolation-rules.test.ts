@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   compileDateFormat,
@@ -6,12 +6,15 @@ import {
   createPeriodicExpectedIsolatedRule,
   createPeriodicExpectedIsolationRules,
   getExpectedRuleStats,
+  matchExpectedIsolationRules,
   matchesExpectedIsolationRule,
   normalizeExpectedIsolationRules,
   validateExpectedIsolationRule,
   type ExpectedIsolationRule,
 } from "../../src/core/expected-isolation-rules";
-import { createFileRecord } from "../../src/core/model";
+import * as model from "../../src/core/model";
+
+const { createFileRecord } = model;
 
 describe("expected-isolated rules", () => {
   it("combines file type, folder, and a pattern OR group with AND semantics", () => {
@@ -32,6 +35,30 @@ describe("expected-isolated rules", () => {
     expect(matchesExpectedIsolationRule(createFileRecord("Journal/Special-index.md"), rule)).toBe(true);
     expect(matchesExpectedIsolationRule(createFileRecord("Elsewhere/2026-08-02.md"), rule)).toBe(false);
     expect(matchesExpectedIsolationRule(createFileRecord("Journal/2026-08-02.png"), rule)).toBe(false);
+  });
+
+  it("normalizes file and rule folders once across a rule projection", () => {
+    const rule = (id: string, path: string, mode: "exact" | "recursive"): ExpectedIsolationRule => ({
+      id, name: id, enabled: true, fileTypeFamilyIds: [], fileTypeCategoryIds: [],
+      fileExtensions: [], folder: { path, mode }, namingPatterns: [],
+    });
+    const rules = [
+      rule("root", "", "exact"),
+      rule("journal", " /Journal/ ", "exact"),
+      rule("nested", "Journal", "recursive"),
+      rule("daily", "Journal\\Daily", "exact"),
+    ];
+    const files = ["Note.md", "Journal/A.md", "Journal/Daily/B.md", "Journalism/C.md"]
+      .map((path) => createFileRecord(path));
+    const normalize = vi.spyOn(model, "normalizeVaultPath");
+    try {
+      expect(files.map((file) => matchExpectedIsolationRules(file, rules).matchedRuleIds)).toEqual([
+        ["root"], ["journal", "nested"], ["nested", "daily"], [],
+      ]);
+      expect(normalize.mock.calls.length).toBeLessThanOrEqual(files.length + rules.length);
+    } finally {
+      normalize.mockRestore();
+    }
   });
 
   it("validates periodic date ranges and provides all independent presets", () => {

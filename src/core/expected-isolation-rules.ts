@@ -90,6 +90,8 @@ export const PERIODIC_NOTE_PRESETS: Readonly<Record<PeriodicNoteKind, {
 };
 
 const compiledPatternCache = new WeakMap<ExpectedNamingPattern, PatternMatcher>();
+const conditionFolderCache = new WeakMap<ExpectedFolderCondition, string>();
+const fileParentCache = new WeakMap<FileRecord, string>();
 const validationCache = new WeakMap<ExpectedIsolationRule, readonly string[]>();
 
 export function createDefaultPeriodicNotesPreset(): PeriodicNotesPreset {
@@ -209,7 +211,7 @@ export function matchesExpectedIsolationRule(
 ): boolean {
   if (!rule.enabled || validateExpectedIsolationRule(rule).length > 0) return false;
   if (!matchesFileType(file, rule)) return false;
-  if (rule.folder !== null && !matchesFolder(file.path, rule.folder)) return false;
+  if (rule.folder !== null && !matchesFolder(file, rule.folder)) return false;
   if (rule.namingPatterns.length === 0) return true;
   return rule.namingPatterns.some((pattern) => matchesPattern(file, pattern));
 }
@@ -247,7 +249,7 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   if (!hasExpectedRuleCondition(rule)) errors.push("Rule needs a condition.");
   if (rule.folder !== null) {
     try {
-      normalizeFolderPath(rule.folder.path);
+      getConditionFolder(rule.folder);
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
@@ -444,9 +446,23 @@ function matchesFileType(file: FileRecord, rule: ExpectedIsolationRule): boolean
     rule.fileExtensions.includes(extension);
 }
 
-function matchesFolder(path: string, condition: ExpectedFolderCondition): boolean {
+function getConditionFolder(condition: ExpectedFolderCondition): string {
+  const cached = conditionFolderCache.get(condition);
+  if (cached !== undefined) return cached;
   const folder = normalizeFolderPath(condition.path);
-  const parent = parentFolder(normalizeVaultPath(path));
+  conditionFolderCache.set(condition, folder);
+  return folder;
+}
+
+function matchesFolder(file: FileRecord, condition: ExpectedFolderCondition): boolean {
+  const folder = getConditionFolder(condition);
+  let parent = fileParentCache.get(file);
+  if (parent === undefined) {
+    const path = normalizeVaultPath(file.path);
+    const slash = path.lastIndexOf("/");
+    parent = slash < 0 ? "" : path.slice(0, slash);
+    fileParentCache.set(file, parent);
+  }
   if (condition.mode === "exact") return parent === folder;
   return folder.length === 0 || parent === folder || parent.startsWith(`${folder}/`);
 }
@@ -497,10 +513,6 @@ function basenameWithoutExtension(file: FileRecord): string {
   return extension.length > 0 && basename.toLocaleLowerCase("en-US").endsWith(`.${extension}`)
     ? basename.slice(0, -(extension.length + 1))
     : basename;
-}
-
-function parentFolder(path: string): string {
-  return path.split("/").slice(0, -1).join("/");
 }
 
 function normalizeFolderPath(path: string): string {

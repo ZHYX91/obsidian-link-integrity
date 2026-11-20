@@ -144,7 +144,7 @@ async function prepareCounts(
   const files = new Map<string, number>();
   const directFolders = new Set<string>();
   for (const item of broken) {
-    const folder = sourceFolderPath(item.sourcePath);
+    const folder = sourceFolderPath(item);
     const group = state.brokenGrouping === "target" ? targetGroupKey(item)
       : state.brokenGrouping === "source" ? item.sourcePath : folder;
     groups.set(group, (groups.get(group) ?? 0) + 1);
@@ -381,8 +381,7 @@ export function createSidebarViewModel(
         ? prepared?.counts?.files.size ?? new Set(visibleBrokenItems.map(({ sourcePath }) => sourcePath)).size
         : 0,
       sourceFolderCount: state.brokenGrouping === "source-folder"
-        ? prepared?.counts?.directFolderCount ?? new Set(visibleBrokenItems.map(({ sourcePath }) =>
-          sourceFolderPath(sourcePath))).size
+        ? prepared?.counts?.directFolderCount ?? new Set(visibleBrokenItems.map(sourceFolderPath)).size
         : 0,
       visibleCount: visibleBrokenItems.length,
       renderedCount: brokenItems.length,
@@ -451,7 +450,7 @@ export function groupBrokenLinks(
       ? targetGroupKey(item)
       : grouping === "source"
         ? item.sourcePath
-        : sourceFolderPath(item.sourcePath);
+        : sourceFolderPath(item);
     totalCounts.set(key, (totalCounts.get(key) ?? 0) + 1);
   }
   const groups = new Map<string, BrokenLinkResult[]>();
@@ -460,7 +459,7 @@ export function groupBrokenLinks(
       ? targetGroupKey(item)
       : grouping === "source"
         ? item.sourcePath
-        : sourceFolderPath(item.sourcePath);
+        : sourceFolderPath(item);
     const group = groups.get(key);
     if (group === undefined) groups.set(key, [item]);
     else group.push(item);
@@ -491,7 +490,7 @@ export function buildBrokenFolderTree(
   const fileCounts = new Map<string, number>();
   for (const item of preparedCounts === undefined ? allVisibleItems : []) {
     fileCounts.set(item.sourcePath, (fileCounts.get(item.sourcePath) ?? 0) + 1);
-    const segments = sourceFolderPath(item.sourcePath).split("/").filter(Boolean);
+    const segments = sourceFolderPath(item).split("/").filter(Boolean);
     folderCounts.set("", (folderCounts.get("") ?? 0) + 1);
     let folderPath = "";
     for (const segment of segments) {
@@ -556,7 +555,7 @@ function brokenComparator(
     ? targetGroupKey(item)
     : grouping === "source"
       ? item.sourcePath
-      : sourceFolderPath(item.sourcePath);
+      : sourceFolderPath(item);
   const groupCounts = new Map<string, number>();
   if (sort === "count" && preparedCounts === undefined) {
     for (const item of items) {
@@ -601,8 +600,16 @@ function targetGroupKey(item: BrokenLinkResult): string {
   return item.targetText;
 }
 
-function sourceFolderPath(path: string): string {
-  return path.split("/").slice(0, -1).join("/");
+const sourceFolders = new WeakMap<BrokenLinkResult, string>();
+
+function sourceFolderPath(item: BrokenLinkResult): string {
+  const cached = sourceFolders.get(item);
+  if (cached !== undefined) return cached;
+  const path = item.sourcePath;
+  const slash = path.lastIndexOf("/");
+  const folder = slash < 0 ? "" : path.slice(0, slash);
+  sourceFolders.set(item, folder);
+  return folder;
 }
 
 function brokenMatches(item: BrokenLinkResult, search: string): boolean {
