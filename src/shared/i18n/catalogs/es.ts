@@ -91,10 +91,16 @@ export const ES_MESSAGES = localizedCatalog({
   "sidebar.isolated.empty.description": "No se encontraron archivos aislados en el ámbito de comprobación actual.",
   "sidebar.isolated.view.list": "Vista de lista",
   "sidebar.isolated.view.tree": "Árbol de carpetas",
-  "sidebar.isolated.lowConfidence": "Aislado · contiene {count} enlaces rotos",
+  "sidebar.isolated.lowConfidence": {
+    one: "Aislado · contiene {count} enlace roto",
+    other: "Aislado · contiene {count} enlaces rotos",
+  },
   "sidebar.isolated.highConfidence": "Aislado",
   "sidebar.isolated.expected": "Aislamiento esperado",
-  "sidebar.isolated.expectedWithBroken": "Aislamiento esperado · contiene {count} enlaces rotos",
+  "sidebar.isolated.expectedWithBroken": {
+    one: "Aislamiento esperado · contiene {count} enlace roto",
+    other: "Aislamiento esperado · contiene {count} enlaces rotos",
+  },
   "sidebar.isolated.expectedCount": { one: "{count} archivo con aislamiento esperado", other: "{count} archivos con aislamiento esperado" },
   "sidebar.isolated.showExpected": "Mostrar archivos con aislamiento esperado",
   "sidebar.isolated.noIncoming": "Archivos sin enlaces entrantes",

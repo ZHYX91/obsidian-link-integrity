@@ -91,10 +91,16 @@ export const FR_MESSAGES = localizedCatalog({
   "sidebar.isolated.empty.description": "Aucun fichier isolé n’a été trouvé dans le périmètre de vérification actuel.",
   "sidebar.isolated.view.list": "Vue en liste",
   "sidebar.isolated.view.tree": "Arborescence des dossiers",
-  "sidebar.isolated.lowConfidence": "Isolé · contient {count} liens rompus",
+  "sidebar.isolated.lowConfidence": {
+    one: "Isolé · contient {count} lien rompu",
+    other: "Isolé · contient {count} liens rompus",
+  },
   "sidebar.isolated.highConfidence": "Isolé",
   "sidebar.isolated.expected": "Isolation attendue",
-  "sidebar.isolated.expectedWithBroken": "Isolation attendue · contient {count} liens rompus",
+  "sidebar.isolated.expectedWithBroken": {
+    one: "Isolation attendue · contient {count} lien rompu",
+    other: "Isolation attendue · contient {count} liens rompus",
+  },
   "sidebar.isolated.expectedCount": { one: "{count} fichier à isolation attendue", other: "{count} fichiers à isolation attendue" },
   "sidebar.isolated.showExpected": "Afficher les fichiers à isolation attendue",
   "sidebar.isolated.noIncoming": "Fichiers sans liens entrants",

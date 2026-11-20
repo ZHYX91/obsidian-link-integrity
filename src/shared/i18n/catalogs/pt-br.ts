@@ -91,10 +91,16 @@ export const PT_BR_MESSAGES = localizedCatalog({
   "sidebar.isolated.empty.description": "Nenhum arquivo isolado foi encontrado no escopo de verificação atual.",
   "sidebar.isolated.view.list": "Visualização em lista",
   "sidebar.isolated.view.tree": "Árvore de pastas",
-  "sidebar.isolated.lowConfidence": "Isolado · contém {count} links quebrados",
+  "sidebar.isolated.lowConfidence": {
+    one: "Isolado · contém {count} link quebrado",
+    other: "Isolado · contém {count} links quebrados",
+  },
   "sidebar.isolated.highConfidence": "Isolado",
   "sidebar.isolated.expected": "Isolamento esperado",
-  "sidebar.isolated.expectedWithBroken": "Isolamento esperado · contém {count} links quebrados",
+  "sidebar.isolated.expectedWithBroken": {
+    one: "Isolamento esperado · contém {count} link quebrado",
+    other: "Isolamento esperado · contém {count} links quebrados",
+  },
   "sidebar.isolated.expectedCount": { one: "{count} arquivo com isolamento esperado", other: "{count} arquivos com isolamento esperado" },
   "sidebar.isolated.showExpected": "Mostrar arquivos com isolamento esperado",
   "sidebar.isolated.noIncoming": "Arquivos sem links de entrada",

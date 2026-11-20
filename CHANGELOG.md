@@ -13,6 +13,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Preserve Canvas background image paths beginning with a literal `#` so existing images contribute connections and missing images are reported as broken links instead of high-confidence isolated results.
 - Keep index status and retry controls visible while allowing detailed counts to be expanded for the current settings session.
 - Show localized validation messages and file counts in expected-isolation rule previews. Editing a rule or closing the settings discards outdated preview results.
+- Use the correct broken-link count wording on both regular and expected isolated files in the sidebar.
 - Reduce repeated work when scanning long notes, grouping isolated files and previewing broad ignore rules. Disabled in-note hints remain idle in the editor and reading view.
 
 ## [0.5.4] - 2026-11-09

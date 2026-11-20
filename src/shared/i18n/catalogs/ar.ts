@@ -147,10 +147,10 @@ export const AR_MESSAGES = {
   "sidebar.isolated.empty.description": "لا توجد ملفات منعزلة ضمن نطاق الفحص الحالي.",
   "sidebar.isolated.view.list": "عرض قائمة",
   "sidebar.isolated.view.tree": "شجرة المجلدات",
-  "sidebar.isolated.lowConfidence": "منعزل · يحتوي على {count} روابط معطّلة",
+  "sidebar.isolated.lowConfidence": "منعزل · عدد الروابط المعطّلة: {count}",
   "sidebar.isolated.highConfidence": "منعزل",
   "sidebar.isolated.expected": "منعزل كما هو متوقع",
-  "sidebar.isolated.expectedWithBroken": "منعزل كما هو متوقع · يحتوي على {count} روابط معطّلة",
+  "sidebar.isolated.expectedWithBroken": "منعزل كما هو متوقع · عدد الروابط المعطّلة: {count}",
   "sidebar.isolated.expectedCount": {
     zero: "لا توجد ملفات منعزلة متوقعة",
     one: "{count} ملف منعزل متوقع",

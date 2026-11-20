@@ -91,10 +91,16 @@ export const DE_MESSAGES = localizedCatalog({
   "sidebar.isolated.empty.description": "Im aktuellen Prüfbereich wurden keine isolierten Dateien gefunden.",
   "sidebar.isolated.view.list": "Listenansicht",
   "sidebar.isolated.view.tree": "Ordnerbaum",
-  "sidebar.isolated.lowConfidence": "Isoliert · enthält {count} defekte Links",
+  "sidebar.isolated.lowConfidence": {
+    one: "Isoliert · enthält {count} defekten Link",
+    other: "Isoliert · enthält {count} defekte Links",
+  },
   "sidebar.isolated.highConfidence": "Isoliert",
   "sidebar.isolated.expected": "Erwartet isoliert",
-  "sidebar.isolated.expectedWithBroken": "Erwartet isoliert · enthält {count} defekte Links",
+  "sidebar.isolated.expectedWithBroken": {
+    one: "Erwartet isoliert · enthält {count} defekten Link",
+    other: "Erwartet isoliert · enthält {count} defekte Links",
+  },
   "sidebar.isolated.expectedCount": { one: "{count} erwartet isolierte Datei", other: "{count} erwartet isolierte Dateien" },
   "sidebar.isolated.showExpected": "Erwartet isolierte Dateien anzeigen",
   "sidebar.isolated.noIncoming": "Dateien ohne eingehende Links",

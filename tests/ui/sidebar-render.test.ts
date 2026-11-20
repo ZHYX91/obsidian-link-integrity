@@ -269,6 +269,26 @@ describe("sidebar renderer", () => {
     expect(container.textContent).toContain("1 expected isolated file");
   });
 
+  it.each([
+    [0, ""],
+    [1, " · contains 1 broken link"],
+    [2, " · contains 2 broken links"],
+  ] as const)("renders both isolation badges with %i broken outgoing links", (count, suffix) => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = { ...viewState(), activeTab: "isolated-files" as const, showExpectedIsolated: true };
+    const snapshot = querySnapshot();
+    const isolatedFiles = snapshot.isolatedFiles.map(file => ({ ...file, brokenOutgoingCount: count }));
+    renderSidebar(container, {
+      model: createSidebarViewModel({ ...snapshot, isolatedFiles }, state),
+      state, translator, navigation: navigation(),
+      fileTypeCategories: createFileTypeCategoryOptions(translator),
+      defaultFormatFamilyIds: new Set(["markdown"]), allowNoIncomingFilter: true, onStateChange: vi.fn(),
+    });
+    const badges = Array.from(container.querySelectorAll(".link-integrity-confidence"), el => el.textContent);
+    expect(badges.sort()).toEqual([`Expected isolated${suffix}`, `Isolated${suffix}`]);
+  });
+
   it("reports the selected no-incoming projection total instead of the isolated-tab badge", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");

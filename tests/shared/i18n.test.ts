@@ -72,6 +72,21 @@ describe("i18n", () => {
     expect(resolveTextDirection("en", "ar-SA")).toBe("ltr");
   });
 
+  it.each([
+    ["de", "enthält 1 defekten Link", "enthält 2 defekte Links"],
+    ["es", "contiene 1 enlace roto", "contiene 2 enlaces rotos"],
+    ["fr", "contient 1 lien rompu", "contient 2 liens rompus"],
+    ["pt-BR", "contém 1 link quebrado", "contém 2 links quebrados"],
+    ["ar", "عدد الروابط المعطّلة: 1", "عدد الروابط المعطّلة: 2"],
+    ["ru", "неработающих ссылок: 1", "неработающих ссылок: 2"],
+  ] as const)("localizes counts in both isolated-file badges in %s", (locale, one, two) => {
+    const { t } = createTranslator(locale, "en");
+    for (const key of ["sidebar.isolated.lowConfidence", "sidebar.isolated.expectedWithBroken"] as const) {
+      expect(t(key, { count: 1 })).toContain(one);
+      expect(t(key, { count: 2 })).toContain(two);
+    }
+  });
+
   it("uses Arabic plural rules for 0, 1, 2, 3 and 11", () => {
     const t = createTranslator("ar", "en").t;
     expect(t("sidebar.broken.occurrences", { count: 0 })).toContain("لا توجد");

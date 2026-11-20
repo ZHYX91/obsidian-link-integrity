@@ -126,10 +126,16 @@ export const EN_MESSAGES = {
   "sidebar.isolated.empty.description": "No isolated files were found in the current check scope.",
   "sidebar.isolated.view.list": "List view",
   "sidebar.isolated.view.tree": "Folder tree",
-  "sidebar.isolated.lowConfidence": "Isolated · contains {count} broken links",
+  "sidebar.isolated.lowConfidence": {
+    one: "Isolated · contains {count} broken link",
+    other: "Isolated · contains {count} broken links",
+  },
   "sidebar.isolated.highConfidence": "Isolated",
   "sidebar.isolated.expected": "Expected isolated",
-  "sidebar.isolated.expectedWithBroken": "Expected isolated · contains {count} broken links",
+  "sidebar.isolated.expectedWithBroken": {
+    one: "Expected isolated · contains {count} broken link",
+    other: "Expected isolated · contains {count} broken links",
+  },
   "sidebar.isolated.expectedCount": {
     one: "{count} expected isolated file",
     other: "{count} expected isolated files",
