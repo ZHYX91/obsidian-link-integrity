@@ -1,4 +1,6 @@
-import { MarkdownView, type Editor, type MarkdownFileInfo, type MarkdownPostProcessorContext, type Plugin } from "obsidian";
+import { EditorState, type Extension } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { editorInfoField, MarkdownView, type MarkdownRenderChild, type Editor, type MarkdownFileInfo, type MarkdownPostProcessorContext, type Plugin } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import { BodyLinkRuntime } from "../../src/app/body-link-runtime";
 import { bodySetup } from "../helpers/body-links";
@@ -17,6 +19,50 @@ describe("body runtime composition", () => {
     const editor = { getValue: () => test.text } as Editor;
     const promise = runtime.current(editor, { file: test.files.get(test.path) } as MarkdownFileInfo); runtime.close(); release(); await promise;
     expect(document.querySelector("dialog")).toBeNull(); expect(test.app.vault.cachedRead).not.toHaveBeenCalled();
+  });
+  it("keeps disabled hints idle across Vault events and clears active views once on disable", () => {
+    const test = bodySetup();
+    const ensure = vi.fn(async () => {});
+    const runtime = new BodyLinkRuntime(test.app, () => test.index, ensure, () => test.settings, () => true, vi.fn());
+    let extension!: Extension;
+    let reading!: (element: HTMLElement, context: MarkdownPostProcessorContext) => void;
+    runtime.register({
+      addCommand: vi.fn(),
+      registerEditorExtension: (value: Extension) => { extension = value; },
+      registerMarkdownPostProcessor: (value: typeof reading) => { reading = value; },
+    } as unknown as Plugin);
+    const view = new EditorView({ parent: document.createElement("div"), state: EditorState.create({
+      doc: test.text, extensions: [editorInfoField.init(() => ({ app: test.app, hoverPopover: null, file: test.files.get(test.path)! })), extension],
+    }) });
+    const element = document.createElement("p");
+    const remove = vi.spyOn(element, "removeEventListener");
+    const dispatch = vi.spyOn(view, "dispatch");
+    reading(element, {
+      sourcePath: test.path, getSectionInfo: () => ({ text: test.text, lineStart: 0, lineEnd: 0 }),
+      addChild: (child: MarkdownRenderChild) => child.onload(),
+    } as unknown as MarkdownPostProcessorContext);
+    const sendChanges = () => {
+      for (let index = 0; index < 100; index++) runtime.sourceChanged(`other-${index}.md`, true);
+    };
+    try {
+      sendChanges();
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(remove).not.toHaveBeenCalled();
+      Object.assign(test.settings.brokenLinks, { bodyHints: true });
+      runtime.invalidate();
+      expect(dispatch).toHaveBeenCalledOnce();
+      Object.assign(test.settings.brokenLinks, { bodyHints: false });
+      runtime.invalidate();
+      expect(dispatch).toHaveBeenCalledTimes(2);
+      expect(remove).toHaveBeenCalledTimes(5);
+      sendChanges();
+      expect(dispatch).toHaveBeenCalledTimes(2);
+      expect(remove).toHaveBeenCalledTimes(5);
+      expect(ensure).not.toHaveBeenCalled();
+    } finally {
+      view.destroy();
+      runtime.close();
+    }
   });
   it("lists proven diagnostics while Off and navigates without changing source text", async () => {
     const test = bodySetup(); const runtime = new BodyLinkRuntime(test.app, () => test.index, async () => {}, () => test.settings, () => true, vi.fn());
