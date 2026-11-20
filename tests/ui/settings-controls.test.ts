@@ -14,6 +14,7 @@ const controls = vi.hoisted(() => [] as Array<{
 
 vi.mock("obsidian", () => {
   class Control {
+    readonly selectEl = document.createElement("select");
     disabled = false;
     value: unknown;
     change: (value: never) => void = () => undefined;

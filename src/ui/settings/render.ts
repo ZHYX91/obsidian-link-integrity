@@ -92,6 +92,7 @@ export function renderImperativeSettings(
   for (const section of activePage.sections) {
     const sectionElement = panel.ownerDocument.createElement("section");
     sectionElement.className = "link-integrity-settings-section";
+    panel.append(sectionElement);
     if (section.heading !== undefined) {
       const heading = panel.ownerDocument.createElement("h3");
       heading.textContent = section.heading;
@@ -101,7 +102,6 @@ export function renderImperativeSettings(
       const cleanup = renderItem(sectionElement, item, context);
       if (cleanup !== undefined) cleanups.push(cleanup);
     }
-    panel.append(sectionElement);
   }
 
   const activeButton = buttons[activeIndex];
@@ -141,8 +141,12 @@ function renderItem(
   }
   setting.addDropdown((dropdown) => {
     for (const option of item.options) dropdown.addOption(option.value, option.label);
+    const value = String(getSettingValue(context.settings, item.key));
+    // Obsidian measures the selected label in setValue. A hidden or detached
+    // panel has no layout yet, so keep the native select's intrinsic width.
+    if (dropdown.selectEl.getClientRects().length) dropdown.setValue(value);
+    else dropdown.selectEl.value = value;
     dropdown
-      .setValue(String(getSettingValue(context.settings, item.key)))
       .setDisabled(context.writeProtected)
       .onChange((value) => commitControl(context, item.key, value));
   });

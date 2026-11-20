@@ -85,6 +85,8 @@ interface LayoutMeasurements {
     readonly secondary: SidebarFocusMeasurements;
   };
   readonly summaryDisplay: string;
+  readonly dropdownLayout: Record<"first" | "redrawn" | "migrated",
+    readonly { value: string; width: number; labelWidth: number }[]>;
   readonly surfaces: {
     readonly resultBackground: string;
     readonly resultShadow: string;
@@ -176,6 +178,15 @@ describe("Obsidian host CSS layout contract", () => {
     );
     expect(measurements.settingsTabs.minHeight).toBeGreaterThanOrEqual(34);
   });
+
+  it.each(["first", "redrawn", "migrated"] as const)(
+    "shows both selected dropdown labels in the %s settings panel",
+    (state) => {
+      const controls = measurements.dropdownLayout[state];
+      expect(controls.map(({ value }) => value)).toEqual(["auto", "isolated-files"]);
+      for (const control of controls) expect(control.width + 1).toBeGreaterThanOrEqual(control.labelWidth);
+    },
+  );
 
   it("contains narrow sidebar and rule editor content", () => {
     expect(measurements.narrow.scrollWidth).toBeLessThanOrEqual(
@@ -282,6 +293,7 @@ async function findChromeExecutable(): Promise<string | null> {
 
 async function buildSidebarFocusProbe(): Promise<string> {
   const result = await build({
+    alias: { obsidian: path.join(PROJECT_ROOT, "tests/mocks/layout-setting.ts") },
     bundle: true,
     format: "iife",
     logLevel: "silent",
@@ -290,6 +302,8 @@ async function buildSidebarFocusProbe(): Promise<string> {
 import { mountSidebar } from "./src/ui/sidebar/mount";
 import { createSidebarViewModel } from "./src/ui/sidebar/view-model";
 import { createTranslator } from "./src/shared/i18n";
+import { createDefaultSettings } from "./src/shared/settings";
+import { renderImperativeSettings } from "./src/ui/settings/render";
 const state = {
   activeTab: "broken-links", search: "", brokenView: "list", brokenGrouping: "target",
   brokenSort: "count", isolatedView: "list", isolatedSort: "path", isolatedMode: "isolated",
@@ -340,6 +354,43 @@ const main = measureFocus(document);
 const iframe = document.createElement("iframe");
 document.body.append(iframe);
 const secondary = measureFocus(iframe.contentDocument);
+const dropdownCss = \`
+  .setting-item-control select.dropdown { appearance:none; box-sizing:border-box;
+    padding-inline:10px 32px; width:var(--dropdown-fitted-width, auto); }
+  .setting-item-control select.is-measuring { position:absolute; visibility:hidden; width:max-content; }
+\`;
+for (const doc of [document, iframe.contentDocument]) {
+  const style = doc.createElement("style"); style.textContent = dropdownCss; doc.head.append(style);
+}
+const surface = document.createElement("div"); document.body.append(surface);
+const settings = createDefaultSettings();
+settings.general.defaultSidebarTab = "isolated-files";
+const context = { settings, translator: createTranslator("zh-CN", "zh-CN"),
+  writeProtected: false, createId: kind => kind, onSettingsChange() {} };
+function render(activeTab = "general") {
+  return renderImperativeSettings(surface, context, { activeTab, onSelectTab() {} });
+}
+function widths() {
+  return Array.from(surface.querySelectorAll("select.dropdown:not(.is-measuring)"), select => {
+    const label = select.nextElementSibling;
+    label.replaceChildren(select.selectedOptions[0].cloneNode(true));
+    return {value:select.value, width:select.getBoundingClientRect().width, labelWidth:label.offsetWidth};
+  });
+}
+let close = render();
+window.dropdownLayout = { first: widths() };
+close();
+render("broken-links")();
+close = render();
+window.dropdownLayout.redrawn = widths();
+close();
+surface.hidden = true;
+close = render();
+iframe.contentDocument.body.append(surface);
+surface.hidden = false;
+window.dropdownLayout.migrated = widths();
+close();
+surface.remove();
 iframe.remove();
 window.sidebarFocus = { main, secondary };
 `,
@@ -587,6 +638,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const dialogPanel = document.getElementById("dialog-panel").getBoundingClientRect();
   const dialogActions = document.getElementById("dialog-actions").getBoundingClientRect();
   const measurements = {
+    dropdownLayout: window.dropdownLayout,
     bodyHints: {
       marked: Array.from(document.querySelectorAll("#body-hint-fixture .link-integrity-broken-body-hint"), decoration),
       native: controlDecoration("unmarked-native"), virtual: controlDecoration("unmarked-virtual"),
