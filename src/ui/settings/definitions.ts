@@ -112,7 +112,7 @@ export function getSettingsPageDefinitions(
           ],
         },
         {
-          heading: t("settings.broken.defaultView"),
+          heading: t("settings.resultsDisplay"),
           items: [
             dropdown("brokenLinks.defaultView", t("settings.broken.defaultView"), undefined,
               viewOptions),
@@ -145,7 +145,7 @@ export function getSettingsPageDefinitions(
           )],
         },
         {
-          heading: t("settings.isolated.defaultView"),
+          heading: t("settings.resultsDisplay"),
           items: [
             dropdown("isolatedFiles.defaultView", t("settings.isolated.defaultView"), undefined, [
               { value: "list", label: t("sidebar.isolated.view.list") },
@@ -175,8 +175,7 @@ export function getSettingsPageDefinitions(
           items: [
             custom(
               "expected-isolation-rules",
-              t("settings.expected.title"),
-              t("settings.expected.description"),
+              t("settings.expected.filesAndRules"),
             ),
             custom(
               "periodic-notes-preset",

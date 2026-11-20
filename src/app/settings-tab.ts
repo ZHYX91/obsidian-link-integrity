@@ -23,6 +23,7 @@ import type LinkIntegrityPlugin from "./plugin";
 
 export class LinkIntegritySettingTab extends PluginSettingTab {
   private activeTab: SettingsTabId = "general";
+  private indexDetailsExpanded = false;
   private cleanup: (() => void) | null = null;
   private imperativeVisible = false;
   private surfaceActive = false;
@@ -56,6 +57,7 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
     this.expectedPreviewRequests.invalidate();
     this.cleanup?.();
     this.cleanup = null;
+    this.indexDetailsExpanded = false;
     this.ignoreRuleDrafts.clear();
   }
 
@@ -86,6 +88,8 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       subscribeIndexDiagnostics: (listener) =>
         this.owner.subscribeToIndexDiagnostics(listener),
       rebuildIndex: () => this.owner.rebuild(),
+      indexDetailsExpanded: this.indexDetailsExpanded,
+      rememberIndexDetails: (open) => { this.indexDetailsExpanded = open; },
       fileExists: (path) => this.owner.hasVaultFile(path),
       openFile: (path) => this.owner.openVaultFile(path),
       onError: (error) => this.owner.reportSettingsError(error),

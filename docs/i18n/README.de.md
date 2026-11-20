@@ -46,7 +46,7 @@ Bei manueller Installation kommen `main.js`, `manifest.json` und `styles.css` na
 1. Link Integrity unter **Einstellungen → Community-Erweiterungen** aktivieren.
 2. Link Integrity über das Menüband oder die Befehlspalette öffnen. Die Seitenleiste enthält **Defekte Links** und **Isolierte Dateien**.
 3. Einen Eintrag auswählen, um seine Quelle zu öffnen. Filter für isolierte Dateien ändern nur die aktuelle Ansicht und nicht die gespeicherten Standardwerte.
-4. Der Startscan ist standardmäßig aus. Beim Öffnen der Seitenleiste wird der Index bei Bedarf erstellt; alternativ stehen **Index erstellen** und **Index neu erstellen** in den allgemeinen Einstellungen bereit. Nach dem ersten erfolgreichen Aufbau werden Änderungen im Vault automatisch übernommen.
+4. Der Startscan ist standardmäßig aus. Beim Öffnen der Seitenleiste wird der Index bei Bedarf erstellt; alternativ stehen **Index erstellen** und **Index neu aufbauen** in den allgemeinen Einstellungen bereit. Nach dem ersten erfolgreichen Aufbau werden Änderungen im Vault automatisch übernommen.
 
 Aktivieren Sie **Defekte Links im Notiztext markieren** unter **Defekte Links**, um Hinweise beim Lesen und Bearbeiten zu sehen. Die Option ist standardmäßig aus und ändert nicht, wie sich Links öffnen. Mit **Defekte Links in der aktuellen Notiz prüfen** in der Befehlspalette sehen Sie die Gründe und gelangen zur Quelle. Noch nicht aktualisierte oder nicht präzise lokalisierbare Links bleiben unmarkiert; prüfen Sie diese in der Seitenleiste.
 

@@ -31,6 +31,14 @@ describe("settings definitions", () => {
       items.some((item) => item.kind === "custom" && item.id === "isolated-ignore-rules"),
     )?.heading).toBeUndefined();
 
+    for (const page of pages) {
+      for (const section of page.sections) {
+        if (section.heading !== undefined) {
+          expect(section.items[0]?.name).not.toBe(section.heading);
+        }
+      }
+    }
+
     const declarativePages = getDeclarativeSettingDefinitions(settingsContext());
     const declarativeGeneral = declarativePages[0];
     expect(declarativeGeneral).toMatchObject({ type: "page", name: "General" });

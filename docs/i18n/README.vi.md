@@ -46,11 +46,11 @@ Cài thủ công bằng cách đặt `main.js`, `manifest.json` và `styles.css`
 1. Bật Link Integrity trong plugin cộng đồng.
 2. Mở Link Integrity từ ribbon hoặc bảng lệnh. Thanh bên có **Liên kết hỏng** và **Tệp cô lập**.
 3. Chọn một kết quả để mở tệp nguồn. Bộ lọc tệp cô lập chỉ thay đổi chế độ xem hiện tại, không thay đổi giá trị mặc định đã lưu.
-4. Quét khi khởi động mặc định bị tắt. Khi mở thanh bên, chỉ mục sẽ được tạo khi cần; bạn cũng có thể dùng **Tạo chỉ mục** hoặc **Tạo lại chỉ mục** trong phần Chung. Sau lần tạo đầu tiên thành công, thay đổi trong Vault sẽ tự động cập nhật kết quả.
+4. Quét khi khởi động mặc định bị tắt. Khi mở thanh bên, chỉ mục sẽ được tạo khi cần; bạn cũng có thể dùng **Tạo chỉ mục** hoặc **Xây dựng lại chỉ mục** trong phần Chung. Sau lần tạo đầu tiên thành công, thay đổi trong Vault sẽ tự động cập nhật kết quả.
 
 Bật **Hiển thị liên kết hỏng trong nội dung** trong **Liên kết hỏng** để thấy cảnh báo khi đọc hoặc chỉnh sửa. Tùy chọn này mặc định tắt và không thay đổi cách mở liên kết. Chạy **Chẩn đoán liên kết hỏng trong ghi chú hiện tại** từ bảng lệnh để xem nguyên nhân và chuyển đến nguồn. Liên kết đang cập nhật hoặc chưa xác định được vị trí chính xác sẽ không được đánh dấu; hãy kiểm tra trong thanh bên.
 
-## Cài đặt
+## Tùy chọn
 
 **Hướng dẫn sử dụng** và **Báo cáo sự cố** nằm trong **Chung → Trợ giúp và hỗ trợ**. Hướng dẫn mở bằng ngôn ngữ giao diện hiện tại.
 

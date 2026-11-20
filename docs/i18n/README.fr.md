@@ -46,7 +46,7 @@ Pour une installation manuelle, placez `main.js`, `manifest.json` et `styles.css
 1. Activez Link Integrity dans les modules complémentaires.
 2. Ouvrez Link Integrity depuis le ruban ou la palette de commandes. La barre latérale contient **Liens rompus** et **Fichiers isolés**.
 3. Sélectionnez un résultat pour ouvrir sa source. Les filtres de fichiers isolés ne changent que la vue courante, pas vos valeurs par défaut enregistrées.
-4. L’analyse au démarrage est désactivée par défaut. L’ouverture de la barre latérale construit l’index lorsque nécessaire ; vous pouvez aussi utiliser **Construire l’index** ou **Reconstruire l’index** dans Général. Après la première construction réussie, les changements du Vault mettent les résultats à jour automatiquement.
+4. L’analyse au démarrage est désactivée par défaut. L’ouverture de la barre latérale construit l’index lorsque nécessaire ; vous pouvez aussi utiliser **Créer l’index** ou **Reconstruire l’index** dans Général. Après la première construction réussie, les changements du Vault mettent les résultats à jour automatiquement.
 
 Activez **Signaler les liens cassés dans le texte** dans **Liens rompus** pour afficher les indications en lecture et en édition. Cette option est désactivée par défaut et ne change pas l’ouverture des liens. Lancez **Diagnostiquer les liens cassés de la note actuelle** dans la palette de commandes pour consulter les causes et rejoindre leur source. Les liens en cours de mise à jour ou sans position précise restent non marqués ; consultez la barre latérale.
 

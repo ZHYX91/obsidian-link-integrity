@@ -137,6 +137,7 @@ function renderIndexMaintenance(
   ));
   const details = document.createElement("details");
   details.className = "link-integrity-index-details";
+  details.open = context.indexDetailsExpanded === true;
   const detailsSummary = document.createElement("summary");
   detailsSummary.textContent = t("index.details.title");
   const metrics = document.createElement("dl");
@@ -229,6 +230,7 @@ function renderIndexMaintenance(
   const unsubscribeStatus = context.subscribeIndexStatus?.(update);
   const unsubscribeDiagnostics = context.subscribeIndexDiagnostics?.(update);
   return () => {
+    context.rememberIndexDetails?.(details.open);
     unsubscribeStatus?.();
     unsubscribeDiagnostics?.();
   };
@@ -322,6 +324,9 @@ function renderExpectedRules(
 ): () => void {
   const { t } = context.translator;
   const settings = currentSettings(context);
+  const help = textElement(container, "p", t("settings.expected.description"));
+  help.className = "link-integrity-help-text";
+  container.append(help);
   const individualHeading = textElement(
     container,
     "h4",
@@ -367,9 +372,6 @@ function renderExpectedRules(
     pathList.append(row);
   }
   container.append(pathList, textElement(container, "h4", t("settings.expected.rules")));
-  const help = textElement(container, "p", t("settings.expected.description"));
-  help.className = "link-integrity-help-text";
-  container.append(help);
 
   let closeEditor: (() => void) | null = null;
   const openEditor = (rule: ExpectedIsolationRule | null): void => {

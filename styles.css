@@ -1012,19 +1012,88 @@
 .link-integrity-index-details {
   grid-column: 1 / -1;
   min-inline-size: 0;
+  margin-block: 4px 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .link-integrity-index-details > summary {
-  min-block-size: var(--link-integrity-target-size);
-  cursor: var(--cursor, default);
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  align-content: center;
+  column-gap: 6px;
+  box-sizing: border-box;
+  min-block-size: 32px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  box-shadow: none;
+  text-align: start;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
+  font-weight: var(--font-normal, 400);
+  line-height: 1.5;
+  list-style: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.link-integrity-index-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.link-integrity-index-details > summary::before {
+  content: "";
+  box-sizing: border-box;
+  justify-self: center;
+  inline-size: 7px;
+  block-size: 7px;
+  margin-block-start: calc(0.75em - 3.5px);
+  border-top: 1.5px solid currentColor;
+  border-right: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.link-integrity-index-details:not([open]) > summary:dir(rtl)::before {
+  transform: rotate(-135deg);
+}
+
+.link-integrity-index-details[open] > summary::before {
+  transform: rotate(135deg);
+}
+
+.link-integrity-index-details > summary:focus-visible {
+  color: var(--text-normal);
+  outline: 2px solid var(--interactive-accent, currentColor);
+  outline-offset: -2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .link-integrity-index-details > summary:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+  }
+}
+
+@media (any-pointer: coarse) {
+  .link-integrity-index-details > summary { min-block-size: 44px; }
+}
+
+@media (forced-colors: active) {
+  .link-integrity-index-details > summary:focus-visible { outline-color: Highlight; }
 }
 
 .link-integrity-index-metrics {
   display: grid;
+  min-inline-size: 0;
   gap: var(--size-2-1);
-  margin: var(--size-2-2) 0 0;
+  margin: 0;
+  margin-block-start: 6px;
+  margin-inline-start: 18px;
 }
 
 .link-integrity-index-metrics > div {
@@ -1043,6 +1112,10 @@
   margin: 0;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
+}
+
+@container link-integrity-settings (max-width: 480px) {
+  .link-integrity-index-metrics { margin-inline-start: 0; }
 }
 
 @container link-integrity-settings (max-width: 420px) {
