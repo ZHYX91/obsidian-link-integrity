@@ -1026,8 +1026,9 @@
   column-gap: 6px;
   box-sizing: border-box;
   min-block-size: 32px;
-  padding: 2px 0;
+  padding: 4px 0;
   border: 0;
+  border-radius: var(--radius-s);
   background: transparent;
   box-shadow: none;
   text-align: start;
@@ -1071,7 +1072,7 @@
   outline-offset: -2px;
 }
 
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .link-integrity-index-details > summary:hover {
     background: var(--background-modifier-hover);
     color: var(--text-normal);
@@ -1088,6 +1089,7 @@
 
 .link-integrity-index-metrics {
   display: grid;
+  min-inline-size: 0;
   gap: var(--size-2-1);
   margin: 0;
   margin-block-start: 6px;
@@ -1112,6 +1114,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+@container link-integrity-settings (max-width: 480px) {
+  .link-integrity-index-metrics { margin-inline-start: 0; }
+}
+
 @container link-integrity-settings (max-width: 420px) {
   .link-integrity-settings-tabs {
     display: flex;
@@ -1122,8 +1128,6 @@
     min-inline-size: max-content;
     white-space: nowrap;
   }
-
-  .link-integrity-index-metrics { margin-inline-start: 0; }
 
   .link-integrity-index-metrics > div {
     grid-template-columns: minmax(0, 1fr);
