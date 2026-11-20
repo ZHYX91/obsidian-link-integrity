@@ -9,6 +9,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [0.5.5] - 2026-11-20
 
+- Preserve scroll position, keyboard focus, and open groups while editing periodic-note presets.
 - Keep the selected dropdown labels visible when settings first open or move to another window.
 - Refresh the current-note diagnostic command name when the plugin language changes without registering duplicate commands.
 - Preserve Canvas background image paths beginning with a literal `#` so existing images contribute connections and missing images are reported as broken links instead of high-confidence isolated results.

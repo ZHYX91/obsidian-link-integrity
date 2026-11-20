@@ -159,7 +159,7 @@ function commitControl(
   value: unknown,
 ): void {
   try {
-    const result = applySettingValue(context.settings, key, value);
+    const result = applySettingValue(context.getSettings?.() ?? context.settings, key, value);
     const operation = context.onSettingsChange(result.settings, result.impact);
     if (operation instanceof Promise) void operation.catch((error: unknown) => context.onError?.(error));
   } catch (error) {

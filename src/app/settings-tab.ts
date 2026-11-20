@@ -70,9 +70,9 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       translator: createTranslator(settings.general.locale, getLanguage()),
       writeProtected: this.owner.isSettingsWriteProtected(),
       createId: (kind) => this.createId(kind),
-      onSettingsChange: (nextSettings, impact) => {
+      onSettingsChange: (nextSettings, impact, surface) => {
         this.owner.updateSettings(nextSettings, impact);
-        this.refreshSurface();
+        if (surface !== "keep-controls") this.refreshSurface();
       },
       getExpectedRulePreview: (ruleId) =>
         this.expectedPreviews.get(ruleId) ?? { state: "idle", stats: null },

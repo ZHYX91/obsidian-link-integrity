@@ -65,6 +65,7 @@ export interface SettingsUiContext {
   readonly onSettingsChange: (
     settings: LinkIntegritySettings,
     impact: SettingsChangeImpact,
+    surface?: "keep-controls",
   ) => void | Promise<void>;
   readonly getExpectedRulePreview?: (ruleId: string) => ExpectedRulePreviewState;
   readonly requestExpectedRulePreview?: (

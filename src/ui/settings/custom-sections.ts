@@ -841,7 +841,7 @@ function renderPeriodicPreset(container: HTMLElement, context: SettingsUiContext
   );
   master.checkbox.disabled = context.writeProtected;
   master.checkbox.addEventListener("change", () => updatePeriodicPreset(context, {
-    ...preset,
+    ...currentSettings(context).isolatedFiles.periodicNotesPreset,
     enabled: master.checkbox.checked,
   }));
   for (const kind of PERIODIC_NOTE_KINDS) {
@@ -893,7 +893,7 @@ function renderPeriodicEntry(
   );
   const update = (): void => {
     const current = currentSettings(context).isolatedFiles.periodicNotesPreset;
-    updatePeriodicPreset(context, {
+    const saved = updatePeriodicPreset(context, {
       ...current,
       entries: {
         ...current.entries,
@@ -905,6 +905,10 @@ function renderPeriodicEntry(
         },
       },
     });
+    const normalized = saved.entries[kind];
+    if (folder.input.value !== normalized.folder) folder.input.value = normalized.folder;
+    const normalizedFormats = normalized.dateFormats.join("\n");
+    if (formats.textarea.value !== normalizedFormats) formats.textarea.value = normalizedFormats;
   };
   enabled.addEventListener("change", update);
   folder.input.addEventListener("change", update);
@@ -928,9 +932,12 @@ function replaceExpectedRule(context: SettingsUiContext, rule: ExpectedIsolation
 function updatePeriodicPreset(
   context: SettingsUiContext,
   periodicNotesPreset: IsolatedFileSettings["periodicNotesPreset"],
-): void {
+): IsolatedFileSettings["periodicNotesPreset"] {
   const settings = currentSettings(context);
-  commitIsolated(context, { ...settings.isolatedFiles, periodicNotesPreset }, "query-only");
+  if (context.writeProtected) return settings.isolatedFiles.periodicNotesPreset;
+  const next = normalizeSettings({ ...settings, isolatedFiles: { ...settings.isolatedFiles, periodicNotesPreset } });
+  runAction(() => context.onSettingsChange(next, "query-only", "keep-controls"), context);
+  return next.isolatedFiles.periodicNotesPreset;
 }
 
 function commitIsolated(

@@ -80,6 +80,22 @@ describe("imperative settings controls", () => {
     control.change(value as never);
   }
 
+  it("keeps newer periodic presets when another control from the same render is changed", () => {
+    const initial = createDefaultSettings();
+    const latest = {
+      ...initial,
+      isolatedFiles: {
+        ...initial.isolatedFiles,
+        periodicNotesPreset: { ...initial.isolatedFiles.periodicNotesPreset, enabled: true },
+      },
+    };
+    const { context } = render({ getSettings: () => latest });
+    change("toggle", true);
+    expect(context.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({
+      isolatedFiles: expect.objectContaining({ periodicNotesPreset: latest.isolatedFiles.periodicNotesPreset }),
+    }), "query-only");
+  });
+
   it("commits toggle and locale selections without mutating the supplied settings", () => {
     const { context } = render();
     change("toggle", true);
