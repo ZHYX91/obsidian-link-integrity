@@ -1,4 +1,4 @@
-import { getLanguage, MarkdownView, type App, type CachedMetadata, type Editor, type MarkdownFileInfo, type Plugin } from "obsidian";
+import { getLanguage, MarkdownView, type App, type CachedMetadata, type Command, type Editor, type MarkdownFileInfo, type Plugin } from "obsidian";
 import { normalizedBodyText } from "../adapters/obsidian/body-link-port";
 import type { LinkIndex } from "../core";
 import { ObsidianBodyLinkPort } from "../adapters/obsidian/body-link-port";
@@ -15,6 +15,7 @@ export class BodyLinkRuntime {
   private closed = false;
   private proofActivated = false;
   private generation = 0;
+  private diagnosticCommand: Command | null = null;
   private readonly listeners = new Set<() => void>();
   private readonly reading = new Set<() => void>();
   private readonly dialogs = new Set<() => void>();
@@ -28,6 +29,7 @@ export class BodyLinkRuntime {
     });
   }
   public register(plugin: Plugin): void {
+    if (this.closed) return;
     const options = { enabled: () => !this.closed && this.settings().brokenLinks.bodyHints,
       source: (path: string, text: string, signal: AbortSignal) => this.source(path, text, signal),
       subscribe: (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; },
@@ -39,7 +41,7 @@ export class BodyLinkRuntime {
       const dispose = decorateBodyLinkReading(element, context, { ...options, onDispose: (disposer) => { this.reading.delete(disposer); } });
       if (dispose !== null) this.reading.add(dispose);
     });
-    plugin.addCommand({ id: "broken-links-current-note", name: this.translator().t("body.command"),
+    this.diagnosticCommand = plugin.addCommand({ id: "broken-links-current-note", name: this.translator().t("body.command"),
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (this.closed || view?.file?.extension !== "md") return false;
@@ -47,6 +49,10 @@ export class BodyLinkRuntime {
         return true;
       },
     });
+  }
+  public refreshCommandName(): void {
+    if (this.closed || this.diagnosticCommand === null) return;
+    this.diagnosticCommand.name = this.translator().t("body.command");
   }
   public sourceChanged(path: string | null, metadata: boolean): void {
     if (!this.proofActivated && !this.settings().brokenLinks.bodyHints) { this.invalidate(); return; }
@@ -64,7 +70,7 @@ export class BodyLinkRuntime {
   }
   public close(): void {
     if (this.closed) return;
-    this.closed = true; this.invalidate();
+    this.closed = true; this.diagnosticCommand = null; this.invalidate();
     for (const dispose of this.reading) dispose(); this.reading.clear(); this.listeners.clear(); this.metadataPending.clear();
   }
   private translator(): ReturnType<typeof createTranslator> { return createTranslator(this.settings().general.locale, getLanguage()); }

@@ -7,6 +7,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Refresh the current-note diagnostic command name when the plugin language changes without registering duplicate commands.
 - Preserve Canvas background image paths beginning with a literal `#` so existing images contribute connections and missing images are reported as broken links instead of high-confidence isolated results.
 
 ## [0.5.4] - 2026-11-09

@@ -13,6 +13,28 @@
   },
   "scenarios": [
     {
+      "id": "hash-background-and-command-locale",
+      "title": "Hash-prefixed Canvas backgrounds and live command localization",
+      "surfaces": [
+        "desktop",
+        "android-emulator"
+      ],
+      "requiredCapabilities": {
+        "desktop": [],
+        "android-emulator": []
+      },
+      "steps": [
+        "In the fresh disposable fixture Vault, explicitly run create-hash-background-fixtures. Record the generated Canvas and image bytes. Wait for incremental indexing and inspect the broken-link and isolated-file views for these exact paths.",
+        "Verify #pr-missing.svg is reported as a missing Canvas background, #pr-cover.svg connects the Canvas and image, and the group with only color #ffffff creates no file diagnostic. Run Rebuild and compare these same results; the original fixture bytes must remain unchanged.",
+        "Open Broken-only.md. Set the plugin language to English, open the command palette and invoke Diagnose broken links in the current note. Switch to Simplified Chinese in plugin settings without reloading, reopen the palette and invoke 诊断当前笔记的无效链接. Repeat the switch back to English. Record the current label, one matching command entry, and the resulting current-note diagnostic on every invocation."
+      ],
+      "expected": [
+        "Hash-prefixed background values remain exact Vault paths. Existing backgrounds contribute graph edges and absent backgrounds produce diagnostics; color values do not become paths. Incremental and rebuilt results agree.",
+        "The current-note command label follows the selected language immediately, with no duplicate or stale-language command. Its callback continues to diagnose Broken-only.md after both language transitions.",
+        "Fixture creation and language settings do not alter original notes or either generated file; the missing target is never created."
+      ]
+    },
+    {
       "id": "canvas-exact-path-regression",
       "title": "Canvas exact file and background paths",
       "surfaces": [

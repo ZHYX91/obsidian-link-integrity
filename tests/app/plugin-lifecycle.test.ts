@@ -1,4 +1,4 @@
-import { Notice, TFile, TFolder, type Editor, type MarkdownFileInfo } from "obsidian";
+import { MarkdownView, Notice, TFile, TFolder, type Command, type Editor, type MarkdownFileInfo } from "obsidian";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import LinkIntegrityPlugin from "../../src/app/plugin";
@@ -9,6 +9,7 @@ import {
   occurrenceIdMatches,
 } from "../../src/core/occurrence-identity";
 import { createDefaultSettings } from "../../src/shared/settings";
+import { createTranslator } from "../../src/shared/i18n";
 import type { BrokenLinkResult, IndexStatus, SidebarViewState } from "../../src/ui/sidebar";
 import type { BodyLinkRuntime } from "../../src/app/body-link-runtime";
 import { bodySetup } from "../helpers/body-links";
@@ -19,6 +20,77 @@ afterEach(() => {
 });
 
 describe("plugin index lifecycle", () => {
+  it("refreshes registered command names without replacing callbacks or registering again", async () => {
+    vi.useFakeTimers();
+    const view = new MarkdownView(null as never);
+    Object.assign(view, { file: createMockFile("Current.md", 1), getMode: () => "source" });
+    let activeView: MarkdownView | null = view;
+    const app = {
+      vault: { getFiles: () => [], getFileByPath: () => null, on: () => ({}) },
+      metadataCache: { getFileCache: () => null, getFirstLinkpathDest: () => null,
+        on: () => ({}), offref: () => undefined },
+      workspace: { getLeavesOfType: () => [], onLayoutReady: () => undefined,
+        getActiveViewOfType: () => activeView },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    const defaults = createDefaultSettings();
+    vi.spyOn(plugin, "loadData").mockResolvedValue({
+      ...defaults, general: { ...defaults.general, locale: "en" },
+    });
+    vi.spyOn(plugin, "saveData").mockResolvedValue();
+    const supplied = new Map<string, Command>();
+    const registered = new Map<string, Command>();
+    const addCommand = vi.spyOn(plugin, "addCommand").mockImplementation((input) => {
+      supplied.set(input.id, input);
+      const command = { ...input };
+      registered.set(command.id, command);
+      return command;
+    });
+    await plugin.onload();
+    const runtime = (plugin as unknown as PluginRuntimeInspection).bodyLinks;
+    const current = vi.spyOn(runtime, "current").mockResolvedValue();
+    const preview = vi.spyOn(runtime, "preview").mockResolvedValue();
+    const command = registered.get("broken-links-current-note")!;
+    const callback = command.checkCallback!;
+    try {
+      for (const locale of ["en", "zh-CN", "ja", "ar", "en"] as const) {
+        plugin.updateSettings({ ...plugin.getSettings(),
+          general: { ...plugin.getSettings().general, locale } });
+        const { t } = createTranslator(locale, "en");
+        expect(registered.get("open-results")!.name).toBe(t("command.openSidebar"));
+        expect(registered.get("rebuild-link-index")!.name).toBe(t("command.rebuildIndex"));
+        expect(command.name).toBe(t("body.command"));
+        expect(supplied.get(command.id)!.name).toBe("Diagnose broken links in the current note");
+        expect(addCommand).toHaveBeenCalledTimes(3);
+        expect(command.checkCallback).toBe(callback);
+        expect(callback(true)).toBe(true);
+        expect(callback(false)).toBe(true);
+        expect(current).toHaveBeenLastCalledWith(view.editor, view);
+      }
+      expect(current).toHaveBeenCalledTimes(5);
+      Object.assign(view, { getMode: () => "preview" });
+      expect(callback(false)).toBe(true);
+      expect(preview).toHaveBeenCalledExactlyOnceWith(view);
+      activeView = null;
+      expect(callback(true)).toBe(false);
+      activeView = view;
+    } finally {
+      plugin.onunload();
+    }
+    const finalName = command.name;
+    plugin.updateSettings({ ...plugin.getSettings(),
+      general: { ...plugin.getSettings().general, locale: "zh-CN" } });
+    runtime.refreshCommandName();
+    runtime.register(plugin);
+    expect(command.name).toBe(finalName);
+    expect(addCommand).toHaveBeenCalledTimes(3);
+    expect(callback(true)).toBe(false);
+    expect(callback(false)).toBe(false);
+    expect(current).toHaveBeenCalledTimes(5);
+    expect(preview).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the runtime dormant until an on-demand index is requested", async () => {
     vi.useFakeTimers();
     const file = createMockFile("A.md", 1);
@@ -734,6 +806,7 @@ function testOccurrenceId(sourcePath: string): string {
 }
 
 interface PluginRuntimeInspection {
+  readonly bodyLinks: BodyLinkRuntime;
   readonly openBrokenLink: (result: BrokenLinkResult) => Promise<void>;
   readonly pendingSourceEvents: readonly unknown[];
   readonly enqueue: (event: { readonly type: "modify"; readonly path: string }) => void;
