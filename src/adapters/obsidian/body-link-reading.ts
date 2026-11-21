@@ -1,6 +1,7 @@
+import { sourceLineStarts } from "./explicit-link-parser";
 import { MarkdownRenderChild, type MarkdownPostProcessorContext } from "obsidian";
 import type { BodyLinkHint, BodyLinkSource } from "../../features/body-links/body-link-service";
-import { bodyLineStarts, bodySourceRange, canonicalBodyDestination } from "./body-link-port";
+import { bodySourceRange, canonicalBodyDestination } from "./body-link-port";
 import type { BodyEditorOptions } from "./body-link-editor";
 
 export interface BodyReadingOptions extends BodyEditorOptions { readonly onDispose?: (dispose: () => void) => void; }
@@ -22,7 +23,7 @@ export function mapBodyReadingHints(element: HTMLElement, source: BodyLinkSource
   if (source.state !== "ready" || source.snapshot === null) return result;
   let prepared = readingRanges.get(source);
   if (prepared === undefined) {
-    const starts = bodyLineStarts(source.text);
+    const starts = sourceLineStarts(source.text);
     const occurrences: IndexedRange[] = [];
     for (const occurrence of source.snapshot.occurrences) {
       const range = bodySourceRange(source.text, starts, occurrence.position);

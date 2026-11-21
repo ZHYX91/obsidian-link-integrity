@@ -1,4 +1,4 @@
-import { isMap, isScalar, isSeq, parseDocument } from "yaml";
+import { CST, isMap, isScalar, isSeq, parseDocument, Parser } from "yaml";
 /*!
  * entities 7.0.1, BSD-2-Clause
  * Copyright (c) Felix Böhm. All rights reserved.
@@ -53,8 +53,10 @@ export function extractMarkdownExplicitReferences(
   return finishSteps(extractMarkdownSteps(source)).references;
 }
 
-export async function parseMarkdownSourceAsync(source: string, scheduler = new WorkScheduler()) {
-  const steps = extractMarkdownSteps(source);
+export async function parseMarkdownSourceAsync(
+  source: string, scheduler = new WorkScheduler(), properties: "include" | "skip" = "include",
+) {
+  const steps = extractMarkdownSteps(source, properties);
   let step = steps.next();
   while (!step.done) {
     const pause = scheduler.checkpoint();
@@ -64,14 +66,16 @@ export async function parseMarkdownSourceAsync(source: string, scheduler = new W
   return step.value;
 }
 
-function* extractMarkdownSteps(source: string) {
+function* extractMarkdownSteps(source: string, properties: "include" | "skip" = "include") {
   const lines = yield* scanSourceLines(source);
   const linesByStart = new Map<number, SourceLineRange>();
   for (const [i, line] of lines.entries()) {
     if (i % 128 === 0) yield;
     linesByStart.set(line.start, line);
   }
-  const blocks = { lines, linesByStart, opaqueClosers: yield* indexOpaqueClosers(source) };
+  const frontmatter = yield* frontmatterFromLines(source, lines);
+  const blocks = { lines, linesByStart, opaqueClosers: yield* indexOpaqueClosers(source), frontmatter,
+    yamlNonValues: frontmatter === null ? [] : properties === "skip" ? [frontmatter] : yield* yamlNonValueRanges(source, frontmatter) };
   let destinations = yield* indexMarkdownDestinations(source);
   const definitions = new Set<string>();
   let syntax = source;
@@ -99,7 +103,7 @@ function* extractMarkdownSteps(source: string) {
     references.push(takeWiki ? wikiReferences[wiki++]! : markdown[inline++]!);
     if (references.length % 128 === 0) yield;
   }
-  return { references, masked, syntaxRanges };
+  return { references, masked, syntaxRanges, frontmatterEnd, lines };
 }
 
 export function extractBasesExplicitReferences(
@@ -439,6 +443,8 @@ interface BlockIndex {
   lines: SourceLineRange[];
   linesByStart: ReadonlyMap<number, SourceLineRange>;
   opaqueClosers: ReadonlyMap<string, readonly MaskedRange[]>;
+  frontmatter: MaskedRange | null;
+  yamlNonValues: readonly MaskedRange[];
 }
 
 function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destinations: MarkdownDestinationIndex,
@@ -449,15 +455,15 @@ function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destination
   const characters = source.split("");
   const inline = new Map<number, ParsedExplicitReference>();
   const syntaxRanges: MarkdownSyntaxRange[] = [];
-  const frontmatterRange = yield* frontmatterFromLines(source, blocks.lines);
+  const frontmatterRange = blocks.frontmatter;
   if (frontmatterRange !== null) {
     syntaxRanges.push({ ...frontmatterRange, kind: "frontmatter" });
-    yield* maskYamlCommentRanges(
-      characters,
-      source,
-      frontmatterRange.start,
-      frontmatterRange.end,
-    );
+    for (const { start, end } of blocks.yamlNonValues) {
+      for (let offset = start; offset < end; offset += 4096) {
+        yield;
+        maskRange(characters, offset, Math.min(offset + 4096, end));
+      }
+    }
   }
   yield* maskDelimitedBlocks(characters, source, blocks, frontmatterRange, destinations, inline,
     syntax, definitions, syntaxRanges, projection);
@@ -1030,69 +1036,76 @@ function htmlTagEnd(
   return source.length;
 }
 
-function* maskYamlCommentRanges(
-  characters: string[],
-  source: string,
-  start: number,
-  end: number,
-): Generator<void, void> {
-  let quote: "'" | '"' | null = null;
-  let escaped = false;
-  for (let index = start; index < end; index += 1) {
-    if (index % 1024 === 0) yield;
-    const character = source[index];
-    if (character === "\n" || character === "\r") {
-      quote = null;
-      escaped = false;
-      continue;
-    }
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (character === "\\" && quote === '"') {
-      escaped = true;
-      continue;
-    }
-    if ((character === "'" || character === '"') && (quote == null || quote === character)) {
-      quote = quote == null ? character : null;
-      continue;
-    }
-    if (
-      character === "#" &&
-      quote == null &&
-      (index === 0 || /[\s,:[\]{}]/u.test(source[index - 1] ?? ""))
-    ) {
-      const newline = source.indexOf("\n", index);
-      const commentEnd = Math.min(newline < 0 ? end : newline, end);
-      for (let offset = index; offset < commentEnd; offset += 4096) {
-        if (offset > index) yield;
-        maskRange(characters, offset, Math.min(offset + 4096, commentEnd));
+interface FrontmatterRange extends MaskedRange {
+  readonly contentStart: number;
+  readonly contentEnd: number;
+}
+
+/** Only source text inside YAML scalar values can contribute property links. */
+function* yamlNonValueRanges(source: string, region: FrontmatterRange): Generator<void, MaskedRange[]> {
+  const yaml = source.slice(region.contentStart, region.contentEnd).replace(/\r(?!\n)/gu, "\n");
+  // No source link can start here. Avoid parsing normal link-free metadata.
+  if (!yaml.includes("[")) return [];
+  // We need source ranges only. Feeding the YAML concrete-syntax parser in
+  // slices avoids composing an entire document just to rediscover those ranges.
+  const parser = new Parser();
+  const pending: CST.Token[] = [];
+  for (let offset = 0; offset < yaml.length; offset += 2048) {
+    const end = Math.min(offset + 2048, yaml.length);
+    for (const token of parser.parse(yaml.slice(offset, end), end < yaml.length)) {
+      if (token.type === "document") {
+        const root = token.value;
+        if (root?.type === "block-map" || root?.type === "flow-collection" && root.start.type === "flow-map-start") {
+          pending.push(root);
+        }
       }
-      index = commentEnd - 1;
+    }
+    yield;
+  }
+  const hidden: MaskedRange[] = [];
+  let cursor = region.start;
+  let visited = 0;
+  // Keep only mapping values and sequence entries, in source order. Tags,
+  // aliases, keys and actual comments remain outside scalar content ranges.
+  while (pending.length > 0) {
+    const token = pending.pop()!;
+    if (++visited % 128 === 0) yield;
+    if (CST.isCollection(token)) {
+      for (let i = token.items.length - 1; i >= 0; i -= 1) {
+        if (i % 256 === 0) yield;
+        const value = token.items[i]!.value;
+        if (value) pending.push(value);
+      }
+    } else if (CST.isScalar(token)) {
+      let start = region.contentStart + token.offset;
+      if (token.type === "block-scalar") {
+        const last = token.props.at(-1);
+        if (last?.type !== "newline") continue;
+        start = region.contentStart + last.offset + last.source.length;
+      }
+      if (start > cursor) hidden.push({ start: cursor, end: start });
+      cursor = start + token.source.length;
     }
   }
+  if (cursor < region.end) hidden.push({ start: cursor, end: region.end });
+  return hidden;
 }
 
-export function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
-  if (!/^[^\S\r\n]*---[^\S\r\n]*(?:[\r\n]|$)/u.test(source)) return null;
-  return finishSteps(frontmatterFromLines(source, sourceLineRanges(source)));
-}
+const frontmatterOpening = /^(?:\uFEFF)?---[ \t]*(?:[\r\n]|$)/u;
 
-function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Generator<void, MaskedRange | null> {
-  if (!/^[^\S\r\n]*---[^\S\r\n]*(?:[\r\n]|$)/u.test(source)) return null;
+function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Generator<void, FrontmatterRange | null> {
+  if (!frontmatterOpening.test(source)) return null;
   for (let i = 1; i < lines.length; i += 1) {
     if (i % 128 === 0) yield;
     const line = lines[i]!;
-    const text = source.slice(line.start, line.contentEnd).trim();
-    if (text === "---" || text === "...") {
-      return { start: 0, end: line.end };
+    if (/^(?:---|\.\.\.)[ \t]*$/u.test(source.slice(line.start, line.contentEnd))) {
+      return { start: 0, end: line.end, contentStart: lines[0]!.end, contentEnd: line.start };
     }
   }
   return null;
 }
 
-interface SourceLineRange {
+export interface SourceLineRange {
   readonly start: number;
   readonly contentEnd: number;
   readonly end: number;
@@ -1104,8 +1117,18 @@ function finishSteps<T>(steps: Generator<void, T>): T {
   return step.value;
 }
 
-export function sourceLineRanges(source: string): SourceLineRange[] {
-  return finishSteps(scanSourceLines(source));
+/** Editor coordinates include the empty line following a final line break. */
+export function sourceLineStarts(source: string | readonly SourceLineRange[]): number[] {
+  if (typeof source === "string") {
+    const starts = [0];
+    for (const match of source.matchAll(/\r\n|\r|\n/gu)) starts.push(match.index + match[0].length);
+    return starts;
+  }
+  const lines = source;
+  const starts = lines.map((line) => line.start);
+  const last = lines.at(-1);
+  if (last !== undefined && last.end > last.contentEnd) starts.push(last.end);
+  return starts;
 }
 
 function* scanSourceLines(source: string): Generator<void, SourceLineRange[]> {
