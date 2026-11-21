@@ -10,6 +10,7 @@ import {
   extractBasesExplicitReferences,
   extractMarkdownExplicitReferences,
   parseMarkdownSourceAsync,
+  sourceLineStarts,
   isExternalReference,
 } from "../../src/adapters/obsidian/explicit-link-parser";
 
@@ -32,6 +33,17 @@ describe("extractMarkdownExplicitReferences", () => {
     ["`$` [[X]] `$`", true],
   ] as const)("preserves Obsidian math boundaries in %j", (source, visible) => {
     expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(visible ? ["X"] : []);
+  });
+
+  it.each([
+    ["", [0]],
+    ["😀", [0]],
+    ["😀\r\n[[A]]\r[[B]]\n", [0, 4, 10, 16]],
+    ["\n\r\n\r", [0, 1, 3, 4]],
+  ] as const)("retains editor line starts from the parsed source %j", async (source, starts) => {
+    const { lines } = await parseMarkdownSourceAsync(source);
+    expect(sourceLineStarts(lines)).toEqual(starts);
+    expect(sourceLineStarts(source)).toEqual(starts);
   });
 
   it("does not mistake an escaped bang for a nested image when proving outer metadata", () => {

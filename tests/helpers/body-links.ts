@@ -1,8 +1,8 @@
 import { TFile, type App } from "obsidian";
 import { vi } from "vitest";
 import { createFileRecord, LinkIndex, makeOccurrenceLookupKey, type LinkOccurrence } from "../../src/core";
-import { extractMarkdownExplicitReferences } from "../../src/adapters/obsidian/explicit-link-parser";
-import { bodyLineStarts, bodyUnresolvedKey, ObsidianBodyLinkPort } from "../../src/adapters/obsidian/body-link-port";
+import { extractMarkdownExplicitReferences, sourceLineStarts } from "../../src/adapters/obsidian/explicit-link-parser";
+import { bodyUnresolvedKey, ObsidianBodyLinkPort } from "../../src/adapters/obsidian/body-link-port";
 import { BodyLinkService } from "../../src/features/body-links/body-link-service";
 import { isBrokenDiagnosticVisible } from "../../src/app/broken-link-visibility";
 import { IgnoreService } from "../../src/shared/ignore-rules";
@@ -13,7 +13,7 @@ export function bodySetup(text = "[[Missing|Label]]", path = "Source.md") {
   const bodies = new Map([[path, text], ["Target.md", "# Existing\n"]]);
   const caches = new Map<string, object>([...files.keys()].map((name) => [name, {}]));
   const pending = new Set<string>();
-  const starts = bodyLineStarts(text);
+  const starts = sourceLineStarts(text);
   const lineAt = (offset: number): number => {
     let low = 0; let high = starts.length;
     while (low < high) { const middle = (low + high) >>> 1; if (starts[middle]! <= offset) low = middle + 1; else high = middle; }

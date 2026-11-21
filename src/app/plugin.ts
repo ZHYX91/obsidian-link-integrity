@@ -1,5 +1,4 @@
-import { normalizedBodyText } from "../adapters/obsidian/body-link-port";
-import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
+import { findCurrentMarkdownResultPosition } from "../adapters/obsidian/sidebar-navigation";
 import { runIndexPreview } from "./index-preview";
 import { IgnorePreviewService } from "./ignore-preview-service";
 import { applySidebarIgnore } from "./sidebar-ignore-actions";
@@ -14,8 +13,6 @@ import {
   TFolder,
   getLanguage,
   type Command,
-  type Editor,
-  type EditorPosition,
   type EventRef,
   type WorkspaceLeaf,
 } from "obsidian";
@@ -94,7 +91,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   private initialMetadataTimeout: number | null = null;
   private initialMetadataGateResolve: (() => void) | null = null;
   private lifecycleGeneration = 0;
-  private readonly pendingFileOpens = new WeakMap<WorkspaceLeaf, symbol>();
+  private readonly pendingFileOpens = new Map<WorkspaceLeaf, { opened: Promise<void>; controller: AbortController }>();
   private metadataEventsRegistered = false;
   private baselineAvailable = false;
   private rebuildPromise: Promise<void> | null = null;
@@ -178,6 +175,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   public override onunload(): void {
     this.unloaded = true;
     this.lifecycleGeneration += 1;
+    for (const request of this.pendingFileOpens.values()) request.controller.abort();
     this.runtimeStarted = false;
     this.layoutReady = false;
     this.disposeInitialMetadataWait();
@@ -598,14 +596,18 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   private openBrokenLink(result: BrokenLinkResult): Promise<void> {
-    return this.openFile(result.sourcePath, (leaf, file) => {
+    return this.openFile(result.sourcePath, async (leaf, file, signal) => {
       const view = leaf.view;
       if (view instanceof MarkdownView) {
         if (view.file !== file) return;
-        const cursor = findMarkdownResultPosition(view.editor, result);
-        if (cursor === null) return;
-        view.editor.setCursor(cursor);
-        view.editor.scrollIntoView({ from: cursor, to: cursor }, true);
+        const editor = view.editor;
+        const source = editor.getValue();
+        const cursor = await findCurrentMarkdownResultPosition(source, result, signal);
+        if (cursor === null || signal.aborted || leaf.view !== view || view.editor !== editor ||
+          view.file !== file || file.path !== result.sourcePath || this.app.vault.getFileByPath(file.path) !== file ||
+          editor.getValue() !== source) return;
+        editor.setCursor(cursor);
+        editor.scrollIntoView({ from: cursor, to: cursor }, true);
       } else if (leaf.getViewState().state?.file === file.path) {
         this.showNonMarkdownLocation(result);
       }
@@ -624,23 +626,32 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (parts.length > 0) new Notice(`Link Integrity: ${parts.join(" · ")}`, 8_000);
   }
 
-  private async openFile(path: string, onOpen?: (leaf: WorkspaceLeaf, file: TFile) => void): Promise<void> {
+  private async openFile(
+    path: string,
+    onOpen?: (leaf: WorkspaceLeaf, file: TFile, signal: AbortSignal) => void | Promise<void>,
+  ): Promise<void> {
     if (this.unloaded) return;
     const file = this.app.vault.getFileByPath(path);
     if (file === null) throw new Error(`Vault file no longer exists: ${path}`);
     const leaf = this.app.workspace.getLeaf(false);
-    const generation = this.lifecycleGeneration;
-    const request = Symbol();
-    this.pendingFileOpens.set(leaf, request);
-    const ownsRequest = () => !this.unloaded && generation === this.lifecycleGeneration && this.pendingFileOpens.get(leaf) === request;
+    const previous = this.pendingFileOpens.get(leaf);
+    previous?.controller.abort();
+    const controller = new AbortController();
+    const ownsFile = () => !controller.signal.aborted && file.path === path && this.app.vault.getFileByPath(path) === file;
+
+    // The host can finish opening a file after a later click. Serialize only the
+    // host opens in this pane; a newer click can cancel source verification immediately.
+    const openIfCurrent = async () => { if (ownsFile()) await leaf.openFile(file); };
+    const opened = previous === undefined ? Promise.resolve().then(openIfCurrent) : previous.opened.then(openIfCurrent, openIfCurrent);
+    this.pendingFileOpens.set(leaf, { opened, controller });
     try {
-      await leaf.openFile(file);
+      await opened;
+      if (ownsFile()) await onOpen?.(leaf, file, controller.signal);
     } catch (error) {
-      if (ownsRequest()) throw error;
-      return;
+      if (!controller.signal.aborted) throw error;
+    } finally {
+      if (this.pendingFileOpens.get(leaf)?.controller === controller) this.pendingFileOpens.delete(leaf);
     }
-    if (!ownsRequest() || file.path !== path || this.app.vault.getFileByPath(path) !== file) return;
-    onOpen?.(leaf, file);
   }
 
   private showBrokenLinkActions(result: BrokenLinkResult, anchor: HTMLElement): void {
@@ -1010,24 +1021,4 @@ function showMenuAtAnchor(menu: Menu, anchor: HTMLElement): void {
     y: rect.bottom,
     width: rect.width,
   }, anchor.ownerDocument);
-}
-
-function findMarkdownResultPosition(editor: Editor, result: BrokenLinkResult): EditorPosition | null {
-  const { line, column, property } = result.location;
-  if (line !== null && line >= 0 && line < editor.lineCount() && result.rawText.length > 0) {
-    const raw = normalizedBodyText(result.rawText);
-    const parts = raw.split("\n");
-    const startLine = editor.getLine(line);
-    const ch = column ?? startLine.indexOf(parts[0]!);
-    const lastLine = line + parts.length - 1;
-    const lastCh = parts.length > 1 ? parts.at(-1)!.length : ch + raw.length;
-    if (ch >= 0 && ch <= startLine.length && lastLine < editor.lineCount() &&
-      lastCh <= (lastLine === line ? startLine : editor.getLine(lastLine)).length) {
-      const range = editor.getRange({ line, ch }, { line: lastLine, ch: lastCh });
-      if (normalizedBodyText(range) === raw) return { line, ch: column ?? 0 };
-    }
-  }
-  if (property === null) return null;
-  const propertyLine = findFrontmatterPropertyLine(editor.getValue(), property);
-  return propertyLine === null ? null : { line: propertyLine, ch: 0 };
 }
