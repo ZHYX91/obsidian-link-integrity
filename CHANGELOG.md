@@ -7,6 +7,10 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-11-21
+
+- Let the Community build use its npm version while continuing to verify the Node 22 runtime and build integrity.
+
 ## [0.5.6] - 2026-11-21
 
 - Resolve table links with escaped alias separators, including in Canvas text cards.
@@ -273,7 +277,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.6...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.7...HEAD
+[0.5.7]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.6...0.5.7
 [0.5.6]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.5...0.5.6
 [0.5.5]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.4...0.5.5
 [0.5.4]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...0.5.4
