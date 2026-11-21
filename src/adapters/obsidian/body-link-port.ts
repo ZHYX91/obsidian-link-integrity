@@ -63,8 +63,8 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
       await yieldBrowserTask();
       if (signal.aborted) throw new Error("Body source proof cancelled.");
     } });
-    const { references, syntaxRanges, lines } = await parseMarkdownSourceAsync(text, scheduler, "skip");
-    const exclusions = await extractProvenMarkdownNonLinkExclusions(text, scheduler, lines, syntaxRanges);
+    const { references, syntaxRanges, lines, inlineLinks } = await parseMarkdownSourceAsync(text, scheduler, "skip");
+    const exclusions = await extractProvenMarkdownNonLinkExclusions(text, scheduler, lines, syntaxRanges, inlineLinks);
     if (signal.aborted || this.app.metadataCache.getFileCache(file) !== cache) return null;
     const byRange = new Map(references.map((reference) => [`${reference.startOffset}:${reference.endOffset}`, reference]));
     const protectedRanges = [...exclusions].sort((left, right) => left.from - right.from);
@@ -88,11 +88,11 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
       const pause = scheduler.checkpoint(); if (pause !== null) await pause;
       if (occurrence.kind !== "markdown-link" && occurrence.kind !== "markdown-embed") continue;
       const range = bodySourceRange(text, starts, occurrence.position);
-      if (range === null || text.slice(range.from, range.to) !== occurrence.raw ||
-        protectedAt(range.from, range.to)) continue;
+      if (range === null || protectedAt(range.from, range.to)) continue;
       const reference = byRange.get(`${range.from}:${range.to}`);
       const destination = reference === undefined ? null : canonicalBodyDestination(reference.linktext);
-      if (reference === undefined || reference.raw !== occurrence.raw ||
+      if (reference === undefined || reference.raw !== text.slice(range.from, range.to) ||
+        (reference.raw !== occurrence.raw && normalizedBodyText(reference.raw) !== normalizedBodyText(occurrence.raw)) ||
         reference.embedded !== (occurrence.kind === "markdown-embed") ||
         destination === null || destination !== canonicalBodyDestination(occurrence.linkpath + (occurrence.subpath ?? ""))) continue;
       links.push({ ...range, occurrence, linktext: reference.linktext, label: referenceLabel(reference.raw, reference.embedded), embedded: reference.embedded });

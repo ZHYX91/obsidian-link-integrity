@@ -103,7 +103,7 @@ function* extractMarkdownSteps(source: string, properties: "include" | "skip" = 
     references.push(takeWiki ? wikiReferences[wiki++]! : markdown[inline++]!);
     if (references.length % 128 === 0) yield;
   }
-  return { references, masked, syntaxRanges, frontmatterEnd, lines };
+  return { references, inlineLinks: established, masked, syntaxRanges, frontmatterEnd, lines };
 }
 
 export function extractBasesExplicitReferences(

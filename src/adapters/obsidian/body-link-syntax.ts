@@ -1,5 +1,5 @@
 export interface BodyRange { readonly from: number; readonly to: number; }
-import { isEscaped, maskRange, parseMarkdownSourceAsync, type SourceLineRange, type MarkdownSyntaxRange } from "./explicit-link-parser";
+import { isEscaped, maskRange, parseMarkdownSourceAsync, type ParsedExplicitReference, type SourceLineRange, type MarkdownSyntaxRange } from "./explicit-link-parser";
 import { WorkScheduler } from "../../scheduling/work-scheduler";
 import {
   expandMarkdownTabs as expandTabs,
@@ -11,13 +11,14 @@ import {
 
 /** Conservative current-source syntax guard; complete explicit links remain eligible. */
 export async function extractMarkdownNonLinkExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly BodyRange[]> {
-  const { lines, syntaxRanges } = await parseMarkdownSourceAsync(source, scheduler, "skip");
-  return extractProvenMarkdownNonLinkExclusions(source, scheduler, lines, syntaxRanges.filter(({ kind }) => kind !== "metadata"));
+  const { lines, syntaxRanges, inlineLinks } = await parseMarkdownSourceAsync(source, scheduler, "skip");
+  return extractProvenMarkdownNonLinkExclusions(source, scheduler, lines, syntaxRanges.filter(({ kind }) => kind !== "metadata"), inlineLinks);
 }
 
 /** Reuse a current-source proof, including its literal metadata contexts. */
 export async function extractProvenMarkdownNonLinkExclusions(source: string, scheduler: WorkScheduler,
-  lines: readonly SourceLineRange[], syntaxRanges: readonly MarkdownSyntaxRange[]): Promise<readonly BodyRange[]> {
+  lines: readonly SourceLineRange[], syntaxRanges: readonly MarkdownSyntaxRange[],
+  inlineLinks: ReadonlyMap<number, ParsedExplicitReference>): Promise<readonly BodyRange[]> {
   const ranges: BodyRange[] = [];
   if (syntaxRanges.length > 0) {
     const syntax = source.split("");
@@ -91,7 +92,12 @@ export async function extractProvenMarkdownNonLinkExclusions(source: string, sch
     let opening = -1;
     for (let index = 0; index < content.length; index += 1) {
       const character = content[index];
-      if (character === "[" && opening < 0) opening = content[index - 1] === "!" ? index - 1 : index;
+      if (character === "[" && opening < 0) {
+        const start = content[index - 1] === "!" ? index - 1 : index;
+        // A link or embed can close on a later line. Only its proven opener is exempt.
+        const proven = inlineLinks.get(line.start + index) ?? (start === index ? undefined : inlineLinks.get(line.start + start));
+        if (proven === undefined || proven.endOffset <= line.contentEnd) opening = start;
+      }
       if (character === "]") {
         if (opening >= 0 && content[index + 1] === "(" && lastParenthesis < index + 2) {
           ranges.push({ from: line.start + opening, to: line.contentEnd }); break;
