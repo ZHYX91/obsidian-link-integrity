@@ -2,13 +2,13 @@ import { isMap, isNode, isScalar, isSeq, LineCounter, parseDocument } from "yaml
 
 /** Locate cached property paths using YAML source ranges, never text resemblance. */
 export function findFrontmatterPropertyLine(source: string, property: string): number | null {
-  const opening = /^(?:\uFEFF)?---[ \t]*\r?\n/u.exec(source);
+  const opening = /^(?:\uFEFF)?---[ \t]*(?:\r\n|[\r\n])/u.exec(source);
   if (opening === null) return null;
   const rest = source.slice(opening[0].length);
-  const closing = /^(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/mu.exec(rest);
+  const closing = /(^|[\r\n])(?:---|\.\.\.)[ \t]*(?=[\r\n]|$)/u.exec(rest);
   if (closing === null) return null;
   const lineCounter = new LineCounter();
-  const document = parseDocument(rest.slice(0, closing.index), {
+  const document = parseDocument(rest.slice(0, closing.index + closing[1]!.length).replace(/\r\n?/gu, "\n"), {
     lineCounter, schema: "failsafe", logLevel: "silent", stringKeys: true,
   });
   if (document.errors.length > 0 || !isMap(document.contents)) return null;

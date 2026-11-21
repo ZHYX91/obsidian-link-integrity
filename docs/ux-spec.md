@@ -43,7 +43,7 @@ The source-folder tree collapses deeper hierarchy by default, offers Expand all 
 
 - Missing files, headings, and blocks have distinct labels.
 - When a file exists but its subpath is missing, the target file can still be opened while retaining the subpath diagnostic.
-- Markdown body references navigate to a line when possible. Frontmatter, Canvas, and Bases fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID and line/column; merely opening the file must not masquerade as precise navigation.
+- After opening the source, the sidebar moves the cursor only if the current editor text matches the indexed reference at that location. A newer click in the same pane takes precedence. When the reference has moved, the note opens at its existing cursor. Frontmatter, Canvas, and Bases fall back to opening the source file when the host API cannot provide a stable exact position, with a lightweight notice exposing any available Canvas node ID and line/column; merely opening the file must not masquerade as precise navigation.
 - A row menu creates a result-hiding shortcut rule for its explicitly named current reference, entire target, or source. Completion shows the match count and offers immediate Undo; this menu has no graph-contribution exclusion action. Custom matching scopes use the settings draft editor and its preview-before-save workflow.
 
 Search, grouping, sorting, and “show ignored” affect only the current projection, never the graph.

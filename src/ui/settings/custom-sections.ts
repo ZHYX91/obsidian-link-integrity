@@ -375,17 +375,17 @@ function renderExpectedRules(
   container.append(pathList, textElement(container, "h4", t("settings.expected.rules")));
 
   let closeEditor: (() => void) | null = null;
-  const openEditor = (rule: ExpectedIsolationRule | null): void => {
+  const openEditor = (rule: ExpectedIsolationRule | null, opener: HTMLButtonElement): void => {
     closeEditor?.();
-    closeEditor = openExpectedRuleDialog(container, rule, context);
+    closeEditor = openExpectedRuleDialog(container, rule, context, opener);
   };
   const list = container.ownerDocument.createElement("div");
   list.className = "link-integrity-expected-rule-list";
   for (const rule of settings.isolatedFiles.expectedRules) {
-    list.append(renderExpectedRuleCard(container.ownerDocument, rule, context, () => openEditor(rule)));
+    list.append(renderExpectedRuleCard(container.ownerDocument, rule, context, (opener) => openEditor(rule, opener)));
   }
   container.append(list);
-  const add = button(container, t("settings.expected.addRule"), () => openEditor(null));
+  const add = button(container, t("settings.expected.addRule"), () => openEditor(null, add));
   add.classList.add("mod-cta", "link-integrity-add-rule");
   add.disabled = context.writeProtected;
   return () => closeEditor?.();
@@ -395,7 +395,7 @@ function renderExpectedRuleCard(
   document: Document,
   rule: ExpectedIsolationRule,
   context: SettingsUiContext,
-  onEdit: () => void,
+  onEdit: (opener: HTMLButtonElement) => void,
 ): HTMLElement {
   const { t } = context.translator;
   const card = document.createElement("article");
@@ -427,7 +427,7 @@ function renderExpectedRuleCard(
   edit.type = "button";
   edit.textContent = t("common.edit");
   edit.disabled = context.writeProtected;
-  edit.addEventListener("click", onEdit);
+  edit.addEventListener("click", () => onEdit(edit));
   card.append(enabled, text, edit);
   return card;
 }
@@ -456,11 +456,11 @@ function openExpectedRuleDialog(
   host: HTMLElement,
   sourceRule: ExpectedIsolationRule | null,
   context: SettingsUiContext,
+  opener: HTMLButtonElement,
 ): () => void {
   const document = host.ownerDocument;
   const ownerWindow = document.defaultView;
   const { t } = context.translator;
-  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const overlay = document.createElement("div");
   overlay.className = "link-integrity-rule-modal";
   overlay.dir = context.translator.direction;
@@ -502,8 +502,9 @@ function openExpectedRuleDialog(
     closed = true;
     cancelPreview();
     editorCleanup?.();
+    const returnFocus = overlay.contains(document.activeElement) || document.activeElement === document.body;
     overlay.remove();
-    previousFocus?.focus();
+    if (returnFocus && opener.isConnected) opener.focus();
   };
   closeButton.addEventListener("click", close);
   overlay.addEventListener("click", (event) => {

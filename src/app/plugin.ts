@@ -1,3 +1,4 @@
+import { normalizedBodyText } from "../adapters/obsidian/body-link-port";
 import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
 import { runIndexPreview } from "./index-preview";
 import { IgnorePreviewService } from "./ignore-preview-service";
@@ -13,6 +14,8 @@ import {
   TFolder,
   getLanguage,
   type Command,
+  type Editor,
+  type EditorPosition,
   type EventRef,
   type WorkspaceLeaf,
 } from "obsidian";
@@ -91,6 +94,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   private initialMetadataTimeout: number | null = null;
   private initialMetadataGateResolve: (() => void) | null = null;
   private lifecycleGeneration = 0;
+  private readonly pendingFileOpens = new WeakMap<WorkspaceLeaf, symbol>();
   private metadataEventsRegistered = false;
   private baselineAvailable = false;
   private rebuildPromise: Promise<void> | null = null;
@@ -102,8 +106,10 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   public override async onload(): Promise<void> {
     this.unloaded = false;
-    this.lifecycleGeneration += 1;
-    const loaded = loadSettings(await this.loadData());
+    const generation = ++this.lifecycleGeneration;
+    const data: unknown = await this.loadData();
+    if (this.unloaded || this.lifecycleGeneration !== generation) return;
+    const loaded = loadSettings(data);
     this.settings = loaded.settings;
     this.settingsWriteProtected = loaded.writeProtected;
     this.saveCoordinator = new SettingsSaveCoordinator(
@@ -159,10 +165,11 @@ export default class LinkIntegrityPlugin extends Plugin {
 
     this.refreshEntrypoints();
     this.app.workspace.onLayoutReady(() => {
+      if (this.unloaded || this.lifecycleGeneration !== generation) return;
       this.layoutReady = true;
       const sidebarAlreadyOpen = this.app.workspace
         .getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE).length > 0;
-      if (!this.unloaded && (this.settings.general.scanOnStartup || this.settings.brokenLinks.bodyHints || sidebarAlreadyOpen)) {
+      if (this.settings.general.scanOnStartup || this.settings.brokenLinks.bodyHints || sidebarAlreadyOpen) {
         void this.ensureIndex().catch((error: unknown) => this.reportError(error));
       }
     });
@@ -250,10 +257,13 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   public async activateView(): Promise<void> {
+    if (this.unloaded) return;
+    const generation = this.lifecycleGeneration;
     let leaf = this.app.workspace.getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE)[0];
     if (leaf === undefined) {
       leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf(true);
       await leaf.setViewState({ type: LINK_INTEGRITY_VIEW_TYPE, active: true });
+      if (this.unloaded || this.lifecycleGeneration !== generation || leaf.getViewState().type !== LINK_INTEGRITY_VIEW_TYPE) return;
     }
     await this.app.workspace.revealLeaf(leaf);
   }
@@ -587,22 +597,19 @@ export default class LinkIntegrityPlugin extends Plugin {
     return this.coordinator.subscribeDiagnostics(listener);
   }
 
-  private async openBrokenLink(result: BrokenLinkResult): Promise<void> {
-    const leaf = await this.openFile(result.sourcePath);
-    if (!(leaf.view instanceof MarkdownView)) {
-      this.showNonMarkdownLocation(result);
-      return;
-    }
-    const line = result.location.line ?? (result.location.property === null
-      ? null
-      : findFrontmatterPropertyLine(leaf.view.editor.getValue(), result.location.property));
-    if (line === null) return;
-    const column = result.location.line === null ? 0 : result.location.column ?? 0;
-    leaf.view.editor.setCursor({ line, ch: column });
-    leaf.view.editor.scrollIntoView({
-      from: { line, ch: column },
-      to: { line, ch: column },
-    }, true);
+  private openBrokenLink(result: BrokenLinkResult): Promise<void> {
+    return this.openFile(result.sourcePath, (leaf, file) => {
+      const view = leaf.view;
+      if (view instanceof MarkdownView) {
+        if (view.file !== file) return;
+        const cursor = findMarkdownResultPosition(view.editor, result);
+        if (cursor === null) return;
+        view.editor.setCursor(cursor);
+        view.editor.scrollIntoView({ from: cursor, to: cursor }, true);
+      } else if (leaf.getViewState().state?.file === file.path) {
+        this.showNonMarkdownLocation(result);
+      }
+    });
   }
 
   private showNonMarkdownLocation(result: BrokenLinkResult): void {
@@ -617,12 +624,23 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (parts.length > 0) new Notice(`Link Integrity: ${parts.join(" · ")}`, 8_000);
   }
 
-  private async openFile(path: string): Promise<WorkspaceLeaf> {
+  private async openFile(path: string, onOpen?: (leaf: WorkspaceLeaf, file: TFile) => void): Promise<void> {
+    if (this.unloaded) return;
     const file = this.app.vault.getFileByPath(path);
     if (file === null) throw new Error(`Vault file no longer exists: ${path}`);
     const leaf = this.app.workspace.getLeaf(false);
-    await leaf.openFile(file);
-    return leaf;
+    const generation = this.lifecycleGeneration;
+    const request = Symbol();
+    this.pendingFileOpens.set(leaf, request);
+    const ownsRequest = () => !this.unloaded && generation === this.lifecycleGeneration && this.pendingFileOpens.get(leaf) === request;
+    try {
+      await leaf.openFile(file);
+    } catch (error) {
+      if (ownsRequest()) throw error;
+      return;
+    }
+    if (!ownsRequest() || file.path !== path || this.app.vault.getFileByPath(path) !== file) return;
+    onOpen?.(leaf, file);
   }
 
   private showBrokenLinkActions(result: BrokenLinkResult, anchor: HTMLElement): void {
@@ -992,4 +1010,24 @@ function showMenuAtAnchor(menu: Menu, anchor: HTMLElement): void {
     y: rect.bottom,
     width: rect.width,
   }, anchor.ownerDocument);
+}
+
+function findMarkdownResultPosition(editor: Editor, result: BrokenLinkResult): EditorPosition | null {
+  const { line, column, property } = result.location;
+  if (line !== null && line >= 0 && line < editor.lineCount() && result.rawText.length > 0) {
+    const raw = normalizedBodyText(result.rawText);
+    const parts = raw.split("\n");
+    const startLine = editor.getLine(line);
+    const ch = column ?? startLine.indexOf(parts[0]!);
+    const lastLine = line + parts.length - 1;
+    const lastCh = parts.length > 1 ? parts.at(-1)!.length : ch + raw.length;
+    if (ch >= 0 && ch <= startLine.length && lastLine < editor.lineCount() &&
+      lastCh <= (lastLine === line ? startLine : editor.getLine(lastLine)).length) {
+      const range = editor.getRange({ line, ch }, { line: lastLine, ch: lastCh });
+      if (normalizedBodyText(range) === raw) return { line, ch: column ?? 0 };
+    }
+  }
+  if (property === null) return null;
+  const propertyLine = findFrontmatterPropertyLine(editor.getValue(), property);
+  return propertyLine === null ? null : { line: propertyLine, ch: 0 };
 }

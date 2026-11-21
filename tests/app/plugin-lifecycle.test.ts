@@ -20,6 +20,38 @@ afterEach(() => {
 });
 
 describe("plugin index lifecycle", () => {
+  it.each(["disabled", "repurposed"] as const)("does not reveal a %s pane after a deferred sidebar open", async (reason) => {
+    let finish!: () => void;
+    const leaf = {
+      setViewState: vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })),
+      getViewState: () => ({ type: reason === "repurposed" ? "markdown" : "link-integrity-results" }),
+    };
+    const app = { workspace: { getLeavesOfType: () => [], getRightLeaf: () => leaf, revealLeaf: vi.fn() } };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    const opening = plugin.activateView();
+    if (reason === "disabled") plugin.onunload();
+    finish();
+    await opening;
+    expect(app.workspace.revealLeaf).not.toHaveBeenCalled();
+  });
+
+  it("ignores settings that finish loading after the plugin has been disabled", async () => {
+    const app = { vault: { on: vi.fn() }, workspace: { getLeavesOfType: () => [], onLayoutReady: vi.fn() } };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    let finish!: (data: unknown) => void;
+    vi.spyOn(plugin, "loadData").mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const commands = vi.spyOn(plugin, "addCommand");
+    const opening = plugin.onload();
+    plugin.onunload();
+    finish(createDefaultSettings());
+    await opening;
+    expect(commands).not.toHaveBeenCalled();
+    expect(app.vault.on).not.toHaveBeenCalled();
+    expect(app.workspace.onLayoutReady).not.toHaveBeenCalled();
+  });
+
   it("refreshes registered command names without replacing callbacks or registering again", async () => {
     vi.useFakeTimers();
     const view = new MarkdownView(null as never);
@@ -708,7 +740,9 @@ describe("plugin index lifecycle", () => {
   it("surfaces Canvas and Bases locations when the host view cannot place a cursor", async () => {
     const canvas = createMockFile("Map.canvas", 1);
     const base = createMockFile("Index.base", 1);
-    const leaf = { view: {}, openFile: vi.fn(async () => undefined) };
+    let displayed = "";
+    const leaf = { view: {}, getViewState: () => ({ state: { file: displayed } }),
+      openFile: vi.fn(async (file: { path: string }) => { displayed = file.path; }) };
     const app = {
       vault: {
         getFileByPath: (path: string) => path === canvas.path ? canvas : path === base.path ? base : null,

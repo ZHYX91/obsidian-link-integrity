@@ -1,3 +1,4 @@
+import { Window as TestWindow } from "happy-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ExpectedIsolationRule } from "../../src/core/expected-isolation-rules";
@@ -8,6 +9,28 @@ import { renderCustomSetting } from "../../src/ui/settings/custom-sections";
 import type { SettingsUiContext } from "../../src/ui/settings";
 
 describe("custom settings sections", () => {
+  it("restores focus to the rule button in the settings window after Escape", async () => {
+    const secondWindow = new TestWindow();
+    try {
+      const popout = secondWindow.document as unknown as Document;
+      const container = popout.createElement("div");
+      popout.body.append(container);
+      const cleanup = renderCustomSetting(container, "expected-isolation-rules", context(createDefaultSettings()));
+      const opener = Array.from(container.querySelectorAll("button")).find((item) => item.textContent === "Add expected-isolation rule")!;
+      const outside = popout.createElement("input");
+      container.append(outside);
+      outside.focus();
+      opener.click();
+      await Promise.resolve();
+      const dialog = popout.querySelector<HTMLElement>('[role="dialog"]')!;
+      expect(dialog.contains(popout.activeElement)).toBe(true);
+      dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      expect(popout.querySelector('[role="dialog"]')).toBeNull();
+      expect(popout.activeElement).toBe(opener);
+      cleanup();
+    } finally { await secondWindow.happyDOM.close(); }
+  });
+
   it("marks declarative custom rows for wrapping and cleans the marker up", () => {
     const container = document.createElement("div");
     const cleanup = renderCustomSetting(container, "index-maintenance", context(
