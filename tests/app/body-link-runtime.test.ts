@@ -86,6 +86,48 @@ describe("body runtime composition", () => {
       runtime.close();
     }
   });
+  it.each(["replace-view", "replace-editor"])("ignores a stale editor diagnostic after %s", async (change) => {
+    const test = bodySetup();
+    const runtime = new BodyLinkRuntime(test.app, () => test.index, async () => {}, () => test.settings, () => true, vi.fn());
+    const editor = { getValue: () => test.text, offsetToPos: () => ({ line: 0, ch: 0 }),
+      setSelection: vi.fn(), scrollIntoView: vi.fn(), focus: vi.fn() } as unknown as Editor;
+    const view = new MarkdownView(null as never);
+    const leaf = { view };
+    Object.assign(view, { file: test.files.get(test.path), editor, leaf, containerEl: document.createElement("div") });
+    try {
+      await runtime.current(editor, view);
+      const row = document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!;
+      if (change === "replace-view") leaf.view = new MarkdownView(null as never);
+      else Object.assign(view, { editor: { ...editor } });
+      row.click();
+      expect(editor.setSelection).not.toHaveBeenCalled();
+      expect(editor.focus).not.toHaveBeenCalled();
+    } finally { runtime.close(); }
+  });
+  it.each(["during-open", "after-open"])("never reopens a diagnostic in a reused leaf %s", async (stage) => {
+    const test = bodySetup();
+    let ready!: () => void;
+    const runtime = new BodyLinkRuntime(test.app, () => test.index,
+      () => new Promise<void>((resolve) => { ready = resolve; }), () => test.settings, () => true, vi.fn());
+    const view = new MarkdownView(null as never);
+    const leaf = { view, setViewState: vi.fn(async () => {}) };
+    Object.assign(view, { file: test.files.get(test.path), leaf, containerEl: document.createElement("div") });
+    const replacement = new MarkdownView(null as never);
+    try {
+      const opening = runtime.preview(view);
+      if (stage === "during-open") leaf.view = replacement;
+      ready();
+      await opening;
+      const row = document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic");
+      if (stage === "during-open") expect(row).toBeNull();
+      else {
+        expect(row).not.toBeNull();
+        leaf.view = replacement;
+        row!.click();
+      }
+      expect(leaf.setViewState).not.toHaveBeenCalled();
+    } finally { runtime.close(); }
+  });
   it.each(["\n", "\r\n", "\r"])("revalidates Reading diagnostics with editor EOL %j", async (eol) => {
     const test = bodySetup("intro\r\n[[Missing|Label]] [[Missing|Label]]"); const select = vi.fn(); const setViewState = vi.fn(async () => {});
     const view = new MarkdownView(null as never);

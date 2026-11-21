@@ -98,23 +98,25 @@ export class BodyLinkRuntime {
     if (this.closed || view.file?.extension !== "md") return;
     this.proofActivated = true;
     const file = view.file;
+    const path = file.path;
+    const ownsReadingView = () => view.leaf.view === view && view.file === file && file.path === path;
     await this.ensureIndex();
-    if (this.closed || view.file !== file) return;
+    if (this.closed || !ownsReadingView()) return;
     const epoch = this.generation;
     const text = await this.app.vault.cachedRead(file);
-    if (this.closed || epoch !== this.generation || view.file !== file) return;
-    const source = await this.service.source(file.path, text);
-    if (this.closed || epoch !== this.generation || view.file !== file) return;
+    if (this.closed || epoch !== this.generation || !ownsReadingView()) return;
+    const source = await this.service.source(path, text);
+    if (this.closed || epoch !== this.generation || !ownsReadingView()) return;
     const close = openBodyLinkDiagnostics(view.containerEl.ownerDocument, this.translator(), source, (hint) => {
       void (async () => {
-        if (this.closed || epoch !== this.generation || view.file !== file) return;
-        await view.leaf.setViewState({ type: "markdown", state: { file: file.path, mode: "source" } });
+        if (this.closed || epoch !== this.generation || !ownsReadingView()) return;
+        await view.leaf.setViewState({ type: "markdown", state: { file: path, mode: "source" } });
         const current = view.leaf.view;
-        if (this.closed || epoch !== this.generation || !(current instanceof MarkdownView) || current.file !== file ||
+        if (this.closed || epoch !== this.generation || !(current instanceof MarkdownView) || current.file !== file || file.path !== path ||
           normalizedBodyText(current.editor.getValue()) !== normalizedBodyText(text)) return;
         const editorText = current.editor.getValue();
-        const projected = await this.service.source(file.path, editorText);
-        if (this.closed || epoch !== this.generation || view.leaf.view !== current || current.file !== file ||
+        const projected = await this.service.source(path, editorText);
+        if (this.closed || epoch !== this.generation || view.leaf.view !== current || current.file !== file || file.path !== path ||
           current.editor.getValue() !== editorText || projected.snapshot !== source.snapshot) return;
         // Both projections prove the same indexed occurrence against their own buffer.
         const exact = projected.hints.find((entry) => entry.occurrence === hint.occurrence);
@@ -128,15 +130,17 @@ export class BodyLinkRuntime {
     this.proofActivated = true;
     const file = info.file;
     const path = file.path; const text = editor.getValue();
+    const ownsEditor = () => info.file === file && file.path === path &&
+      (!(info instanceof MarkdownView) || (info.leaf.view === info && info.editor === editor));
     await this.ensureIndex();
     // The rebuild itself can invalidate; take a fresh epoch after ensuring a baseline.
-    if (this.closed || info.file !== file || file.path !== path || editor.getValue() !== text) return;
+    if (this.closed || !ownsEditor() || editor.getValue() !== text) return;
     const epoch = this.generation;
     const source = await this.service.source(path, text);
-    if (this.closed || epoch !== this.generation || info.file !== file || file.path !== path || editor.getValue() !== text) return;
+    if (this.closed || epoch !== this.generation || !ownsEditor() || editor.getValue() !== text) return;
     const document = (info as MarkdownView).containerEl?.ownerDocument ?? (typeof activeDocument === "undefined" ? window.document : activeDocument);
     const close = openBodyLinkDiagnostics(document, this.translator(), source, (hint) => {
-      if (this.closed || epoch !== this.generation || info.file !== file || file.path !== path || editor.getValue() !== text) return;
+      if (this.closed || epoch !== this.generation || !ownsEditor() || editor.getValue() !== text) return;
       selectBodyHint(editor, hint);
     }, () => { this.dialogs.delete(close); });
     this.dialogs.add(close);
