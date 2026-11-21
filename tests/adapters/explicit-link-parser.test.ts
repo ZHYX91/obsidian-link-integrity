@@ -23,6 +23,17 @@ describe("extractMarkdownExplicitReferences", () => {
       for (const reference of parsed) expect(source.slice(reference.startOffset, reference.endOffset)).toBe(reference.raw);
     }
   });
+  it.each([
+    ["$[[X]]$", false], ["$x\n[[X]]$", false], ["text $$ [[X]] $$ end", false],
+    ["> $$\n> [[X]]\n> $$", false], ["$$\n[[X]]", false],
+    ["cost $5 [[X]] and $10", true], ["$ [[X]] $", true], ["$[[X]]$5", true],
+    ["\\$[[X]]$", true], ["$[[X]]", true], ["$x\n\n[[X]]$", true],
+    ["$x$[[X]]$y$", true], ["> $$\n> hidden\n\n[[X]]", true],
+    ["`$` [[X]] `$`", true],
+  ] as const)("preserves Obsidian math boundaries in %j", (source, visible) => {
+    expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(visible ? ["X"] : []);
+  });
+
   it("does not mistake an escaped bang for a nested image when proving outer metadata", () => {
     expect(extractMarkdownExplicitReferences(String.raw`[outer \![alt](Target)](Other "[[Ghost]]")`)
       .map(({ linktext }) => linktext)).toEqual(["Target", "Ghost"]);

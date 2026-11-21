@@ -105,31 +105,6 @@ export async function extractProvenMarkdownNonLinkExclusions(source: string, sch
       const pause = scheduler.checkpoint(); if (pause !== null) await pause;
     }
   }
-  // Dollar delimiters use backslash parity; escaped closers do not terminate math.
-  const dollars = [...source.matchAll(/\$+/gu)];
-  const nextDollar = new Map<number, number>();
-  const dollarClosers = new Map<number, number>();
-  for (let index = dollars.length - 1; index >= 0; index -= 1) {
-    const run = dollars[index]!;
-    if (isEscaped(source, run.index)) continue;
-    const next = nextDollar.get(run[0].length);
-    if (next !== undefined) dollarClosers.set(index, next);
-    nextDollar.set(run[0].length, index);
-  }
-  for (let index = 0; index < dollars.length; index += 1) {
-    const run = dollars[index]!;
-    if (isEscaped(source, run.index)) continue;
-    const endIndex = dollarClosers.get(index);
-    const end = endIndex === undefined ? undefined : dollars[endIndex];
-    const lineBreak = run[0].length === 1 ? /[\r\n]/u.exec(source.slice(run.index + 1, end?.index)) : null;
-    if (lineBreak !== null) ranges.push({ from: run.index, to: run.index + 1 + lineBreak.index });
-    else {
-      ranges.push({ from: run.index, to: end === undefined ? source.length : end.index + end[0].length });
-      if (endIndex !== undefined) index = endIndex;
-    }
-    const pause = scheduler.checkpoint();
-    if (pause !== null) await pause;
-  }
   // HTML attributes can span lines and contain quoted '>'; do not expose them as prose.
   let tagEnd = 0;
   for (const opening of source.matchAll(/<(?=\/?[A-Za-z][\w:-]*\b|!|\?)/gu)) {

@@ -24,6 +24,41 @@ interface FakeFile {
 }
 
 describe("ObsidianLinkIndexPort", () => {
+  it.each(["empty-cache", "native", "canvas"])("keeps table aliases, real links and math distinct through %s", async (mode) => {
+    const source = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
+    const target = fakeFile("Target.md");
+    const raw = "[[Target\\|caption]]";
+    const table = "| A | B |\n| -- | -- |\n| " + raw + " | ok |";
+    const text = [table, "$[[Ghost]]$", "$$\n[[Ghost]]\n\n![[Ghost]]\n$$", "[[Missing]]"].join("\n\n");
+    const contents: Record<string, string> = {};
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([source, target], {
+      content: contents, caches, destinations: new Map([["Target", target]]),
+    });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      for (const [step, note] of [text, "---\n\n" + text].entries()) {
+        contents[source.path] = mode === "canvas" ? JSON.stringify({ nodes: [{ id: "table", type: "text", text: note }] }) : note;
+        caches.set(source.path, { links: mode === "native" ? [
+          positioned(note, "Target", raw), positioned(note, "Missing", "[[Missing]]"),
+        ] : [] });
+        if (step === 0) await new FullRebuildController(port, store).rebuild();
+        else {
+          incremental.enqueue({ type: "modify", path: source.path });
+          await incremental.whenIdle();
+        }
+        expect(store.current.getIncomingContributionCount(target.path)).toBe(1);
+        expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText)).toEqual(["Missing"]);
+        expect(store.current.getSourceSnapshot(source.path)?.occurrences.map(({ linkpath }) => linkpath))
+          .toEqual(["Target", "Missing"]);
+        const clean = await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild();
+        expect(store.current.toCanonicalState()).toEqual(clean.index.toCanonicalState());
+      }
+    } finally { incremental.stop(); }
+  });
+
   it.each(["fallback", "empty-cache", "cached"] as const)("excludes HTML attribute Wiki tokens from graph and diagnostics via %s", async (mode) => {
     for (const exists of [false, true]) {
       const source = fakeFile("Source.md");

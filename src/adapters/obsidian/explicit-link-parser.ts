@@ -44,7 +44,7 @@ export interface ParsedExplicitReference {
 export interface MarkdownSyntaxRange {
   readonly start: number;
   readonly end: number;
-  readonly kind: "metadata" | "code" | "comment" | "raw-html" | "frontmatter";
+  readonly kind: "metadata" | "code" | "comment" | "raw-html" | "frontmatter" | "math";
 }
 
 export function extractMarkdownExplicitReferences(
@@ -583,14 +583,16 @@ function* maskDelimitedBlocks(
     if (fence !== null) {
       if (continuesContainers(text, fence.containers)) {
         const content = stripMarkdownContainers(expandMarkdownTabs(text), fence.containers).text;
-        const closing = content === null ? undefined : /^ {0,3}(`+|~+)[ \t]*$/u.exec(content)?.[1];
+        const closing = content === null ? undefined : fence.character === "$"
+          ? /^[^$]*(\$+)[ ]*$/u.exec(content)?.[1]
+          : /^ {0,3}(`+|~+)[ \t]*$/u.exec(content)?.[1];
         if (closing !== undefined && closing[0] === fence.character && closing.length >= fence.length) {
-          yield* mask(fence.start, line.end);
+          yield* mask(fence.start, line.end, fence.character === "$" ? "math" : "code");
           fence = null;
         }
         continue;
       }
-      yield* mask(fence.start, line.start);
+      yield* mask(fence.start, line.start, fence.character === "$" ? "math" : "code");
       fence = null;
     }
     const continues = continuesContainers(text, containers);
@@ -662,7 +664,9 @@ function* maskDelimitedBlocks(
     const rawStart = /^ {0,3}<(?:pre|script|style|textarea)(?=[\s>]|$)/iu.test(normalized.text)
       ? line.start + text.indexOf("<") : -1;
     const opening = cursor === line.start ? /^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/u.exec(normalized.text) : null;
-    const delimiter = opening?.[1];
+    const mathFence = cursor === line.start && line.end > line.contentEnd
+      ? /^ {0,3}(\${2,})[^$]*$/u.exec(normalized.text)?.[1] : undefined;
+    const delimiter = opening?.[1] ?? mathFence;
     if (delimiter !== undefined && !(delimiter[0] === "`" && opening?.[2]?.includes("`"))) {
       labels.length = 0;
       fence = { character: delimiter[0] ?? "", length: delimiter.length, start: line.start, containers };
@@ -729,6 +733,18 @@ function* maskDelimitedBlocks(
         else cursor += 1;
         continue;
       }
+      if (source[cursor] === "$") {
+        const double = source[cursor + 1] === "$";
+        const width = double ? 2 : 1;
+        const canOpen = double || !/[ \t]/u.test(source[cursor + 1] ?? "");
+        const close = canOpen ? nextOpaqueEnd(opaqueClosers.get(double ? "$$" : "$"), cursor + width) : null;
+        if (close !== null && close <= boundary) {
+          yield* mask(cursor, close, "math");
+          inlineEnd = close;
+        }
+        cursor += width;
+        continue;
+      }
       if (source[cursor] === "[") {
         labels.push({ offset: cursor, image: isEmbedded(source, cursor), epoch: linkEpoch });
       }
@@ -767,7 +783,7 @@ function* maskDelimitedBlocks(
       cursor += 1;
     }
   }
-  if (fence !== null) yield* mask(fence.start, source.length);
+  if (fence !== null) yield* mask(fence.start, source.length, fence.character === "$" ? "math" : "code");
   if (opaque !== null) yield* mask(opaque.start, source.length, opaque.kind);
 }
 
@@ -884,6 +900,21 @@ function* indexOpaqueClosers(source: string): Generator<void, ReadonlyMap<string
     if (ranges.length % 128 === 0) yield;
     result.set(key, ranges);
   }
+  // Index each eligible closing dollar once; unmatched openers must not repeatedly scan a paragraph.
+  const single: MaskedRange[] = [];
+  const double: MaskedRange[] = [];
+  let dollars = 0;
+  for (const match of source.matchAll(/\$/gu)) {
+    if (++dollars % 128 === 0) yield;
+    const offset = match.index;
+    if (isEscaped(source, offset)) continue;
+    if (!/[ \t]/u.test(source[offset - 1] ?? "") && !/[0-9]/u.test(source[offset + 1] ?? "")) {
+      single.push({ start: offset, end: offset + 1 });
+    }
+    if (source[offset + 1] === "$") double.push({ start: offset, end: offset + 2 });
+  }
+  result.set("$", single);
+  result.set("$$", double);
   return result;
 }
 
@@ -1058,7 +1089,7 @@ function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Genera
       return { start: 0, end: line.end };
     }
   }
-  return { start: 0, end: source.length };
+  return null;
 }
 
 interface SourceLineRange {
@@ -1098,9 +1129,11 @@ function* scanSourceLines(source: string): Generator<void, SourceLineRange[]> {
 }
 
 function readWikiLinktext(content: string): string {
-  let separator = content.indexOf("|");
-  while (separator >= 0 && isEscaped(content, separator)) separator = content.indexOf("|", separator + 1);
-  return separator < 0 ? content : content.slice(0, separator);
+  const separator = content.indexOf("|");
+  if (separator < 0) return content;
+  // Obsidian accepts both | and the table spelling \| as alias separators.
+  const end = content[separator - 1] === "\\" ? separator - 1 : separator;
+  return content.slice(0, end);
 }
 
 export function maskRange(characters: string[], start: number, end: number): void {
