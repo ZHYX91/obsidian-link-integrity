@@ -103,7 +103,7 @@ function* extractMarkdownSteps(source: string, properties: "include" | "skip" = 
     references.push(takeWiki ? wikiReferences[wiki++]! : markdown[inline++]!);
     if (references.length % 128 === 0) yield;
   }
-  return { references, masked, syntaxRanges, frontmatterEnd };
+  return { references, masked, syntaxRanges, frontmatterEnd, lines };
 }
 
 export function extractBasesExplicitReferences(
@@ -1105,7 +1105,7 @@ function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Genera
   return null;
 }
 
-interface SourceLineRange {
+export interface SourceLineRange {
   readonly start: number;
   readonly contentEnd: number;
   readonly end: number;
@@ -1117,8 +1117,18 @@ function finishSteps<T>(steps: Generator<void, T>): T {
   return step.value;
 }
 
-export function sourceLineRanges(source: string): SourceLineRange[] {
-  return finishSteps(scanSourceLines(source));
+/** Editor coordinates include the empty line following a final line break. */
+export function sourceLineStarts(source: string | readonly SourceLineRange[]): number[] {
+  if (typeof source === "string") {
+    const starts = [0];
+    for (const match of source.matchAll(/\r\n|\r|\n/gu)) starts.push(match.index + match[0].length);
+    return starts;
+  }
+  const lines = source;
+  const starts = lines.map((line) => line.start);
+  const last = lines.at(-1);
+  if (last !== undefined && last.end > last.contentEnd) starts.push(last.end);
+  return starts;
 }
 
 function* scanSourceLines(source: string): Generator<void, SourceLineRange[]> {

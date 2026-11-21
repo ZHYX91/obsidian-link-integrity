@@ -1,5 +1,5 @@
 export interface BodyRange { readonly from: number; readonly to: number; }
-import { isEscaped, maskRange, parseMarkdownSourceAsync, sourceLineRanges, type MarkdownSyntaxRange } from "./explicit-link-parser";
+import { isEscaped, maskRange, parseMarkdownSourceAsync, type SourceLineRange, type MarkdownSyntaxRange } from "./explicit-link-parser";
 import { WorkScheduler } from "../../scheduling/work-scheduler";
 import {
   expandMarkdownTabs as expandTabs,
@@ -11,14 +11,13 @@ import {
 
 /** Conservative current-source syntax guard; complete explicit links remain eligible. */
 export async function extractMarkdownNonLinkExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly BodyRange[]> {
-  const proof = (await parseMarkdownSourceAsync(source, scheduler, "skip")).syntaxRanges
-    .filter(({ kind }) => kind !== "metadata");
-  return extractProvenMarkdownNonLinkExclusions(source, scheduler, proof);
+  const { lines, syntaxRanges } = await parseMarkdownSourceAsync(source, scheduler, "skip");
+  return extractProvenMarkdownNonLinkExclusions(source, scheduler, lines, syntaxRanges.filter(({ kind }) => kind !== "metadata"));
 }
 
 /** Reuse a current-source proof, including its literal metadata contexts. */
 export async function extractProvenMarkdownNonLinkExclusions(source: string, scheduler: WorkScheduler,
-  syntaxRanges: readonly MarkdownSyntaxRange[]): Promise<readonly BodyRange[]> {
+  lines: readonly SourceLineRange[], syntaxRanges: readonly MarkdownSyntaxRange[]): Promise<readonly BodyRange[]> {
   const ranges: BodyRange[] = [];
   if (syntaxRanges.length > 0) {
     const syntax = source.split("");
@@ -31,7 +30,6 @@ export async function extractProvenMarkdownNonLinkExclusions(source: string, sch
     }
     source = syntax.join("");
   }
-  const lines = sourceLineRanges(source);
   let html: { name: string; from: number; containers: readonly BodyContainer[]; openingQuote: string | null; openingComplete: boolean;
     bodyState: HtmlBodyState } | null = null;
   let containers: readonly BodyContainer[] = [];

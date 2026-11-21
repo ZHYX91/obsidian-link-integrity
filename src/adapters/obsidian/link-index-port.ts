@@ -28,6 +28,7 @@ import {
   extractBasesExplicitReferences,
   isExternalReference,
   parseMarkdownSourceAsync,
+  sourceLineStarts,
   type ParsedExplicitReference,
 } from "./explicit-link-parser";
 
@@ -109,8 +110,8 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
   private async buildMarkdownSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const cache = this.metadataCache.getFileCache(file);
     const source = await this.vault.cachedRead(file);
-    const { masked, references: sourceReferences, frontmatterEnd } = await parseMarkdownSourceAsync(source, scheduler, cache === null ? "include" : "skip");
-    const lineStarts = createLineStarts(source);
+    const { masked, references: sourceReferences, frontmatterEnd, lines } = await parseMarkdownSourceAsync(source, scheduler, cache === null ? "include" : "skip");
+    const lineStarts = sourceLineStarts(lines);
     const inputs: OccurrenceInput[] = [];
     const covered = new Map<string, number>();
     const appendPositioned = (
@@ -192,8 +193,9 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
         });
       }
       if (node.type === "text" && typeof node.text === "string") {
-        const lineStarts = createLineStarts(node.text);
-        for (const reference of (await parseMarkdownSourceAsync(node.text, scheduler)).references) {
+        const { references, lines } = await parseMarkdownSourceAsync(node.text, scheduler);
+        const lineStarts = sourceLineStarts(lines);
+        for (const reference of references) {
           inputs.push(parsedOccurrenceInput(reference, lineStarts, "canvas-text", nodeId));
         }
       }
@@ -203,7 +205,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
 
   private async buildBasesSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const source = await this.vault.cachedRead(file);
-    const lineStarts = createLineStarts(source);
+    const lineStarts = sourceLineStarts(source);
     const inputs = extractBasesExplicitReferences(source).map((reference) =>
       parsedOccurrenceInput(reference, lineStarts, "bases-explicit"));
     return this.resolveSnapshot(file.path, inputs, scheduler);
@@ -396,17 +398,6 @@ function canvasPosition(canvasNodeId: string | null): SourcePosition {
     property: null,
     canvasNodeId,
   };
-}
-
-function createLineStarts(source: string): readonly number[] {
-  const starts = [0];
-  for (let index = 0; index < source.length; index += 1) {
-    if (source[index] === "\r") {
-      if (source[index + 1] === "\n") index += 1;
-      starts.push(index + 1);
-    } else if (source[index] === "\n") starts.push(index + 1);
-  }
-  return starts;
 }
 
 function cachedSourceRange(
