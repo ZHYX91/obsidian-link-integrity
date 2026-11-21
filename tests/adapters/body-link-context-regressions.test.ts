@@ -49,6 +49,24 @@ async function settleRefresh(): Promise<void> {
   await new Promise<void>((resolve) => window.setTimeout(resolve, 120));
 }
 
+describe("body hints around math and leading horizontal rules", () => {
+  it.each(["cost $5 [[Missing]] and $10", "$ [[Missing]] $", "$x$[[Missing]]$y$"])(
+    "retains the real body-link diagnostic in %j", async (text) => {
+      const test = bodySetup(text);
+      expect((await test.service.source(test.path, text)).hints).toHaveLength(1);
+    },
+  );
+
+
+  it.each(["---\n\n", "---\r\n\r\n", "preface\n\n---\n\n", "---\ntitle: Note\n---\n\n"])(
+    "marks an ordinary body link after %j", async (prefix) => {
+      const test = bodySetup(prefix + "[[Missing]]");
+      const result = await test.service.source(test.path, test.text);
+      expect(result.hints).toHaveLength(1);
+    },
+  );
+});
+
 describe("literal percent body destinations", () => {
   it.each([
     ["Missing%20file.md", "Missing file.md", "Missing file"],

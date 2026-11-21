@@ -5,6 +5,11 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
+## Unreleased
+
+- Resolve table links with escaped alias separators, including in Canvas text cards.
+- Keep formulas out of the link graph and retain diagnostics for real links near prices, math and opening horizontal rules.
+
 ## [Unreleased]
 
 ## [0.5.5] - 2026-11-20
