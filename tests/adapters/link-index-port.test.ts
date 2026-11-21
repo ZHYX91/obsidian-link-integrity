@@ -912,7 +912,8 @@ describe("ObsidianLinkIndexPort", () => {
       incremental.start();
       try {
         for (const [step, delimiter] of ["---", "..."].entries()) {
-          content[source.path] = ["\uFEFF---", "summary: |", "  content", "  " + delimiter,
+          content[source.path] = ["\uFEFF---", "summary: | # [[HeaderComment]]", "  content", "  " + delimiter,
+            "  # [[ScalarLink]]",
             "# [[Ghost]]", 'related: "[[Property]]"', "...  ", "[[Body]]"].join(newline);
           if (step === 0) await new FullRebuildController(port, store).rebuild();
           else {
@@ -920,7 +921,7 @@ describe("ObsidianLinkIndexPort", () => {
             await incremental.whenIdle();
           }
           expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText).sort())
-            .toEqual(cached ? ["Body"] : ["Body", "Property"]);
+            .toEqual(cached ? ["Body"] : ["Body", "Property", "ScalarLink"]);
           const rebuilt = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
           expect(store.current.toCanonicalState()).toEqual(rebuilt.toCanonicalState());
         }

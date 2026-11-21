@@ -7,6 +7,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Keep real links in multiline YAML properties and exclude YAML comments from broken-link results, including with indented delimiters and CR line endings.
+
 ## [0.5.7] - 2026-11-21
 
 - Let the Community build use its npm version while continuing to verify the Node 22 runtime and build integrity.

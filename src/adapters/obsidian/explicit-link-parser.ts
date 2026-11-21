@@ -1,4 +1,4 @@
-import { isMap, isScalar, isSeq, parseDocument } from "yaml";
+import { CST, isMap, isScalar, isSeq, Lexer, parseDocument } from "yaml";
 /*!
  * entities 7.0.1, BSD-2-Clause
  * Copyright (c) Felix Böhm. All rights reserved.
@@ -1036,42 +1036,31 @@ function* maskYamlCommentRanges(
   start: number,
   end: number,
 ): Generator<void, void> {
-  let quote: "'" | '"' | null = null;
-  let escaped = false;
-  const lineBreak = /[\r\n]/gu;
-  for (let index = start; index < end; index += 1) {
-    if (index % 1024 === 0) yield;
-    const character = source[index];
-    if (character === "\n" || character === "\r") {
-      quote = null;
-      escaped = false;
-      continue;
-    }
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (character === "\\" && quote === '"') {
-      escaped = true;
-      continue;
-    }
-    if ((character === "'" || character === '"') && (quote == null || quote === character)) {
-      quote = quote == null ? character : null;
-      continue;
-    }
-    if (
-      character === "#" &&
-      quote == null &&
-      (index === 0 || /[\s,:[\]{}]/u.test(source[index - 1] ?? ""))
-    ) {
-      lineBreak.lastIndex = index;
-      const commentEnd = Math.min(lineBreak.exec(source)?.index ?? end, end);
-      for (let offset = index; offset < commentEnd; offset += 4096) {
-        if (offset > index) yield;
-        maskRange(characters, offset, Math.min(offset + 4096, commentEnd));
+  // A hash inside a quoted or block scalar is data. The YAML lexer also
+  // identifies real comments on block headers and inside flow collections.
+  const region = source.slice(start, end);
+  if (!region.includes("#")) return;
+  // Preserve UTF-16 offsets when adapting lone CR line endings for the lexer.
+  const yaml = region.replace(/\r(?!\n)/gu, "\n");
+  let offset = start;
+  let scalar = false;
+  let nextCheckpoint = start;
+  for (const token of new Lexer().lex(yaml)) {
+    if (offset >= nextCheckpoint) { yield; nextCheckpoint = offset + 1024; }
+    // These lexer control tokens occupy no characters in the source. The
+    // lexeme immediately following SCALAR is always content, even a lone "#".
+    if (!scalar) {
+      if (token === CST.SCALAR) { scalar = true; continue; }
+      if (token === CST.DOCUMENT || token === CST.FLOW_END) continue;
+      if (CST.tokenType(token) === "comment") {
+        for (let chunk = offset; chunk < offset + token.length; chunk += 4096) {
+          if (chunk > offset) yield;
+          maskRange(characters, chunk, Math.min(chunk + 4096, offset + token.length));
+        }
       }
-      index = commentEnd - 1;
     }
+    scalar = false;
+    offset += token.length;
   }
 }
 
