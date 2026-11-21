@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { styleDeclarations } from "../helpers/stylesheet";
@@ -5,6 +7,17 @@ import { styleDeclarations } from "../helpers/stylesheet";
 const tabSelector = ".link-integrity-settings-tabs > button.link-integrity-settings-tab";
 
 describe("settings navigation CSS", () => {
+  it("uses the same accent for the index details chevron and its expanded logical edge", () => {
+    const card = ".link-integrity-index-details";
+    const css = readFileSync(path.resolve(import.meta.dirname, "../../styles.css"), "utf8");
+    const rule = (selector: string) => css.split(selector + " {")[1]?.split("}")[0];
+    expect(rule(card)).toContain("background: color-mix(in srgb, var(--interactive-accent) 5%, var(--background-primary))");
+    expect(rule(card)).toContain("border: 1px solid var(--background-modifier-border)");
+    expect(rule(`${card} > summary::before`)).toContain("color: var(--interactive-accent)");
+    expect(rule(`${card}[open] > .link-integrity-index-metrics`))
+      .toContain("border-inline-start: 2px solid var(--interactive-accent)");
+  });
+
   it("resets theme buttons and keeps the active tab unmistakable", () => {
     const tab = styleDeclarations(tabSelector);
     for (const [property, value] of [

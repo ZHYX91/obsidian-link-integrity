@@ -1014,8 +1014,10 @@
   min-inline-size: 0;
   margin-block: 4px 12px;
   padding: 0;
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  background: color-mix(in srgb, var(--interactive-accent) 5%, var(--background-primary));
   box-shadow: none;
 }
 
@@ -1026,7 +1028,7 @@
   column-gap: 6px;
   box-sizing: border-box;
   min-block-size: 32px;
-  padding: 4px 0;
+  padding: 4px 8px;
   border: 0;
   border-radius: var(--radius-s);
   background: transparent;
@@ -1049,10 +1051,11 @@
 .link-integrity-index-details > summary::before {
   content: "";
   box-sizing: border-box;
+  color: var(--interactive-accent);
   justify-self: center;
-  inline-size: 7px;
-  block-size: 7px;
-  margin-block-start: calc(0.75em - 3.5px);
+  inline-size: 8px;
+  block-size: 8px;
+  margin-block-start: calc(0.75em - 4px);
   border-top: 1.5px solid currentColor;
   border-right: 1.5px solid currentColor;
   transform: rotate(45deg);
@@ -1083,6 +1086,10 @@
   .link-integrity-index-details > summary { min-block-size: 44px; }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .link-integrity-index-details > summary::before { transition: transform 120ms ease; }
+}
+
 @media (forced-colors: active) {
   .link-integrity-index-details > summary:focus-visible { outline-color: Highlight; }
 }
@@ -1092,8 +1099,12 @@
   min-inline-size: 0;
   gap: var(--size-2-1);
   margin: 0;
-  margin-block-start: 6px;
-  margin-inline-start: 18px;
+}
+
+.link-integrity-index-details[open] > .link-integrity-index-metrics {
+  margin: 2px 8px 8px;
+  border-inline-start: 2px solid var(--interactive-accent);
+  padding-inline-start: 8px;
 }
 
 .link-integrity-index-metrics > div {
@@ -1112,10 +1123,6 @@
   margin: 0;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
-}
-
-@container link-integrity-settings (max-width: 480px) {
-  .link-integrity-index-metrics { margin-inline-start: 0; }
 }
 
 @container link-integrity-settings (max-width: 420px) {
