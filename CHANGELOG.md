@@ -5,12 +5,13 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
-## Unreleased
+## [Unreleased]
+
+## [0.5.6] - 2026-11-21
 
 - Resolve table links with escaped alias separators, including in Canvas text cards.
 - Keep formulas out of the link graph and retain diagnostics for real links near prices, math and opening horizontal rules.
-
-## [Unreleased]
+- Make the index details card easier to recognize as expandable with a theme-accented arrow.
 
 ## [0.5.5] - 2026-11-20
 
@@ -272,7 +273,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   sidebar and settings UI, multilingual documentation, automated release checks, and scale
   benchmarks.
 
-[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.5...HEAD
+[Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.6...HEAD
+[0.5.6]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.5...0.5.6
 [0.5.5]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.4...0.5.5
 [0.5.4]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.3...0.5.4
 [0.5.3]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.2...0.5.3
