@@ -1038,6 +1038,7 @@ function* maskYamlCommentRanges(
 ): Generator<void, void> {
   let quote: "'" | '"' | null = null;
   let escaped = false;
+  const lineBreak = /[\r\n]/gu;
   for (let index = start; index < end; index += 1) {
     if (index % 1024 === 0) yield;
     const character = source[index];
@@ -1063,8 +1064,8 @@ function* maskYamlCommentRanges(
       quote == null &&
       (index === 0 || /[\s,:[\]{}]/u.test(source[index - 1] ?? ""))
     ) {
-      const newline = source.indexOf("\n", index);
-      const commentEnd = Math.min(newline < 0 ? end : newline, end);
+      lineBreak.lastIndex = index;
+      const commentEnd = Math.min(lineBreak.exec(source)?.index ?? end, end);
       for (let offset = index; offset < commentEnd; offset += 4096) {
         if (offset > index) yield;
         maskRange(characters, offset, Math.min(offset + 4096, commentEnd));
@@ -1074,18 +1075,19 @@ function* maskYamlCommentRanges(
   }
 }
 
+const frontmatterOpening = /^(?:\uFEFF)?---[ \t]*(?:[\r\n]|$)/u;
+
 export function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
-  if (!/^[^\S\r\n]*---[^\S\r\n]*(?:[\r\n]|$)/u.test(source)) return null;
+  if (!frontmatterOpening.test(source)) return null;
   return finishSteps(frontmatterFromLines(source, sourceLineRanges(source)));
 }
 
 function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Generator<void, MaskedRange | null> {
-  if (!/^[^\S\r\n]*---[^\S\r\n]*(?:[\r\n]|$)/u.test(source)) return null;
+  if (!frontmatterOpening.test(source)) return null;
   for (let i = 1; i < lines.length; i += 1) {
     if (i % 128 === 0) yield;
     const line = lines[i]!;
-    const text = source.slice(line.start, line.contentEnd).trim();
-    if (text === "---" || text === "...") {
+    if (/^(?:---|\.\.\.)[ \t]*$/u.test(source.slice(line.start, line.contentEnd))) {
       return { start: 0, end: line.end };
     }
   }

@@ -900,6 +900,34 @@ describe("ObsidianLinkIndexPort", () => {
     ]);
   });
 
+  it.each(["\n", "\r\n", "\r"])("keeps indented YAML delimiters inside the property region with %j", async (newline) => {
+    const source = fakeFile("Source.md");
+    for (const cached of [false, true]) {
+      const content: Record<string, string> = {};
+      const caches = new Map<string, CachedMetadata>();
+      if (cached) caches.set(source.path, { links: [], frontmatterLinks: [] });
+      const { port } = createPort([source], { content, caches, destinations: new Map() });
+      const store = new AtomicLinkIndexStore();
+      const incremental = new IncrementalIndexController(port, store);
+      incremental.start();
+      try {
+        for (const [step, delimiter] of ["---", "..."].entries()) {
+          content[source.path] = ["\uFEFF---", "summary: |", "  content", "  " + delimiter,
+            "# [[Ghost]]", 'related: "[[Property]]"', "...  ", "[[Body]]"].join(newline);
+          if (step === 0) await new FullRebuildController(port, store).rebuild();
+          else {
+            incremental.enqueue({ type: "modify", path: source.path });
+            await incremental.whenIdle();
+          }
+          expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText).sort())
+            .toEqual(cached ? ["Body"] : ["Body", "Property"]);
+          const rebuilt = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+          expect(store.current.toCanonicalState()).toEqual(rebuilt.toCanonicalState());
+        }
+      } finally { incremental.stop(); }
+    }
+  });
+
   it("keeps fallback diagnostics out of code blocks and frontmatter comments", async () => {
     const sourceFile = fakeFile("Source.md");
     const source = [
