@@ -7,6 +7,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Preserve single-reference ignores on property links as the native metadata cache becomes available, and exclude YAML property names from diagnostics.
 - Keep real links in multiline YAML properties and exclude YAML comments from broken-link results, including with indented delimiters and CR line endings.
 
 ## [0.5.7] - 2026-11-21

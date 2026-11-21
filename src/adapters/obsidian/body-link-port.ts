@@ -69,7 +69,7 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
       await yieldBrowserTask();
       if (signal.aborted) throw new Error("Body source proof cancelled.");
     } });
-    const { references, syntaxRanges } = await parseMarkdownSourceAsync(text, scheduler);
+    const { references, syntaxRanges } = await parseMarkdownSourceAsync(text, scheduler, "skip");
     const exclusions = await extractProvenMarkdownNonLinkExclusions(text, scheduler, syntaxRanges);
     if (signal.aborted || this.app.metadataCache.getFileCache(file) !== cache) return null;
     const byRange = new Map(references.map((reference) => [`${reference.startOffset}:${reference.endOffset}`, reference]));

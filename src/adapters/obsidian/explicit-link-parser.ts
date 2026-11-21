@@ -1,4 +1,4 @@
-import { CST, isMap, isScalar, isSeq, Lexer, parseDocument } from "yaml";
+import { CST, isMap, isScalar, isSeq, parseDocument, Parser } from "yaml";
 /*!
  * entities 7.0.1, BSD-2-Clause
  * Copyright (c) Felix Böhm. All rights reserved.
@@ -53,8 +53,10 @@ export function extractMarkdownExplicitReferences(
   return finishSteps(extractMarkdownSteps(source)).references;
 }
 
-export async function parseMarkdownSourceAsync(source: string, scheduler = new WorkScheduler()) {
-  const steps = extractMarkdownSteps(source);
+export async function parseMarkdownSourceAsync(
+  source: string, scheduler = new WorkScheduler(), properties: "include" | "skip" = "include",
+) {
+  const steps = extractMarkdownSteps(source, properties);
   let step = steps.next();
   while (!step.done) {
     const pause = scheduler.checkpoint();
@@ -64,14 +66,16 @@ export async function parseMarkdownSourceAsync(source: string, scheduler = new W
   return step.value;
 }
 
-function* extractMarkdownSteps(source: string) {
+function* extractMarkdownSteps(source: string, properties: "include" | "skip" = "include") {
   const lines = yield* scanSourceLines(source);
   const linesByStart = new Map<number, SourceLineRange>();
   for (const [i, line] of lines.entries()) {
     if (i % 128 === 0) yield;
     linesByStart.set(line.start, line);
   }
-  const blocks = { lines, linesByStart, opaqueClosers: yield* indexOpaqueClosers(source) };
+  const frontmatter = yield* frontmatterFromLines(source, lines);
+  const blocks = { lines, linesByStart, opaqueClosers: yield* indexOpaqueClosers(source), frontmatter,
+    yamlNonValues: frontmatter === null ? [] : properties === "skip" ? [frontmatter] : yield* yamlNonValueRanges(source, frontmatter) };
   let destinations = yield* indexMarkdownDestinations(source);
   const definitions = new Set<string>();
   let syntax = source;
@@ -99,7 +103,7 @@ function* extractMarkdownSteps(source: string) {
     references.push(takeWiki ? wikiReferences[wiki++]! : markdown[inline++]!);
     if (references.length % 128 === 0) yield;
   }
-  return { references, masked, syntaxRanges };
+  return { references, masked, syntaxRanges, frontmatterEnd };
 }
 
 export function extractBasesExplicitReferences(
@@ -439,6 +443,8 @@ interface BlockIndex {
   lines: SourceLineRange[];
   linesByStart: ReadonlyMap<number, SourceLineRange>;
   opaqueClosers: ReadonlyMap<string, readonly MaskedRange[]>;
+  frontmatter: MaskedRange | null;
+  yamlNonValues: readonly MaskedRange[];
 }
 
 function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destinations: MarkdownDestinationIndex,
@@ -449,15 +455,15 @@ function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destination
   const characters = source.split("");
   const inline = new Map<number, ParsedExplicitReference>();
   const syntaxRanges: MarkdownSyntaxRange[] = [];
-  const frontmatterRange = yield* frontmatterFromLines(source, blocks.lines);
+  const frontmatterRange = blocks.frontmatter;
   if (frontmatterRange !== null) {
     syntaxRanges.push({ ...frontmatterRange, kind: "frontmatter" });
-    yield* maskYamlCommentRanges(
-      characters,
-      source,
-      frontmatterRange.start,
-      frontmatterRange.end,
-    );
+    for (const { start, end } of blocks.yamlNonValues) {
+      for (let offset = start; offset < end; offset += 4096) {
+        yield;
+        maskRange(characters, offset, Math.min(offset + 4096, end));
+      }
+    }
   }
   yield* maskDelimitedBlocks(characters, source, blocks, frontmatterRange, destinations, inline,
     syntax, definitions, syntaxRanges, projection);
@@ -1030,54 +1036,70 @@ function htmlTagEnd(
   return source.length;
 }
 
-function* maskYamlCommentRanges(
-  characters: string[],
-  source: string,
-  start: number,
-  end: number,
-): Generator<void, void> {
-  // A hash inside a quoted or block scalar is data. The YAML lexer also
-  // identifies real comments on block headers and inside flow collections.
-  const region = source.slice(start, end);
-  if (!region.includes("#")) return;
-  // Preserve UTF-16 offsets when adapting lone CR line endings for the lexer.
-  const yaml = region.replace(/\r(?!\n)/gu, "\n");
-  let offset = start;
-  let scalar = false;
-  let nextCheckpoint = start;
-  for (const token of new Lexer().lex(yaml)) {
-    if (offset >= nextCheckpoint) { yield; nextCheckpoint = offset + 1024; }
-    // These lexer control tokens occupy no characters in the source. The
-    // lexeme immediately following SCALAR is always content, even a lone "#".
-    if (!scalar) {
-      if (token === CST.SCALAR) { scalar = true; continue; }
-      if (token === CST.DOCUMENT || token === CST.FLOW_END) continue;
-      if (CST.tokenType(token) === "comment") {
-        for (let chunk = offset; chunk < offset + token.length; chunk += 4096) {
-          if (chunk > offset) yield;
-          maskRange(characters, chunk, Math.min(chunk + 4096, offset + token.length));
+interface FrontmatterRange extends MaskedRange {
+  readonly contentStart: number;
+  readonly contentEnd: number;
+}
+
+/** Only source text inside YAML scalar values can contribute property links. */
+function* yamlNonValueRanges(source: string, region: FrontmatterRange): Generator<void, MaskedRange[]> {
+  const yaml = source.slice(region.contentStart, region.contentEnd).replace(/\r(?!\n)/gu, "\n");
+  // No source link can start here. Avoid parsing normal link-free metadata.
+  if (!yaml.includes("[")) return [];
+  // We need source ranges only. Feeding the YAML concrete-syntax parser in
+  // slices avoids composing an entire document just to rediscover those ranges.
+  const parser = new Parser();
+  const pending: CST.Token[] = [];
+  for (let offset = 0; offset < yaml.length; offset += 2048) {
+    const end = Math.min(offset + 2048, yaml.length);
+    for (const token of parser.parse(yaml.slice(offset, end), end < yaml.length)) {
+      if (token.type === "document") {
+        const root = token.value;
+        if (root?.type === "block-map" || root?.type === "flow-collection" && root.start.type === "flow-map-start") {
+          pending.push(root);
         }
       }
     }
-    scalar = false;
-    offset += token.length;
+    yield;
   }
+  const hidden: MaskedRange[] = [];
+  let cursor = region.start;
+  let visited = 0;
+  // Keep only mapping values and sequence entries, in source order. Tags,
+  // aliases, keys and actual comments remain outside scalar content ranges.
+  while (pending.length > 0) {
+    const token = pending.pop()!;
+    if (++visited % 128 === 0) yield;
+    if (CST.isCollection(token)) {
+      for (let i = token.items.length - 1; i >= 0; i -= 1) {
+        if (i % 256 === 0) yield;
+        const value = token.items[i]!.value;
+        if (value) pending.push(value);
+      }
+    } else if (CST.isScalar(token)) {
+      let start = region.contentStart + token.offset;
+      if (token.type === "block-scalar") {
+        const last = token.props.at(-1);
+        if (last?.type !== "newline") continue;
+        start = region.contentStart + last.offset + last.source.length;
+      }
+      if (start > cursor) hidden.push({ start: cursor, end: start });
+      cursor = start + token.source.length;
+    }
+  }
+  if (cursor < region.end) hidden.push({ start: cursor, end: region.end });
+  return hidden;
 }
 
 const frontmatterOpening = /^(?:\uFEFF)?---[ \t]*(?:[\r\n]|$)/u;
 
-export function findMarkdownFrontmatterRange(source: string): MaskedRange | null {
-  if (!frontmatterOpening.test(source)) return null;
-  return finishSteps(frontmatterFromLines(source, sourceLineRanges(source)));
-}
-
-function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Generator<void, MaskedRange | null> {
+function* frontmatterFromLines(source: string, lines: SourceLineRange[]): Generator<void, FrontmatterRange | null> {
   if (!frontmatterOpening.test(source)) return null;
   for (let i = 1; i < lines.length; i += 1) {
     if (i % 128 === 0) yield;
     const line = lines[i]!;
     if (/^(?:---|\.\.\.)[ \t]*$/u.test(source.slice(line.start, line.contentEnd))) {
-      return { start: 0, end: line.end };
+      return { start: 0, end: line.end, contentStart: lines[0]!.end, contentEnd: line.start };
     }
   }
   return null;

@@ -26,7 +26,6 @@ import {
 } from "../../core/occurrence-identity";
 import {
   extractBasesExplicitReferences,
-  findMarkdownFrontmatterRange,
   isExternalReference,
   parseMarkdownSourceAsync,
   type ParsedExplicitReference,
@@ -110,7 +109,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
   private async buildMarkdownSnapshot(file: TFile, scheduler?: WorkScheduler): Promise<SourceSnapshot> {
     const cache = this.metadataCache.getFileCache(file);
     const source = await this.vault.cachedRead(file);
-    const { masked, references: sourceReferences } = await parseMarkdownSourceAsync(source, scheduler);
+    const { masked, references: sourceReferences, frontmatterEnd } = await parseMarkdownSourceAsync(source, scheduler, cache === null ? "include" : "skip");
     const lineStarts = createLineStarts(source);
     const inputs: OccurrenceInput[] = [];
     const covered = new Map<string, number>();
@@ -140,9 +139,11 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
       raw: reference.original, linktext: reference.link, kind: "frontmatter",
       position: frontmatterPosition(reference),
     }));
-    const bodyStart = cache === null ? 0 : findMarkdownFrontmatterRange(source)?.end ?? 0;
     for (const reference of sourceReferences) {
-      if (reference.startOffset < bodyStart) continue;
+      if (reference.startOffset < frontmatterEnd) {
+        if (cache === null) inputs.push(parsedOccurrenceInput(reference, lineStarts, "frontmatter"));
+        continue;
+      }
       const kind = reference.embedded ? "markdown-embed" : "markdown-link";
       if (covered.has(sourceReferenceKey(kind, reference.raw, [reference.startOffset, reference.endOffset]))) continue;
       const ambiguous = sourceReferenceKey(kind, reference.raw, null);

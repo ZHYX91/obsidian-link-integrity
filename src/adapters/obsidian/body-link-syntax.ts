@@ -11,7 +11,7 @@ import {
 
 /** Conservative current-source syntax guard; complete explicit links remain eligible. */
 export async function extractMarkdownNonLinkExclusions(source: string, scheduler = new WorkScheduler()): Promise<readonly BodyRange[]> {
-  const proof = (await parseMarkdownSourceAsync(source, scheduler)).syntaxRanges
+  const proof = (await parseMarkdownSourceAsync(source, scheduler, "skip")).syntaxRanges
     .filter(({ kind }) => kind !== "metadata");
   return extractProvenMarkdownNonLinkExclusions(source, scheduler, proof);
 }
