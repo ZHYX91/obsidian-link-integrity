@@ -26,13 +26,12 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   private indexDetailsExpanded = false;
   private cleanup: (() => void) | null = null;
   private imperativeVisible = false;
-  private surfaceActive = false;
   private idCounter = 0;
   private readonly ignoreRuleDrafts = new Map<string, IgnoreRuleDraft>();
   private readonly expectedPreviews = new Map<string, ExpectedRulePreviewState>();
   private readonly expectedPreviewRequests = new PreviewRequestCoordinator<
     string,
-    ReturnType<LinkIntegrityPlugin["previewExpectedRule"]>
+    Awaited<ReturnType<LinkIntegrityPlugin["previewExpectedRule"]>>
   >();
 
   public constructor(app: App, private readonly owner: LinkIntegrityPlugin) {
@@ -45,7 +44,6 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   }
 
   public override display(): void {
-    this.activateSurface();
     this.imperativeVisible = true;
     this.renderImperative(false);
   }
@@ -53,7 +51,6 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   public override hide(): void {
     super.hide();
     this.imperativeVisible = false;
-    this.surfaceActive = false;
     this.expectedPreviewRequests.invalidate();
     this.cleanup?.();
     this.cleanup = null;
@@ -76,7 +73,7 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
       },
       getExpectedRulePreview: (ruleId) =>
         this.expectedPreviews.get(ruleId) ?? { state: "idle", stats: null },
-      requestExpectedRulePreview: (rule, publish) => this.refreshExpectedPreview(rule, publish),
+      requestExpectedRulePreview: (rule, publish, signal) => this.refreshExpectedPreview(rule, publish, signal),
       requestIgnoreRulePreview: (rule, signal) => this.owner.previewIgnoreRule(rule, signal),
       getIndexRevision: () => this.owner.getIndexRevision(),
       getSaveStatus: () => this.owner.getSettingsSaveStatus(),
@@ -120,10 +117,11 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   private refreshExpectedPreview(
     rule: ExpectedIsolationRule,
     publish?: (state: ExpectedRulePreviewState) => void,
+    signal?: AbortSignal,
   ): void {
     void this.expectedPreviewRequests.request(
       rule.id,
-      () => Promise.resolve(this.owner.previewExpectedRule(rule)),
+      (requestSignal) => this.owner.previewExpectedRule(rule, requestSignal),
       (state) => {
         const previewState: ExpectedRulePreviewState = state.state === "ready"
           ? { state: "ready", stats: state.value }
@@ -137,13 +135,8 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
           publish(previewState);
         }
       },
+      signal,
     );
-  }
-
-  private activateSurface(): void {
-    if (this.surfaceActive) return;
-    this.surfaceActive = true;
-    this.expectedPreviewRequests.beginGeneration();
   }
 
   private createId(kind: "expected-rule" | "expected-pattern" | "ignore-rule"): string {

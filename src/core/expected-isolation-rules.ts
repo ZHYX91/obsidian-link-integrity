@@ -224,18 +224,30 @@ export function getExpectedRuleStats(
   sampleLimit = 5,
 ): readonly ExpectedRuleStats[] {
   return rules.map((rule) => {
-    const errors = validateExpectedIsolationRule(rule);
-    const matches = errors.length === 0
-      ? files.filter((file) => matchesExpectedIsolationRule(file, rule))
-      : [];
-    return {
-      ruleId: rule.id,
-      name: rule.name,
-      matchCount: matches.length,
-      samples: matches.slice(0, Math.max(0, sampleLimit)).map(({ path }) => path),
-      errors,
-    };
+    const steps = expectedRuleStatsSteps(files, rule, sampleLimit);
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    return step.value;
   });
+}
+
+export function* expectedRuleStatsSteps(
+  files: Iterable<FileRecord>, rule: ExpectedIsolationRule, sampleLimit = 5,
+): Generator<void, ExpectedRuleStats> {
+  const errors = validateExpectedIsolationRule(rule);
+  const samples: string[] = [];
+  const limit = Math.max(0, Math.trunc(sampleLimit));
+  let matchCount = 0;
+  if (rule.enabled && errors.length === 0) {
+    for (const file of files) {
+      if (matchesExpectedIsolationRule(file, rule)) {
+        matchCount++;
+        if (samples.length < limit) samples.push(file.path);
+      }
+      yield;
+    }
+  }
+  return { ruleId: rule.id, name: rule.name, matchCount, samples, errors };
 }
 
 export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): readonly string[] {

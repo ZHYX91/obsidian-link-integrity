@@ -487,15 +487,20 @@ function openExpectedRuleDialog(
   document.body.append(overlay);
 
   let closed = false;
-  let previewGeneration = 0;
+  let previewController: AbortController | null = null;
   let previewTimer: number | null = null;
+  const cancelPreview = (): void => {
+    previewController?.abort();
+    previewController = null;
+    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    previewTimer = null;
+  };
   let editorCleanup: (() => void) | null = null;
   let draft = sourceRule === null ? null : cloneExpectedRule(sourceRule);
   const close = (): void => {
     if (closed) return;
     closed = true;
-    previewGeneration += 1;
-    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    cancelPreview();
     editorCleanup?.();
     overlay.remove();
     previousFocus?.focus();
@@ -559,8 +564,7 @@ function openExpectedRuleDialog(
   const renderEditor = (advancedOpen = true): void => {
     if (draft === null) return;
     // A rebuilt editor owns a new preview surface; callbacks from the old one are stale.
-    previewGeneration += 1;
-    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    cancelPreview();
     editorCleanup?.();
     editorCleanup = null;
     content.replaceChildren();
@@ -692,8 +696,7 @@ function openExpectedRuleDialog(
     content.append(actions);
 
     const schedulePreview = (): void => {
-      const generation = ++previewGeneration;
-      if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+      cancelPreview();
       const errors = draft === null ? [] : validateExpectedIsolationRule(draft);
       validation.textContent = formatExpectedRuleErrors(errors, t);
       validation.hidden = errors.length === 0;
@@ -704,11 +707,13 @@ function openExpectedRuleDialog(
       }
       const candidate = cloneExpectedRule(draft);
       if (ownerWindow === null) return;
+      const controller = new AbortController();
+      previewController = controller;
       previewTimer = ownerWindow.setTimeout(() => runAction(
         () => context.requestExpectedRulePreview?.(candidate, (state) => {
-          if (closed || generation !== previewGeneration || !preview.isConnected) return;
+          if (closed || controller.signal.aborted || !preview.isConnected) return;
           renderExpectedPreview(preview, state, context);
-        }),
+        }, controller.signal),
         context,
       ), 250);
     };

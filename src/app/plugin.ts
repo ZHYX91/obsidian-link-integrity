@@ -1,4 +1,5 @@
 import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
+import { runIndexPreview } from "./index-preview";
 import { IgnorePreviewService } from "./ignore-preview-service";
 import { applySidebarIgnore } from "./sidebar-ignore-actions";
 import { occurrenceTargetFilePath } from "../shared/target-file-identity";
@@ -19,7 +20,7 @@ import {
 import { ObsidianLinkIndexPort } from "../adapters/obsidian";
 import {
   ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY,
-  getExpectedRuleStats,
+  expectedRuleStatsSteps,
   LinkIndex,
   type ExpectedIsolationRule,
   type ExpectedRuleStats,
@@ -214,14 +215,9 @@ export default class LinkIntegrityPlugin extends Plugin {
     return this.saveCoordinator.retry();
   }
 
-  public previewExpectedRule(rule: ExpectedIsolationRule): ExpectedRuleStats {
-    return getExpectedRuleStats(this.coordinator.index.files, [rule])[0] ?? {
-      ruleId: rule.id,
-      name: rule.name,
-      matchCount: 0,
-      samples: [],
-      errors: [],
-    };
+  public previewExpectedRule(rule: ExpectedIsolationRule, signal?: AbortSignal): Promise<ExpectedRuleStats> {
+    return runIndexPreview(() => this.coordinator.index,
+      (index) => expectedRuleStatsSteps(index.iterateFiles(), rule), signal);
   }
 
   public previewIgnoreRule(rule: IgnoreRule, signal?: AbortSignal): Promise<IgnoreRulePreview> {

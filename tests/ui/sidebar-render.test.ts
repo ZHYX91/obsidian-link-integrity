@@ -12,6 +12,29 @@ import {
 } from "../../src/ui/sidebar";
 
 describe("sidebar renderer", () => {
+  it("links every tab to the panel owned by its own sidebar leaf", () => {
+    const translator = createTranslator("en", "en");
+    const state = viewState();
+    const leaves = [document.createElement("div"), document.createElement("div")];
+    const disposers = leaves.map((leaf) => {
+      document.body.append(leaf);
+      return renderSidebar(leaf, {
+        model: createSidebarViewModel(querySnapshot(), state), state, translator, navigation: navigation(),
+        fileTypeCategories: createFileTypeCategoryOptions(translator), defaultFormatFamilyIds: new Set(["markdown"]),
+        allowNoIncomingFilter: true, onStateChange: vi.fn(),
+      });
+    });
+    for (const leaf of leaves) {
+      const panel = leaf.querySelector('[role="tabpanel"]')!;
+      for (const tab of leaf.querySelectorAll('[role="tab"]')) {
+        expect(document.getElementById(tab.getAttribute("aria-controls")!)).toBe(panel);
+      }
+      expect(document.getElementById(panel.getAttribute("aria-labelledby")!)).toBe(leaf.querySelector('[aria-selected="true"]'));
+    }
+    disposers.forEach((dispose) => dispose());
+    leaves.forEach((leaf) => leaf.remove());
+  });
+
   it.each([
     { tab: "broken-links", search: "", emptyScope: true, title: "No broken links found" },
     { tab: "broken-links", search: "   ", emptyScope: true, title: "No broken links found" },

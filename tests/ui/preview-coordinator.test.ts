@@ -14,16 +14,23 @@ describe("PreviewRequestCoordinator", () => {
     const second = coordinator.request("rule", load, vi.fn());
     expect(signals[0]?.aborted).toBe(true);
     expect(signals[1]?.aborted).toBe(false);
-    coordinator.beginGeneration();
+    coordinator.invalidate();
     expect(signals[1]?.aborted).toBe(true);
     await Promise.all([first, second]);
+  });
+
+  it("does not start a scan after the loading notification dismisses its owner", async () => {
+    const coordinator = new PreviewRequestCoordinator<string, number>();
+    const load = vi.fn(async () => 1);
+    const abort = new AbortController();
+    await coordinator.request("rule", load, () => abort.abort(), abort.signal);
+    expect(load).not.toHaveBeenCalled();
   });
 
   it("drops completion from a hidden or re-rendered generation", async () => {
     const coordinator = new PreviewRequestCoordinator<string, number>();
     const first = deferred<number>();
     const publish = vi.fn();
-    coordinator.beginGeneration();
     const request = coordinator.request("rule", () => first.promise, publish);
     coordinator.invalidate();
     first.resolve(3);
@@ -41,7 +48,6 @@ describe("PreviewRequestCoordinator", () => {
     const first = deferred<number>();
     const second = deferred<number>();
     const publish = vi.fn();
-    coordinator.beginGeneration();
     const firstRequest = coordinator.request("rule", () => first.promise, publish);
     const secondRequest = coordinator.request("rule", () => second.promise, publish);
     first.resolve(1);
@@ -54,7 +60,6 @@ describe("PreviewRequestCoordinator", () => {
   it("turns synchronous preview errors into guarded failed state", async () => {
     const coordinator = new PreviewRequestCoordinator<string, number>();
     const publish = vi.fn();
-    coordinator.beginGeneration();
     await coordinator.request("rule", () => {
       throw new Error("bad regex");
     }, publish);

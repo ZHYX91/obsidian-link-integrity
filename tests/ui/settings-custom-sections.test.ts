@@ -91,6 +91,7 @@ describe("custom settings sections", () => {
     expect(requestExpectedRulePreview).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Journal notes" }),
       expect.any(Function),
+      expect.objectContaining({ aborted: false }),
     );
     Array.from(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [])
       .find(({ textContent }) => textContent === "Save")
@@ -111,8 +112,9 @@ describe("custom settings sections", () => {
     vi.useFakeTimers();
     const rule = expectedRule();
     const callbacks: Array<Parameters<NonNullable<SettingsUiContext["requestExpectedRulePreview"]>>[1]> = [];
+    const signals: AbortSignal[] = [];
     const requestExpectedRulePreview: NonNullable<SettingsUiContext["requestExpectedRulePreview"]> =
-      (_candidate, callback) => { callbacks.push(callback); };
+      (_candidate, callback, signal) => { callbacks.push(callback); signals.push(signal!); };
     const container = document.createElement("div");
     const cleanup = renderCustomSetting(container, "expected-isolation-rules",
       context(withExpectedRule(createDefaultSettings(), rule), { requestExpectedRulePreview }));
@@ -129,6 +131,7 @@ describe("custom settings sections", () => {
     expect(callbacks).toHaveLength(1);
     name.value = "Second draft";
     name.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(signals[0]?.aborted).toBe(true);
     callbacks[0]!({
       state: "ready",
       stats: { ruleId: rule.id, name: "First draft", matchCount: 1, samples: ["Old.md"], errors: [] },
@@ -297,10 +300,11 @@ describe("custom settings sections", () => {
     vi.useFakeTimers();
     const translator = createTranslator("zh-CN", "en");
     const callbacks: Array<Parameters<NonNullable<SettingsUiContext["requestExpectedRulePreview"]>>[1]> = [];
+    const signals: AbortSignal[] = [];
     const container = document.createElement("div");
     const cleanup = renderCustomSetting(container, "expected-isolation-rules", context(
       withExpectedRule(createDefaultSettings(), expectedRule()),
-      { translator, requestExpectedRulePreview: (_rule, callback) => { callbacks.push(callback); } },
+      { translator, requestExpectedRulePreview: (_rule, callback, signal) => { callbacks.push(callback); signals.push(signal!); } },
     ));
     Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find(({ textContent }) => textContent === translator.t("common.edit"))?.click();
@@ -325,7 +329,9 @@ describe("custom settings sections", () => {
     expect(dialog.querySelector(".link-integrity-settings-rule-preview")?.textContent)
       .toContain(translator.t("settings.expected.validation.regex"));
     expect(dialog.textContent).not.toContain("Regex flags repeated.");
+    expect(signals[0]?.aborted).toBe(false);
     cleanup();
+    expect(signals[0]?.aborted).toBe(true);
   });
 
   it("shows a separate high-risk warning and explicit preview for graph contribution drafts", async () => {

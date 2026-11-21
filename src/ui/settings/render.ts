@@ -16,6 +16,8 @@ export interface ImperativeSettingsRenderOptions {
   readonly onSelectTab: (tabId: SettingsTabId, focus: boolean) => void;
 }
 
+let nextLayoutId = 0;
+
 export function renderImperativeSettings(
   container: HTMLElement,
   context: SettingsUiContext,
@@ -30,6 +32,8 @@ export function renderImperativeSettings(
   const activePage = pages[activeIndex] ?? pages[0];
   if (activePage === undefined) throw new Error("Link Integrity settings require a page.");
 
+  const layoutId = `link-integrity-settings-${++nextLayoutId}`;
+  const panelId = `${layoutId}-panel`;
   const tabList = container.ownerDocument.createElement("div");
   tabList.className = "link-integrity-settings-tabs";
   tabList.setAttribute("role", "tablist");
@@ -40,12 +44,12 @@ export function renderImperativeSettings(
     const button = container.ownerDocument.createElement("button");
     button.type = "button";
     button.className = `link-integrity-settings-tab${active ? " is-active" : ""}`;
-    button.id = settingsTabId(page.id);
+    button.id = `${layoutId}-tab-${page.id}`;
     button.dataset.tabId = page.id;
     button.textContent = page.label;
     button.setAttribute("role", "tab");
     button.setAttribute("aria-selected", String(active));
-    button.setAttribute("aria-controls", settingsPanelId(page.id));
+    button.setAttribute("aria-controls", panelId);
     button.tabIndex = active ? 0 : -1;
     button.addEventListener("click", () => {
       if (page.id === activePage.id) revealHorizontalTab(button, true);
@@ -71,9 +75,9 @@ export function renderImperativeSettings(
 
   const panel = container.ownerDocument.createElement("div");
   panel.className = "link-integrity-settings-panel";
-  panel.id = settingsPanelId(activePage.id);
+  panel.id = panelId;
   panel.setAttribute("role", "tabpanel");
-  panel.setAttribute("aria-labelledby", settingsTabId(activePage.id));
+  panel.setAttribute("aria-labelledby", buttons[activeIndex]!.id);
   panel.tabIndex = 0;
   container.append(panel);
 
@@ -165,12 +169,4 @@ function commitControl(
   } catch (error) {
     context.onError?.(error);
   }
-}
-
-function settingsTabId(id: SettingsTabId): string {
-  return `link-integrity-settings-tab-${id}`;
-}
-
-function settingsPanelId(id: SettingsTabId): string {
-  return `link-integrity-settings-panel-${id}`;
 }

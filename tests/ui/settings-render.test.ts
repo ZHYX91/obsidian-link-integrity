@@ -49,6 +49,9 @@ describe("imperative settings tab reveal", () => {
     const activeTab = container.querySelector<HTMLButtonElement>(
       '[role="tab"][aria-selected="true"]',
     );
+    for (const tab of container.querySelectorAll('[role="tab"]')) {
+      expect(document.getElementById(tab.getAttribute("aria-controls")!)).toBe(container.querySelector('[role="tabpanel"]'));
+    }
     expect(tabList).not.toBeNull();
     expect(activeTab).not.toBeNull();
     if (tabList === null || activeTab === null) throw new Error("Settings tabs were not rendered.");

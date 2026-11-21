@@ -45,7 +45,7 @@ export function mountSidebar(
       cancelPendingTabFocus();
       return;
     }
-    const tab = container.querySelector<HTMLButtonElement>(`#link-integrity-sidebar-tab-${request.tabId}`);
+    const tab = container.querySelector<HTMLButtonElement>(`[data-sidebar-tab="${request.tabId}"]`);
     if (tab?.getAttribute("aria-selected") !== "true") return;
     cancelPendingTabFocus();
     revealHorizontalTab(tab, true);

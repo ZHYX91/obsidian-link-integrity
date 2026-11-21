@@ -21,7 +21,7 @@ export function openBodyLinkDiagnostics(document: Document, translator: Translat
     if (closed) return; closed = true; dialog.remove(); onClose();
     if (previous instanceof document.defaultView!.HTMLElement && previous.isConnected) previous.focus();
   };
-  const render = (): void => {
+  const render = (focusPage = false): void => {
     dialog.replaceChildren();
     const heading = document.createElement("h3"); heading.textContent = translator.t("body.command");
     const help = document.createElement("p"); help.textContent = translator.t(source.state === "pending" ? "body.pending" : "body.explanation");
@@ -33,16 +33,17 @@ export function openBodyLinkDiagnostics(document: Document, translator: Translat
       const target = document.createElement("strong"); target.textContent = hint.diagnostic.targetText;
       const reason = document.createElement("span"); reason.textContent = translator.t(bodyReasonKey(hint.diagnostic.reason));
       const location = document.createElement("small"); location.textContent = `${source.sourcePath} · ${translator.t("body.line", { line: (hint.occurrence.position?.line ?? 0) + 1 })}`;
-      button.append(target, reason, location); button.addEventListener("click", () => { if (!closed) { navigate(hint); close(); } }); dialog.append(button);
+      button.append(target, reason, location); button.addEventListener("click", () => { if (!closed) { close(); navigate(hint); } }); dialog.append(button);
     }
     if (source.hints.length > 50) {
       for (const direction of [-1, 1]) {
         const button = document.createElement("button"); button.textContent = translator.t(direction < 0 ? "common.previous" : "common.next");
         button.disabled = page + direction < 0 || (page + direction) * 50 >= source.hints.length;
-        button.addEventListener("click", () => { page += direction; render(); }); dialog.append(button);
+        button.addEventListener("click", () => { page += direction; render(true); }); dialog.append(button);
       }
     }
-    cancel.focus();
+    if (focusPage) dialog.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")?.focus();
+    else cancel.focus();
   };
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
   dialog.addEventListener("keydown", (event) => { if (event.key === "Escape") { event.preventDefault(); close(); } });

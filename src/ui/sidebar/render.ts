@@ -51,6 +51,8 @@ export interface SidebarRenderOptions {
   readonly navigationTabId?: () => SidebarTabId | undefined;
 }
 
+let nextSidebarId = 0;
+
 export function updateTabs(root: HTMLElement, panel: HTMLElement, options: SidebarRenderOptions): void {
   const { t } = options.translator;
   root.querySelector('[role="tablist"]')?.setAttribute("aria-label", t("sidebar.tabs.label"));
@@ -58,19 +60,18 @@ export function updateTabs(root: HTMLElement, panel: HTMLElement, options: Sideb
     ["broken-links", options.model.broken, t("sidebar.tab.broken")],
     ["isolated-files", options.model.isolated, t("sidebar.tab.isolated")],
   ] as const) {
-    const button = root.querySelector<HTMLButtonElement>(`#link-integrity-sidebar-tab-${id}`);
+    const button = root.querySelector<HTMLButtonElement>(`[data-sidebar-tab="${id}"]`);
     if (button === null) continue;
     const active = options.model.activeTab === id;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-selected", String(active));
     button.tabIndex = active ? 0 : -1;
+    if (active) panel.setAttribute("aria-labelledby", button.id);
     if (button.firstElementChild !== null) button.firstElementChild.textContent = label;
     if (button.lastElementChild !== null) {
       button.lastElementChild.textContent = result.badgeKnown ? String(result.badgeCount) : "…";
     }
   }
-  panel.id = `link-integrity-sidebar-panel-${options.model.activeTab}`;
-  panel.setAttribute("aria-labelledby", `link-integrity-sidebar-tab-${options.model.activeTab}`);
 }
 
 export function renderContextualStatus(
@@ -115,6 +116,8 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
       options.model.isolated.badgeKnown,
     ],
   ];
+  const layoutId = `link-integrity-sidebar-${++nextSidebarId}`;
+  const panelId = `${layoutId}-panel`;
   const tabList = container.ownerDocument.createElement("div");
   tabList.className = "link-integrity-tabs";
   tabList.setAttribute("role", "tablist");
@@ -125,10 +128,11 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
     const button = container.ownerDocument.createElement("button");
     button.type = "button";
     button.className = `link-integrity-tab${active ? " is-active" : ""}`;
-    button.id = `link-integrity-sidebar-tab-${id}`;
+    button.id = `${layoutId}-tab-${id}`;
+    button.dataset.sidebarTab = id;
     button.setAttribute("role", "tab");
     button.setAttribute("aria-selected", String(active));
-    button.setAttribute("aria-controls", `link-integrity-sidebar-panel-${id}`);
+    button.setAttribute("aria-controls", panelId);
     button.tabIndex = active ? 0 : -1;
     button.append(
       createText(container.ownerDocument, "span", label),
@@ -161,11 +165,11 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
 
   const panel = container.ownerDocument.createElement("section");
   panel.className = "link-integrity-panel";
-  panel.id = `link-integrity-sidebar-panel-${options.model.activeTab}`;
+  panel.id = panelId;
   panel.setAttribute("role", "tabpanel");
   panel.setAttribute(
     "aria-labelledby",
-    `link-integrity-sidebar-tab-${options.model.activeTab}`,
+    `${layoutId}-tab-${options.model.activeTab}`,
   );
   panel.tabIndex = 0;
   container.append(panel);

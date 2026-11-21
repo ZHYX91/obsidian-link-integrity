@@ -110,16 +110,15 @@ export class BodyLinkRuntime {
         if (this.closed || epoch !== this.generation || view.file !== file) return;
         await view.leaf.setViewState({ type: "markdown", state: { file: file.path, mode: "source" } });
         const current = view.leaf.view;
-        if (this.closed || epoch !== this.generation || !(current instanceof MarkdownView) || current.file?.path !== file.path ||
+        if (this.closed || epoch !== this.generation || !(current instanceof MarkdownView) || current.file !== file ||
           normalizedBodyText(current.editor.getValue()) !== normalizedBodyText(text)) return;
         const editorText = current.editor.getValue();
         const projected = await this.service.source(file.path, editorText);
-        if (this.closed || epoch !== this.generation || current.file?.path !== file.path || current.editor.getValue() !== editorText) return;
-        const exact = projected.hints.find((entry) => entry.diagnostic.targetText === hint.diagnostic.targetText &&
-          entry.occurrence.position?.line === hint.occurrence.position?.line && entry.from === normalizedBodyText(text.slice(0, hint.from)).length);
-        if (exact === undefined) return;
-        const from = current.editor.offsetToPos(exact.from); const to = current.editor.offsetToPos(exact.to);
-        current.editor.setSelection(from, to); current.editor.scrollIntoView({ from, to }, true);
+        if (this.closed || epoch !== this.generation || view.leaf.view !== current || current.file !== file ||
+          current.editor.getValue() !== editorText || projected.snapshot !== source.snapshot) return;
+        // Both projections prove the same indexed occurrence against their own buffer.
+        const exact = projected.hints.find((entry) => entry.occurrence === hint.occurrence);
+        if (exact !== undefined) selectBodyHint(current.editor, exact);
       })().catch(this.report);
     }, () => { this.dialogs.delete(close); });
     this.dialogs.add(close);
@@ -127,19 +126,27 @@ export class BodyLinkRuntime {
   public async current(editor: Editor, info: MarkdownFileInfo): Promise<void> {
     if (this.closed || info.file?.extension !== "md") return;
     this.proofActivated = true;
-    const path = info.file.path; const text = editor.getValue();
+    const file = info.file;
+    const path = file.path; const text = editor.getValue();
     await this.ensureIndex();
     // The rebuild itself can invalidate; take a fresh epoch after ensuring a baseline.
-    if (this.closed || info.file?.path !== path || editor.getValue() !== text) return;
+    if (this.closed || info.file !== file || file.path !== path || editor.getValue() !== text) return;
     const epoch = this.generation;
     const source = await this.service.source(path, text);
-    if (this.closed || epoch !== this.generation || info.file?.path !== path || editor.getValue() !== text) return;
+    if (this.closed || epoch !== this.generation || info.file !== file || file.path !== path || editor.getValue() !== text) return;
     const document = (info as MarkdownView).containerEl?.ownerDocument ?? (typeof activeDocument === "undefined" ? window.document : activeDocument);
     const close = openBodyLinkDiagnostics(document, this.translator(), source, (hint) => {
-      if (this.closed || epoch !== this.generation || info.file?.path !== path || editor.getValue() !== text) return;
-      const from = editor.offsetToPos(hint.from); const to = editor.offsetToPos(hint.to);
-      editor.setSelection(from, to); editor.scrollIntoView({ from, to }, true);
+      if (this.closed || epoch !== this.generation || info.file !== file || file.path !== path || editor.getValue() !== text) return;
+      selectBodyHint(editor, hint);
     }, () => { this.dialogs.delete(close); });
     this.dialogs.add(close);
   }
+}
+
+function selectBodyHint(editor: Editor, hint: { readonly from: number; readonly to: number }): void {
+  const from = editor.offsetToPos(hint.from);
+  const to = editor.offsetToPos(hint.to);
+  editor.setSelection(from, to);
+  editor.scrollIntoView({ from, to }, true);
+  editor.focus();
 }
