@@ -152,7 +152,7 @@ export class SidebarQueryService implements SidebarQueryPort {
     const items: IsolatedFileResult[] = [];
     const files = paths === null ? index.iterateFiles() : filesAtPaths(index, paths);
     for (const file of files) {
-      if (!ignore?.shouldExcludeIsolatedCandidate({
+      if (file !== null && !ignore?.shouldExcludeIsolatedCandidate({
         candidatePath: file.path, extension: file.extension, formatFamilyIds: classifyFileExtension(file.extension).familyIds,
       })) {
         const item = project(file);

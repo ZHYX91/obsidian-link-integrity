@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SidebarQueryService } from "../../src/app/sidebar-query-service";
 import { createFileRecord, LinkIndex } from "../../src/core";
 import { createDefaultSettings } from "../../src/shared/settings";
+import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { createInitialSidebarState } from "../../src/app/sidebar-view";
 import { createScheduledViewModelSelector, createSidebarViewModel, createSidebarViewModelSelector } from "../../src/ui/sidebar/view-model";
 import { occurrence, snapshot } from "../core/test-helpers";
@@ -19,6 +20,30 @@ function fixture(count = 100, settings = createDefaultSettings()) {
 }
 
 describe("incremental sidebar projections", () => {
+  it("can stop partway through looking up a folder of deleted isolation candidates", async () => {
+    const f = fixture(256);
+    const before = f.query.getSnapshot("isolated-files").isolatedFiles;
+    const next = f.index.fork();
+    for (const file of f.index.iterateFiles()) next.replaceFileRecord(file.path, null);
+    f.publish(next);
+
+    const lookup = vi.spyOn(next, "getFile");
+    let resume!: () => void;
+    const blocked = new Promise<void>(resolve => { resume = resolve; });
+    const checkpoint = vi.spyOn(WorkScheduler.prototype, "checkpoint").mockReturnValueOnce(blocked);
+    try {
+      const preparation = f.query.prepareSnapshot("isolated-files");
+      const readsBeforePause = lookup.mock.calls.length;
+      f.query.notify();
+      resume();
+
+      expect(await preparation).toBe(false);
+      expect(readsBeforePause).toBeLessThan(before.length);
+      expect(lookup).toHaveBeenCalledTimes(readsBeforePause);
+      expect(f.query.getSnapshot().isolatedFiles).toBe(before);
+    } finally { resume(); checkpoint.mockRestore(); lookup.mockRestore(); }
+  });
+
   it.each(["sync", "scheduled"] as const)("reads each candidate's graph counts once for both isolation lists (%s)", async mode => {
     const defaults = createDefaultSettings();
     const f = fixture(96, {

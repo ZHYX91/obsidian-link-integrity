@@ -68,6 +68,7 @@ export function createIsolatedFileProjection(
   const files = options.paths === undefined ? index.iterateFiles() : filesAtPaths(index, options.paths);
   const allResults: IsolatedFileResult[] = [];
   for (const file of files) {
+    if (file === null) continue;
     const item = project(file);
     if (item !== null) allResults.push(item);
   }
@@ -98,11 +99,9 @@ export function createIsolatedFileProjector(
     : null;
 }
 
-export function* filesAtPaths(index: LinkIndex, paths: Iterable<string>): Iterable<FileRecord> {
-  for (const path of paths) {
-    const file = index.getFile(path);
-    if (file !== null) yield file;
-  }
+/** Keep deleted paths as work units for callers that yield between lookups. */
+export function* filesAtPaths(index: LinkIndex, paths: Iterable<string>): Iterable<FileRecord | null> {
+  for (const path of paths) yield index.getFile(path);
 }
 
 function projectFile(
