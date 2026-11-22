@@ -571,6 +571,55 @@ describe("plugin index lifecycle", () => {
     plugin.onunload();
   });
 
+  it.each(["resolved", "timeout"] as const)("replays metadata changes before publishing the first %s baseline", async (gate) => {
+    vi.useFakeTimers();
+    const source = createMockFile("A.md", 1);
+    const target = createMockFile("Target.md", 1);
+    const files = [source, target];
+    const metadata = new TestEvents();
+    let signalStarted!: () => void;
+    let finishRead!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    const read = new Promise<void>((resolve) => { finishRead = resolve; });
+    let indexedProperty = false;
+    const cachedRead = vi.fn(async (file: TFile) => {
+      if (file === target) return "";
+      signalStarted();
+      await read;
+      return '---\nrelated: "[[Target]]"\n---\n';
+    });
+    const app = {
+      vault: { getFiles: () => files, getFileByPath: (path: string) => files.find((file) => file.path === path) ?? null,
+        cachedRead, on: new TestEvents().on },
+      metadataCache: {
+        getFileCache: (file: TFile) => ({ frontmatterLinks: file === source && indexedProperty
+          ? [{ key: "related", link: "Target", original: "[[Target]]" }] : [] }),
+        getFirstLinkpathDest: () => target,
+        on: metadata.on, offref: metadata.offref,
+      },
+      workspace: { getLeavesOfType: () => [], onLayoutReady: () => undefined },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+    await plugin.onload();
+    const indexing = plugin.ensureIndex();
+    if (gate === "resolved") metadata.emit("resolved");
+    else await vi.advanceTimersByTimeAsync(1_000);
+    await started;
+    indexedProperty = true;
+    metadata.emit("changed", source);
+    metadata.emit("changed", source);
+    metadata.emit("resolve", source);
+    finishRead();
+    await indexing;
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    expect(plugin.getIndexStatus().state).toBe("ready");
+    expect(runtime.coordinator.index.getOutgoingNeighborCount(source.path)).toBe(1);
+    expect(cachedRead.mock.calls.filter(([file]) => file === source)).toHaveLength(2);
+    plugin.onunload();
+  });
+
   it("still replays Vault events that arrive after a baseline scan begins", async () => {
     vi.useFakeTimers();
     const canvas = createMockFile("A.canvas", 1);

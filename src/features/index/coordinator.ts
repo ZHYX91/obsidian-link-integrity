@@ -195,10 +195,14 @@ export class LinkIndexCoordinator {
         signal,
       );
       this.assertCurrentLifecycle(epoch);
-      staging = await this.replayBufferedEvents(staging, signal);
-      this.assertCurrentLifecycle(epoch);
-      staging = await this.synchronizeStagingPolicy(staging, epoch, signal);
-      this.assertCurrentLifecycle(epoch);
+      // Both operations can yield to new events or policy edits. Publish only
+      // when both inputs still match staging at the synchronous commit point.
+      while (this.bufferedEvents.length > 0 || staging.graphContributionPolicy !== this.graphContributionPolicy) {
+        if (this.bufferedEvents.length > 0) staging = await this.replayBufferedEvents(staging, signal);
+        this.assertCurrentLifecycle(epoch);
+        staging = await this.synchronizeStagingPolicy(staging, epoch, signal);
+        this.assertCurrentLifecycle(epoch);
+      }
       const result = this.rebuildController.publish(staging);
       this.stateValue = "ready";
       const completedAt = this.now();
