@@ -5,7 +5,7 @@ export const FR_MESSAGES = localizedCatalog({
   "command.rebuildIndex": "Reconstruire l’index des liens",
   "index.start": "Créer l’index",
   "index.rebuild": "Reconstruire l’index",
-  "index.retry": "Réessayer la reconstruction",
+  "index.retry": "Relancer l’analyse",
   "index.rebuilding": "Reconstruction…",
   "index.readySummary": "Prêt · {files} fichiers · {occurrences} références",
   "index.details.title": "Détails de l’index",

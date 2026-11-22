@@ -5,7 +5,7 @@ export const JA_MESSAGES = localizedCatalog({
   "command.rebuildIndex": "リンクインデックスを再構築",
   "index.start": "インデックスを作成",
   "index.rebuild": "インデックスを再構築",
-  "index.retry": "再構築を再試行",
+  "index.retry": "もう一度スキャン",
   "index.rebuilding": "再構築中…",
   "index.readySummary": "準備完了 · {files} ファイル · {occurrences} 件の参照",
   "index.details.title": "インデックスの詳細",

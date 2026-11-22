@@ -5,7 +5,7 @@ export const VI_MESSAGES = localizedCatalog({
   "command.rebuildIndex": "Xây dựng lại chỉ mục liên kết",
   "index.start": "Tạo chỉ mục",
   "index.rebuild": "Xây dựng lại chỉ mục",
-  "index.retry": "Thử xây dựng lại",
+  "index.retry": "Quét lại",
   "index.rebuilding": "Đang xây dựng lại…",
   "index.readySummary": "Sẵn sàng · {files} tệp · {occurrences} tham chiếu",
   "index.details.title": "Chi tiết chỉ mục",

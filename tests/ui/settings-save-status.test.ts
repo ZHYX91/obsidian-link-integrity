@@ -18,7 +18,7 @@ describe("settings persistence status", () => {
       getSaveStatus: () => ({ state: "pending", error: new Error("disk full") }),
       retrySave: retry,
     });
-    expect(container.textContent).toContain("Settings could not be saved");
+    expect(container.textContent).toContain("Select Retry to save them again.");
     const retryButton = Array.from(container.querySelectorAll("button"))
       .find(({ textContent }) => textContent === "Retry");
     expect(retryButton?.hidden).toBe(false);
