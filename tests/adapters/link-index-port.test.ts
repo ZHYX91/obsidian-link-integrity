@@ -851,6 +851,35 @@ describe("ObsidianLinkIndexPort", () => {
     );
   });
 
+  it("keeps Bases regex text out of broken links and graph edges as resolver results change", async () => {
+    const base = fakeFile("Index.base");
+    const real = fakeFile("Real.md");
+    const ghost = fakeFile("Ghost.md");
+    const files = [base, real, ghost];
+    const targets = new Map([["Real", real]]);
+    const formula = 'file.name.replace(/link("Ghost")/g, "") + link("Real")';
+    const { port } = createPort(files, {
+      content: { [base.path]: "formulas:\n  label: " + JSON.stringify(formula) },
+      caches: new Map(), destinations: targets,
+    });
+    const store = new AtomicLinkIndexStore();
+    await new FullRebuildController(port, store).rebuild();
+    const changes = new IncrementalIndexController(port, store);
+    changes.start();
+    try {
+      for (const exists of [false, true, false]) {
+        if (exists) targets.set("Ghost", ghost);
+        else targets.delete("Ghost");
+        changes.enqueue({ type: "modify", path: base.path });
+        await changes.whenIdle();
+        expect(queryBrokenLinks(store.current)).toEqual([]);
+        expect(store.current.getSourceSnapshot(base.path)?.occurrences.map(({ linkpath }) => linkpath)).toEqual(["Real"]);
+        expect(store.current.getIncomingContributionCount(real.path)).toBe(1);
+        expect(store.current.getIncomingContributionCount(ghost.path)).toBe(0);
+      }
+    } finally { changes.stop(); }
+  });
+
   it("indexes only explicit Bases link values", async () => {
     const base = fakeFile("Tasks.base");
     const target = fakeFile("Target.md");
