@@ -965,7 +965,8 @@
   display: none;
   align-items: center;
   justify-content: center;
-  flex: 0 0 min(32px, 20%);
+  flex: 0 0 32px;
+  box-sizing: border-box;
   min-inline-size: 0;
   block-size: auto;
   min-block-size: 34px;
@@ -981,10 +982,22 @@
 .link-integrity-tab-frame > button.link-integrity-tab-arrow:hover { background: var(--background-modifier-hover); }
 .link-integrity-tab-frame > button.link-integrity-tab-arrow:disabled { visibility: hidden; }
 .link-integrity-tab-arrow:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
-.link-integrity-tab-arrow > svg { width: 16px; height: 16px; }
+.link-integrity-tab-arrow::before {
+  content: "";
+  box-sizing: border-box;
+  inline-size: 8px;
+  block-size: 8px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(-135deg);
+}
+
+.link-integrity-tab-arrow[data-direction="right"]::before {
+  transform: rotate(45deg);
+}
 
 @media (pointer: coarse) {
-  .link-integrity-tab-frame > button.link-integrity-tab-arrow { flex-basis: min(44px, 20%); min-block-size: 44px; }
+  .link-integrity-tab-frame > button.link-integrity-tab-arrow { flex-basis: 44px; min-block-size: 44px; }
 }
 
 .link-integrity-settings-tabs {

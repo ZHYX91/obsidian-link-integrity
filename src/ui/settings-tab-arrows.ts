@@ -1,5 +1,3 @@
-import { setIcon } from "obsidian";
-
 /** Reveal clipped labels without changing the selected settings panel. */
 export function addSettingsTabArrows(
   tabs: HTMLElement,
@@ -19,7 +17,7 @@ export function addSettingsTabArrows(
     button.className = "link-integrity-tab-arrow";
     button.setAttribute("aria-label", label);
     button.title = label;
-    setIcon(button, pointsRight ? "chevron-right" : "chevron-left");
+    button.dataset.direction = pointsRight ? "right" : "left";
     button.addEventListener("click", () => {
       const distance = nextDistance(pointsRight);
       if (distance !== 0) tabs.scrollBy({ left: distance, behavior: "instant" });
