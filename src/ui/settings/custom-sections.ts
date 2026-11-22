@@ -1,5 +1,6 @@
 import {
   PERIODIC_NOTE_KINDS,
+  parseExpectedFolder,
   type ExpectedIsolationRule,
   type ExpectedNamingPattern,
   type PeriodicNoteKind,
@@ -403,7 +404,7 @@ function renderExpectedRuleCard(
   const enabled = document.createElement("input");
   enabled.type = "checkbox";
   enabled.checked = rule.enabled;
-  enabled.disabled = context.writeProtected;
+  enabled.disabled = context.writeProtected || validateExpectedIsolationRule(rule).length > 0;
   enabled.setAttribute("aria-label", rule.name || t("settings.expected.ruleName"));
   enabled.addEventListener("change", () => replaceExpectedRule(context, {
     ...rule,
@@ -621,6 +622,15 @@ function openExpectedRuleDialog(
       t("settings.expected.fileExtensions"),
       draft.fileExtensions.join(", "),
     );
+    if (draft.unrecognizedFileTypes !== undefined) {
+      button(advanced, t("settings.expected.removeUnsupportedTypes"), () => {
+        if (draft === null) return;
+        const repaired = { ...draft };
+        delete repaired.unrecognizedFileTypes;
+        draft = repaired;
+        renderEditor(true);
+      });
+    }
     const patternHeading = textElement(advanced, "h4", t("settings.expected.namingPatterns"));
     advanced.append(patternHeading);
     for (const pattern of draft.namingPatterns) {
@@ -802,7 +812,8 @@ function renderExpectedPatternEditor(
       kind: nextKind,
       target: target.value === "path" ? "path" : "basename",
       pattern: input.value,
-      flags: nextKind === "regex" ? flags.value : nextKind === "glob" ? "iu" : "u",
+      flags: nextKind === "regex" ? flags.value : nextKind === "date-format" ? "u" :
+        pattern.kind === "glob" ? pattern.flags : "iu",
     });
   };
   kind.addEventListener("change", update);
@@ -897,15 +908,36 @@ function renderPeriodicEntry(
     t("settings.expected.periodRecursive"),
     entry.includeSubfolders,
   );
-  const update = (): void => {
+  const validation = document.createElement("small");
+  validation.className = "link-integrity-rule-validation";
+  validation.setAttribute("role", "alert");
+  folder.label.append(validation);
+  const reportFolderValidity = (valid: boolean): void => {
+    const message = valid ? "" : t("settings.expected.validation.folder");
+    folder.input.setCustomValidity(message);
+    folder.input.setAttribute("aria-invalid", String(!valid));
+    validation.textContent = message;
+    validation.hidden = valid;
+  };
+  reportFolderValidity(entry.invalidFolder === undefined);
+  const update = (event: Event): void => {
     const current = currentSettings(context).isolatedFiles.periodicNotesPreset;
+    const parsed = parseExpectedFolder(folder.input.value);
+    const valid = parsed !== null &&
+      (event.target === folder.input || current.entries[kind].invalidFolder === undefined);
+    reportFolderValidity(valid);
+    if (!valid) {
+      enabled.checked = current.entries[kind].enabled;
+      recursive.checkbox.checked = current.entries[kind].includeSubfolders;
+      return;
+    }
     const saved = updatePeriodicPreset(context, {
       ...current,
       entries: {
         ...current.entries,
         [kind]: {
           enabled: enabled.checked,
-          folder: folder.input.value,
+          folder: parsed,
           includeSubfolders: recursive.checkbox.checked,
           dateFormats: lines(formats.textarea.value),
         },

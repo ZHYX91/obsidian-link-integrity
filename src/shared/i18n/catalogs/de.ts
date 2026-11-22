@@ -252,6 +252,8 @@ export const DE_MESSAGES = localizedCatalog({
   "settings.expected.validation.patternLength": "Das Namensmuster darf höchstens {max} Zeichen enthalten.",
   "settings.expected.validation.date": "Prüfen Sie das Datumsformat. Möglich sind YYYY, MM, DD, WW, Q und GGGG; wörtlicher Text gehört in eckige Klammern.",
   "settings.expected.validation.regex": "Prüfen Sie den regulären Ausdruck. Nur i/u-Flags sind erlaubt; Lookarounds und Rückverweise werden nicht unterstützt.",
+  "settings.expected.validation.fileTypes": "Einige gespeicherte Dateitypen werden nicht unterstützt. Prüfe die Auswahl, bevor du diese Typen entfernst.",
+  "settings.expected.removeUnsupportedTypes": "Nicht unterstützte Dateitypen entfernen",
   "settings.expected.validation.folder": "Geben Sie einen gültigen Vault-Ordnerpfad ein.",
   "settings.expected.validation.generic": "Mindestens eine Regelbedingung ist ungültig. Prüfen Sie die Eingaben oben.",
   "settings.expected.periodFolder": "Ordner",

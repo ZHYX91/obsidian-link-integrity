@@ -12,6 +12,7 @@ export function findPureExpectedFolderRule(
   return rules.find((rule) =>
     rule.folder?.path === path &&
     rule.folder.mode === mode &&
+    rule.unrecognizedFileTypes === undefined &&
     rule.fileTypeFamilyIds.length === 0 &&
     rule.fileTypeCategoryIds.length === 0 &&
     rule.fileExtensions.length === 0 &&

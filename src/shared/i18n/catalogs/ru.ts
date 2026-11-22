@@ -246,6 +246,8 @@ export const RU_MESSAGES = localizedCatalog({
   "settings.expected.validation.patternLength": "Длина шаблона имени не должна превышать {max} символов.",
   "settings.expected.validation.date": "Проверьте формат даты. Допустимы YYYY, MM, DD, WW, Q и GGGG; буквальный текст заключайте в квадратные скобки.",
   "settings.expected.validation.regex": "Проверьте регулярное выражение. Разрешены только флаги i/u; предпросмотр и ретроспекция, а также обратные ссылки не поддерживаются.",
+  "settings.expected.validation.fileTypes": "Некоторые сохранённые типы файлов не поддерживаются. Проверьте выбранные типы, прежде чем удалить неподдерживаемые.",
+  "settings.expected.removeUnsupportedTypes": "Удалить неподдерживаемые типы файлов",
   "settings.expected.validation.folder": "Введите допустимый путь папки в Vault.",
   "settings.expected.validation.generic": "Одно или несколько условий правила недопустимы. Проверьте поля выше.",
   "settings.expected.periodFolder": "Папка",

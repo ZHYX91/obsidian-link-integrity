@@ -246,6 +246,8 @@ export const JA_MESSAGES = localizedCatalog({
   "settings.expected.validation.patternLength": "名前のパターンは {max} 文字以内にしてください。",
   "settings.expected.validation.date": "日付形式を確認してください。YYYY、MM、DD、WW、Q、GGGG を使用でき、固定文字は角括弧で囲みます。",
   "settings.expected.validation.regex": "正規表現を確認してください。フラグは i/u のみ使用でき、先読み・後読みと後方参照には対応していません。",
+  "settings.expected.validation.fileTypes": "保存されたファイルの種類に未対応のものがあります。削除する前に、選択されている種類を確認してください。",
+  "settings.expected.removeUnsupportedTypes": "未対応のファイルの種類を削除",
   "settings.expected.validation.folder": "有効な Vault 内フォルダーのパスを入力してください。",
   "settings.expected.validation.generic": "ルールの条件が無効です。上の入力内容を確認してください。",
   "settings.expected.periodFolder": "フォルダー",

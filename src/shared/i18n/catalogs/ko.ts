@@ -246,6 +246,8 @@ export const KO_MESSAGES = localizedCatalog({
   "settings.expected.validation.patternLength": "이름 패턴은 최대 {max}자까지 입력할 수 있습니다.",
   "settings.expected.validation.date": "날짜 형식을 확인하세요. YYYY, MM, DD, WW, Q, GGGG를 사용할 수 있으며 일반 텍스트는 대괄호로 묶으세요.",
   "settings.expected.validation.regex": "정규식을 확인하세요. i/u 플래그만 지원하며 전후방 탐색과 역참조는 지원하지 않습니다.",
+  "settings.expected.validation.fileTypes": "저장된 파일 유형 중 지원되지 않는 항목이 있습니다. 제거하기 전에 선택한 유형을 확인하세요.",
+  "settings.expected.removeUnsupportedTypes": "지원되지 않는 파일 유형 제거",
   "settings.expected.validation.folder": "올바른 Vault 폴더 경로를 입력하세요.",
   "settings.expected.validation.generic": "규칙 조건 중 하나 이상이 잘못되었습니다. 위의 입력 항목을 확인하세요.",
   "settings.expected.periodFolder": "폴더",

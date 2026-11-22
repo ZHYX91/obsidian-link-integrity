@@ -14,6 +14,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Include metadata changes received during the first scan before showing its results.
 - Keep synced settings and rules when another device edits the configuration while the plugin is running.
 - Recheck links to notes with compound file extensions after graph rule changes. Classify extensionless files consistently in root and nested folders and keep ambiguous legacy target ignores paused.
+- Preserve case-sensitive glob rules and require review when a saved file-type condition is unreadable.
+- Keep the selected periodic-note folder when a new path is invalid, and support marking deeply nested folders as expected isolated.
 
 ## [0.5.7] - 2026-11-21
 

@@ -270,6 +270,8 @@ export const EN_MESSAGES = {
   "settings.expected.validation.patternLength": "Naming pattern must be at most {max} characters.",
   "settings.expected.validation.date": "Check the date format. Use YYYY, MM, DD, WW, Q or GGGG; put literal text in brackets.",
   "settings.expected.validation.regex": "Check the regular expression. Only i/u flags are allowed; lookaround and backreferences are unsupported.",
+  "settings.expected.validation.fileTypes": "Some saved file types are unsupported. Review the selected types before removing the unsupported ones.",
+  "settings.expected.removeUnsupportedTypes": "Remove unsupported file types",
   "settings.expected.validation.folder": "Enter a valid Vault folder path.",
   "settings.expected.validation.generic": "One or more rule conditions are invalid. Review the fields above.",
   "settings.expected.periodFolder": "Folder",

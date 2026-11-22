@@ -246,6 +246,8 @@ export const ZH_TW_MESSAGES = {
   "settings.expected.validation.patternLength": "命名模式最多只能有 {max} 個字元。",
   "settings.expected.validation.date": "日期格式有誤。可使用 YYYY、MM、DD、WW、Q、GGGG；一般文字請放在方括號中。",
   "settings.expected.validation.regex": "正規表示式有誤。僅支援 i/u 旗標，不支援前後查找與反向參照。",
+  "settings.expected.validation.fileTypes": "此規則含有無法辨識的檔案類型。請先確認已選類型，再移除不支援的類型。",
+  "settings.expected.removeUnsupportedTypes": "移除不支援的檔案類型",
   "settings.expected.validation.folder": "請輸入有效的 Vault 資料夾路徑。",
   "settings.expected.validation.generic": "部分規則條件無效，請檢查上方輸入。",
   "settings.expected.periodFolder": "資料夾",

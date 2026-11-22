@@ -48,6 +48,16 @@ describe("periodic-note settings", () => {
       folder.dispatchEvent(new Event("change"));
       expect(document.activeElement).toBe(folder);
       expect(folder.value).toBe("Journal/Daily");
+      const writes = owner.updateSettings.mock.calls.length;
+      folder.value = "../Private";
+      folder.dispatchEvent(new Event("change"));
+      expect(owner.updateSettings).toHaveBeenCalledTimes(writes);
+      expect(settings.isolatedFiles.periodicNotesPreset.entries.daily.folder).toBe("Journal/Daily");
+      expect(folder.getAttribute("aria-invalid")).toBe("true");
+      expect(daily.querySelector('[role="alert"]')?.textContent).toBe("Enter a valid Vault folder path.");
+      folder.value = "Journal/Daily";
+      folder.dispatchEvent(new Event("change"));
+      expect(folder.getAttribute("aria-invalid")).toBe("false");
       formats.value = "";
       formats.dispatchEvent(new Event("change"));
       expect(formats.value).toBe("YYYY-MM-DD");

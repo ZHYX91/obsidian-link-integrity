@@ -5,7 +5,7 @@ import { applySidebarIgnore } from "../../src/app/sidebar-ignore-actions";
 import { LinkIndex } from "../../src/core/link-index";
 import { createFileRecord } from "../../src/core/model";
 import type { GraphContributionPolicy } from "../../src/core/scopes";
-import { createDefaultSettings, type LinkIntegritySettings, type SettingsChangeImpact } from "../../src/shared/settings";
+import { createDefaultSettings, loadSettings, type LinkIntegritySettings, type SettingsChangeImpact } from "../../src/shared/settings";
 import { SettingsSaveCoordinator } from "../../src/shared/settings-save-coordinator";
 import { occurrence, snapshot } from "../core/test-helpers";
 
@@ -33,7 +33,7 @@ function setup() {
   });
   const runtime = plugin as unknown as {
     setExpectedFile(path: string, expected: boolean, document: Document): void;
-    addExpectedFolderRule(path: string, mode: "recursive", document: Document): void;
+    addExpectedFolderRule(path: string, mode: "recursive" | "exact", document: Document): void;
     renameExpectedFilePath(oldPath: string, newPath: string): void;
     renameExpectedFolderPath(oldPath: string, newPath: string): void;
   };
@@ -108,6 +108,22 @@ describe("settings mutation ownership", () => {
     staleUndo.click();
     expect(h.plugin.getSettings().isolatedFiles.expectedFilePaths).toEqual(["New/A.md"]);
     expect(lastMessage()).toContain("Cannot undo");
+  });
+
+  it.each(["en", "zh-CN"] as const)("marks a deep folder, reloads it and undoes it in %s", (locale) => {
+    const h = setup();
+    h.plugin.updateSettings({ ...h.plugin.settings, general: { ...h.plugin.settings.general, locale } });
+    const path = Array.from({ length: 13 }, (_, i) => `Archive-${String(i)}-📁`).join("/");
+    for (const mode of ["exact", "recursive"] as const) {
+      h.runtime.addExpectedFolderRule(path, mode, document);
+      const rules = loadSettings(JSON.parse(JSON.stringify(h.plugin.settings))).settings.isolatedFiles.expectedRules;
+      expect(rules).toHaveLength(1);
+      expect(rules[0]).toMatchObject({ enabled: true, folder: { path, mode } });
+      expect(rules[0]!.name.length).toBeLessThanOrEqual(120);
+      expect(() => encodeURIComponent(rules[0]!.name)).not.toThrow();
+      undoButton().click();
+      expect(h.plugin.settings.isolatedFiles.expectedRules).toEqual([]);
+    }
   });
 
   it("keeps later folder-rule edits when an old Undo expires", () => {

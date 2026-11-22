@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExpectedIsolationRule } from "../../src/core/expected-isolation-rules";
 import { createTranslator } from "../../src/shared/i18n";
 import type { IgnoreRule } from "../../src/shared/ignore-rules";
-import { createDefaultSettings, type LinkIntegritySettings } from "../../src/shared/settings";
+import { createDefaultSettings, loadSettings, type LinkIntegritySettings } from "../../src/shared/settings";
 import { renderCustomSetting } from "../../src/ui/settings/custom-sections";
 import type { SettingsUiContext } from "../../src/ui/settings";
 
@@ -128,6 +128,37 @@ describe("custom settings sections", () => {
       "query-only",
     );
     expect(document.querySelector(".link-integrity-rule-modal")).toBeNull();
+    cleanup();
+  });
+
+  it("requires explicit file-type repair and retains case-sensitive glob edits after reload", () => {
+    const rule: ExpectedIsolationRule = {
+      ...expectedRule(), enabled: false, unrecognizedFileTypes: { fileTypeFamilyIds: ["markdown", "unknown"] },
+      namingPatterns: [{ id: "case", kind: "glob", pattern: "Daily*", flags: "u", target: "basename" }],
+    };
+    let settings = withExpectedRule(createDefaultSettings(), rule);
+    const translator = createTranslator("zh-CN", "en");
+    const container = document.createElement("div");
+    const cleanup = renderCustomSetting(container, "expected-isolation-rules", context(settings, {
+      translator, onSettingsChange: (next) => { settings = next; },
+    }));
+    const click = (surface: ParentNode, label: string) => Array.from(surface.querySelectorAll("button"))
+      .find((button) => button.textContent === label)!.click();
+    expect(container.querySelector<HTMLInputElement>(".link-integrity-expected-rule-card input")?.disabled).toBe(true);
+    click(container, translator.t("common.edit"));
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+    expect(dialog.querySelector('[role="alert"]')?.textContent).toContain(translator.t("settings.expected.validation.fileTypes"));
+    expect(dialog.querySelector<HTMLButtonElement>("footer .mod-cta")?.disabled).toBe(true);
+    click(dialog, translator.t("settings.expected.removeUnsupportedTypes"));
+    const glob = dialog.querySelector<HTMLInputElement>(".link-integrity-rule-pattern input")!;
+    glob.value = "Daily-*";
+    glob.dispatchEvent(new Event("input", { bubbles: true }));
+    click(dialog, translator.t("common.save"));
+    const reopened = loadSettings(JSON.parse(JSON.stringify(settings))).settings.isolatedFiles.expectedRules[0]!;
+    expect(reopened.unrecognizedFileTypes).toBeUndefined();
+    expect(reopened.fileTypeFamilyIds).toEqual(["markdown"]);
+    expect(reopened.namingPatterns[0]).toMatchObject({ pattern: "Daily-*", flags: "u" });
+    expect(reopened.enabled).toBe(false);
     cleanup();
   });
 

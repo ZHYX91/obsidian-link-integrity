@@ -27,6 +27,8 @@ export interface ExpectedFolderCondition {
   readonly mode: "exact" | "recursive";
 }
 
+export const MAX_EXPECTED_RULE_NAME_LENGTH = 120;
+
 /** File type, folder, and the pattern group are AND conditions; patterns are OR. */
 export interface ExpectedIsolationRule {
   readonly id: string;
@@ -35,6 +37,7 @@ export interface ExpectedIsolationRule {
   readonly fileTypeFamilyIds: readonly FormatFamilyId[];
   readonly fileTypeCategoryIds: readonly FileTypeCategoryId[];
   readonly fileExtensions: readonly string[];
+  readonly unrecognizedFileTypes?: Readonly<Record<string, unknown>>;
   readonly folder: ExpectedFolderCondition | null;
   readonly namingPatterns: readonly ExpectedNamingPattern[];
 }
@@ -69,6 +72,7 @@ export type PeriodicNotePresetId = PeriodicNoteKind;
 export interface PeriodicNotePresetEntry {
   readonly enabled: boolean;
   readonly folder: string;
+  readonly invalidFolder?: unknown;
   readonly includeSubfolders: boolean;
   readonly dateFormats: readonly string[];
 }
@@ -257,7 +261,8 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
   if (!isValidIdentifier(rule.id)) errors.push("Invalid rule ID.");
   const nameLength = rule.name.trim().length;
   if (nameLength === 0) errors.push("Rule name required.");
-  else if (nameLength > 120) errors.push("Rule name > 120 chars.");
+  else if (nameLength > MAX_EXPECTED_RULE_NAME_LENGTH) errors.push("Rule name > 120 chars.");
+  if (rule.unrecognizedFileTypes !== undefined) errors.push("Unrecognized file type conditions.");
   if (!hasExpectedRuleCondition(rule)) errors.push("Rule needs a condition.");
   if (rule.folder !== null) {
     try {
@@ -281,7 +286,7 @@ export function validateExpectedIsolationRule(rule: ExpectedIsolationRule): read
       errors.push(`${pattern.kind} pattern > ${maximum} chars.`);
       continue;
     }
-    if (pattern.kind === "regex") {
+    if (pattern.kind !== "date-format") {
       const flagError = validateRegexFlags(pattern.flags);
       if (flagError !== null) {
         errors.push(flagError);
@@ -344,19 +349,33 @@ function normalizeExpectedIsolationRule(value: unknown): ExpectedIsolationRule |
   const rawPatterns = Object.hasOwn(value, "namingPatterns")
     ? value.namingPatterns
     : Object.hasOwn(value, "patterns") ? value.patterns : [];
+  // Absent conditions are optional. Keep explicit unrecognized conditions for repair
+  // so the remaining folder or naming filter cannot take effect on its own.
+  const legacy = value.fileType;
+  const readCondition = (field: string, legacyField: string): unknown =>
+    Object.hasOwn(value, field) ? value[field] : nestedValue(legacy, legacyField);
+  const families = readCondition("fileTypeFamilyIds", "familyIds");
+  const categories = readCondition("fileTypeCategoryIds", "categoryIds");
+  const extensions = readCondition("fileExtensions", "extensions");
+  const unrecognized = { ...(isRecord(value.unrecognizedFileTypes) ? value.unrecognizedFileTypes : {}) };
+  if (legacy !== undefined && !isRecord(legacy)) unrecognized.fileType = legacy;
+  if (families !== undefined && !(Array.isArray(families) && families.every(isFormatFamilyId))) {
+    unrecognized.fileTypeFamilyIds = families;
+  }
+  if (categories !== undefined && !(Array.isArray(categories) && categories.every(isFileTypeCategoryId))) {
+    unrecognized.fileTypeCategoryIds = categories;
+  }
+  if (extensions !== undefined && !(Array.isArray(extensions) && extensions.every(
+    (item) => typeof item === "string" && normalizeExtension(item).length > 0,
+  ))) unrecognized.fileExtensions = extensions;
   const rule: ExpectedIsolationRule = {
     id,
     name,
     enabled: typeof value.enabled === "boolean" ? value.enabled : true,
-    fileTypeFamilyIds: normalizeFormatFamilyIds(
-      value.fileTypeFamilyIds ?? nestedValue(value.fileType, "familyIds"),
-    ),
-    fileTypeCategoryIds: normalizeCategoryIds(
-      value.fileTypeCategoryIds ?? nestedValue(value.fileType, "categoryIds"),
-    ),
-    fileExtensions: normalizeExtensions(
-      value.fileExtensions ?? nestedValue(value.fileType, "extensions"),
-    ),
+    fileTypeFamilyIds: normalizeFormatFamilyIds(families),
+    fileTypeCategoryIds: normalizeCategoryIds(categories),
+    fileExtensions: normalizeExtensions(extensions),
+    ...(Object.keys(unrecognized).length > 0 ? { unrecognizedFileTypes: unrecognized } : {}),
     folder: normalizeFolderCondition(value.folder),
     namingPatterns: normalizeNamingPatterns(rawPatterns),
   };
@@ -426,17 +445,12 @@ function normalizePeriodicEntry(
   const dateFormats = Array.from(new Set(rawFormats
     .map((candidate) => normalizePattern(candidate, "date-format"))
     .filter((candidate): candidate is string => candidate !== null)));
-  let folder = defaults.folder;
-  if (typeof value.folder === "string") {
-    try {
-      folder = normalizeFolderPath(value.folder);
-    } catch {
-      folder = defaults.folder;
-    }
-  }
+  const rawFolder = Object.hasOwn(value, "invalidFolder") ? value.invalidFolder : value.folder;
+  const folder = rawFolder === undefined ? defaults.folder : parseExpectedFolder(rawFolder);
   return {
-    enabled: typeof value.enabled === "boolean" ? value.enabled : defaults.enabled,
-    folder,
+    enabled: folder !== null && (typeof value.enabled === "boolean" ? value.enabled : defaults.enabled),
+    folder: folder ?? (typeof rawFolder === "string" ? rawFolder : ""),
+    ...(folder === null ? { invalidFolder: rawFolder } : {}),
     includeSubfolders: typeof value.includeSubfolders === "boolean"
       ? value.includeSubfolders
       : defaults.includeSubfolders,
@@ -525,6 +539,16 @@ function basenameWithoutExtension(file: FileRecord): string {
     : basename;
 }
 
+/** Empty means the Vault root. Invalid paths must never fall back to that scope. */
+export function parseExpectedFolder(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    return normalizeFolderPath(value);
+  } catch {
+    return null;
+  }
+}
+
 function normalizeFolderPath(path: string): string {
   const trimmed = path.trim().split("\\").join("/").replace(/^\/+|\/+$/gu, "");
   if (trimmed.length === 0) return "";
@@ -581,7 +605,7 @@ function isValidIdentifier(value: string): boolean {
 function normalizeLabel(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  return trimmed.length > 0 && trimmed.length <= 120 ? trimmed : null;
+  return trimmed.length > 0 && trimmed.length <= MAX_EXPECTED_RULE_NAME_LENGTH ? trimmed : null;
 }
 
 function normalizePattern(value: unknown, kind: unknown): string | null {
@@ -597,7 +621,10 @@ function normalizePatternFlags(
   caseSensitive: unknown,
 ): string {
   if (kind === "date-format") return "u";
-  if (kind === "glob") return caseSensitive === true ? "u" : "iu";
+  if (kind === "glob") {
+    if (typeof value === "string") return value.trim();
+    return caseSensitive === true ? "u" : "iu";
+  }
   return typeof value === "string" ? value.trim() : "u";
 }
 
