@@ -1,4 +1,4 @@
-import { classifyFileExtension, normalizeVaultPath, type LinkOccurrence } from "../core";
+import { classifyFileExtension, extensionFromPath, normalizeVaultPath, type LinkOccurrence } from "../core";
 
 /** Exact file identity; never use the case-folded, extension-free lookup index. */
 export function occurrenceTargetFilePath(occurrence: LinkOccurrence): string | null {
@@ -40,12 +40,12 @@ export function recoverTargetRulePath(value: string): string | null {
   const path = normalizeExactTargetPath(value);
   // Old values do not identify their source kind. An extensionless value could
   // be an exact Canvas file or Markdown with an omitted .md, so do not infer it.
-  return path !== null && classifyFileExtension(path).isKnown ? path : null;
+  return path !== null && classifyFileExtension(extensionFromPath(path)).isKnown ? path : null;
 }
 
 function withNoteExtension(path: string): string | null {
   const basename = path.split("/").at(-1)!;
   if (basename.lastIndexOf(".") <= 0) return `${path}.md`;
   // Topic.v1 can be either a custom file or a note whose .md was omitted.
-  return classifyFileExtension(path).isKnown ? path : null;
+  return classifyFileExtension(extensionFromPath(path)).isKnown ? path : null;
 }

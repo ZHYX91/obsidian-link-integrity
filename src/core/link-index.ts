@@ -3,7 +3,7 @@ import { ForkableMap } from "./forkable-map";
 import {
   isFileLevelResolved,
   normalizeFileRecord,
-  normalizeLookupKey,
+  canonicalLookupKey,
   normalizeVaultPath,
   validateSourceSnapshot,
   validateLinkOccurrence,
@@ -366,7 +366,7 @@ export class LinkIndex {
   }
 
   public getOccurrenceIdsByLookupKey(lookupKey: string): ReadonlySet<string> {
-    return new Set(this.occurrenceIdsByLookupKey.get(normalizeLookupKey(lookupKey)) ?? []);
+    return new Set(this.occurrenceIdsByLookupKey.get(canonicalLookupKey(lookupKey)) ?? []);
   }
 
   public getSourcePathsByLookupKeys(lookupKeys: Iterable<string>): ReadonlySet<string> {
@@ -375,7 +375,7 @@ export class LinkIndex {
 
   public *iterateSourcePathsByLookupKeys(lookupKeys: Iterable<string>): Iterable<string> {
     for (const lookupKey of lookupKeys) {
-      for (const id of this.occurrenceIdsByLookupKey.get(normalizeLookupKey(lookupKey)) ?? []) {
+      for (const id of this.occurrenceIdsByLookupKey.get(canonicalLookupKey(lookupKey)) ?? []) {
         const occurrence = this.occurrencesById.get(id);
         if (occurrence !== undefined) yield occurrence.sourcePath;
       }
@@ -577,7 +577,7 @@ function normalizeOccurrence(occurrence: LinkOccurrence): LinkOccurrence {
     ...occurrence,
     position: occurrence.position === null ? null : { ...occurrence.position },
     sourcePath: normalizeVaultPath(occurrence.sourcePath),
-    lookupKey: normalizeLookupKey(occurrence.lookupKey),
+    lookupKey: canonicalLookupKey(occurrence.lookupKey),
     targetPath: occurrence.targetPath === null ? null : normalizeVaultPath(occurrence.targetPath),
   };
 }

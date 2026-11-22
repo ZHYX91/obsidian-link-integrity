@@ -187,6 +187,13 @@ export function classifyFileExtension(pathOrExtension: string): FileExtensionCla
   };
 }
 
+/** File names without a suffix have no extension, including in the Vault root. */
+export function extensionFromPath(path: string): string {
+  const basename = path.trim().split(/[\\/]/u).at(-1) ?? "";
+  const dot = basename.lastIndexOf(".");
+  return dot > 0 ? basename.slice(dot + 1).toLowerCase() : "";
+}
+
 export function normalizeExtension(pathOrExtension: string): string {
   const normalized = pathOrExtension.trim().split("\\").join("/").toLocaleLowerCase("en-US");
   const segments = normalized.split("/");

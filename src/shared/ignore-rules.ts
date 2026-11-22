@@ -1,5 +1,6 @@
 import {
   classifyFileExtension,
+  extensionFromPath,
   type LinkOccurrence,
 } from "../core";
 import {
@@ -75,7 +76,7 @@ export function createOccurrenceIgnoreContext(
   sourceExtension?: string | null,
   classifySource = classifyFileExtension,
 ): IgnoreEvaluationContext {
-  const classification = classifySource(sourceExtension ?? occurrence.sourcePath);
+  const classification = classifySource(sourceExtension ?? extensionFromPath(occurrence.sourcePath));
   return {
     sourcePath: occurrence.sourcePath,
     targetPath: occurrenceTargetFilePath(occurrence),
@@ -297,8 +298,7 @@ export function* previewIgnoreRuleSteps(
 
 function resolveContextFormatFamilyIds(context: IgnoreEvaluationContext): readonly string[] {
   if (context.formatFamilyIds !== undefined) return context.formatFamilyIds;
-  const value = context.extension ?? context.candidatePath ?? context.sourcePath ?? context.targetPath;
-  return value == null ? [] : classifyFileExtension(value).familyIds;
+  return classifyFileExtension(resolveContextExtension(context)).familyIds;
 }
 
 function normalizeRuleId(value: unknown): string | null {
@@ -331,11 +331,7 @@ function resolveContextExtension(context: IgnoreEvaluationContext): string {
     return normalizeExtension(context.extension);
   }
   const path = context.candidatePath ?? context.sourcePath ?? context.targetPath ?? "";
-  const fileName = normalizePath(path).split("/").at(-1) ?? "";
-  const dot = fileName.lastIndexOf(".");
-  return dot > 0 && dot < fileName.length - 1
-    ? normalizeExtension(fileName.slice(dot + 1))
-    : "";
+  return extensionFromPath(path);
 }
 
 function describeContext(context: IgnoreEvaluationContext): string {

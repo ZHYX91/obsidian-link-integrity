@@ -21,6 +21,16 @@ describe("file type registry", () => {
     expect(classifyFileExtension("document.pdf").primaryCategoryId).toBe("fixed-layout");
   });
 
+  it("treats a root extensionless name the same as one in a folder", () => {
+    const scope = { familyIds: new Set(["pdf"] as const) };
+    for (const path of ["pdf", "sub/pdf"]) {
+      const file = createFileRecord(path);
+      expect(file.extension).toBe("");
+      expect(isCandidateFile(file, scope)).toBe(false);
+    }
+    expect(isCandidateFile(createFileRecord("Report.PDF"), scope)).toBe(true);
+  });
+
   it("represents ambiguous WebM media without losing either category", () => {
     const result = classifyFileExtension("clip.webm");
     expect(result.familyIds).toEqual(["webm-audio", "webm-video"]);

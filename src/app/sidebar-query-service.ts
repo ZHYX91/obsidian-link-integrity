@@ -200,7 +200,7 @@ export class SidebarQueryService implements SidebarQueryPort {
       : new Set((paths === null ? index.files : Array.from(paths)
         .flatMap((path) => index.getFile(path) ?? []))
         .filter((file) => {
-          const classification = classifyFileExtension(file.path);
+          const classification = classifyFileExtension(file.extension);
           return ignoreService.shouldExcludeIsolatedCandidate({
             candidatePath: file.path,
             formatFamilyIds: classification.familyIds,

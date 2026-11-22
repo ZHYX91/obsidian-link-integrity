@@ -102,6 +102,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     const cache = file.extension.toLocaleLowerCase("en-US") === "md"
       ? this.metadataCache.getFileCache(file) : undefined;
     return createFileRecord(file.path, {
+      extension: file.extension,
       modifiedAt: file.stat.mtime,
       targetFingerprint: cache === undefined ? "non-markdown" : targetFingerprint(cache),
     });
