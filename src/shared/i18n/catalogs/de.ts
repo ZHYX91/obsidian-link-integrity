@@ -113,6 +113,8 @@ export const DE_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "Dateien mit festem Layout",
   "fileType.category.other": "Andere Anhänge",
   "settings.tabs.label": "Bereiche der Link-Integrity-Einstellungen",
+  "settings.tabs.earlier": "Vorherige Tabs anzeigen",
+  "settings.tabs.more": "Weitere Tabs anzeigen",
   "settings.tab.general": "Allgemein",
   "settings.tab.broken": "Defekte Links",
   "settings.tab.isolated": "Isolierte Dateien",

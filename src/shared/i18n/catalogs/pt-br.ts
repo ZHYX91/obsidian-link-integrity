@@ -113,6 +113,8 @@ export const PT_BR_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "Arquivos de layout fixo",
   "fileType.category.other": "Outros anexos",
   "settings.tabs.label": "Seções das configurações do Link Integrity",
+  "settings.tabs.earlier": "Mostrar abas anteriores",
+  "settings.tabs.more": "Mostrar as próximas abas",
   "settings.tab.general": "Geral",
   "settings.tab.broken": "Links quebrados",
   "settings.tab.isolated": "Arquivos isolados",

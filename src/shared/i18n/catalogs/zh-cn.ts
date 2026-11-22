@@ -174,6 +174,8 @@ export const ZH_CN_MESSAGES = {
   "fileType.family.ebook": "电子书",
   "fileType.family.other-custom": "自定义扩展名",
   "settings.tabs.label": "Link Integrity 设置分类",
+  "settings.tabs.earlier": "显示前面的选项卡",
+  "settings.tabs.more": "显示后面的选项卡",
   "settings.tab.general": "常规",
   "settings.tab.broken": "无效链接",
   "settings.tab.isolated": "孤立文件",

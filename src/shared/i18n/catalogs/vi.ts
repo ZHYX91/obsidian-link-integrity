@@ -107,6 +107,8 @@ export const VI_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "Tệp bố cục cố định",
   "fileType.category.other": "Tệp đính kèm khác",
   "settings.tabs.label": "Các mục cài đặt Link Integrity",
+  "settings.tabs.earlier": "Hiện các thẻ trước",
+  "settings.tabs.more": "Hiện các thẻ tiếp theo",
   "settings.tab.general": "Chung",
   "settings.tab.broken": "Liên kết hỏng",
   "settings.tab.isolated": "Tệp cô lập",

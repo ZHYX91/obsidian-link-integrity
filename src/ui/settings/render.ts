@@ -7,6 +7,7 @@ import {
 } from "../../shared/settings";
 import { getSettingsPageDefinitions, type SettingsItemDefinition } from "./definitions";
 import { renderCustomSetting } from "./custom-sections";
+import { addSettingsTabArrows } from "../settings-tab-arrows";
 import { moveHorizontalTabIndex, revealHorizontalTab } from "../tab-navigation";
 import type { SettingsTabId, SettingsUiContext } from "./types";
 
@@ -68,6 +69,10 @@ export function renderImperativeSettings(
     return button;
   });
   container.append(tabList);
+  cleanups.push(addSettingsTabArrows(
+    tabList, context.translator.direction,
+    context.translator.t("settings.tabs.earlier"), context.translator.t("settings.tabs.more"),
+  ));
 
   const panel = container.ownerDocument.createElement("div");
   panel.className = "link-integrity-settings-panel";
