@@ -213,6 +213,25 @@ describe("extractMarkdownExplicitReferences", () => {
     ]);
   });
 
+  it.each(["`]]`", "%% ]] %%", "<!-- ]] -->", '<span title="]]">'])(
+    "requires a Wiki closer outside literal %s", (literal) => {
+      const text = `unfinished [[ and [Design](Design.md) ${literal}`;
+      expect(extractMarkdownExplicitReferences(text).map(({ linktext }) => linktext)).toEqual(["Design.md"]);
+    },
+  );
+
+  it.each(["[[", "[[x "])("keeps lookahead linear after repeated unfinished %j openers", async (prefix) => {
+    const work: number[] = [];
+    for (const count of [8_000, 16_000]) {
+      let checkpoints = 0;
+      const scheduler = new WorkScheduler({ yieldEvery: 1, yieldControl: async () => { checkpoints++; } });
+      const parsed = await parseMarkdownSourceAsync(prefix.repeat(count) + " [Design](Design.md)", scheduler);
+      expect(parsed.references.map(({ linktext }) => linktext)).toEqual(["Design.md"]);
+      work.push(checkpoints);
+    }
+    expect(work[1]).toBeLessThanOrEqual(2 * work[0]! + 16);
+  });
+
   it("keeps unmatched bracket-heavy input bounded and produces no false links", () => {
     const source = "[x".repeat(25_000);
 
@@ -436,6 +455,19 @@ describe("extractMarkdownExplicitReferences", () => {
       expect(extractMarkdownExplicitReferences(source), original).toEqual(count === 2 ? ["Target", "Missing"].map((linktext) =>
         expect.objectContaining({ linktext, startOffset: source.indexOf(`[[${linktext}]]`) })) : []);
     }
+  });
+
+  it.each([
+    ["['[[', 'Ghost]]']", []],
+    ['["[description", "more](Ghost)"]', []],
+    ["['[[', '[[Design]]']", ["Design"]],
+    ["['%%', '[[Design]]', '%%']", ["Design"]],
+    ["['`', '[[Design]]', '`']", ["Design"]],
+  ] as const)("does not pair syntax across items in YAML %s", (values, expected) => {
+    const source = `---\nrelated: ${values}\n---`;
+    const parsed = extractMarkdownExplicitReferences(source);
+    expect(parsed.map(({ linktext }) => linktext)).toEqual(expected);
+    for (const item of parsed) expect(source.slice(item.startOffset, item.endOffset)).toBe(item.raw);
   });
 
   it("ignores YAML comments while retaining frontmatter values and later headings", () => {

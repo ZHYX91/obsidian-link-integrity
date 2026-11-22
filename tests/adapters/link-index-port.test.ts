@@ -967,6 +967,69 @@ describe("ObsidianLinkIndexPort", () => {
     } finally { incremental.stop(); }
   });
 
+  it.each(["\n", "\r\n", "\r"])("keeps each YAML scalar independent before and after native metadata with %j", async (eol) => {
+    const file = fakeFile("Source.md");
+    const target = fakeFile("Design.md");
+    const row = 'links: ["😀 [[Design]]", "[[", "Ghost]]", "[opener", "end](Phantom)"]';
+    const text = ["---", "start: '%%'", "tick: '`'", row, "stop: '%%'", "tock: '`'",
+      "same: '%% [[Ignored]] %% [missing](Missing)'", "---"].join(eol);
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([file, target], { content: { [file.path]: text },
+      caches, destinations: new Map([["Design", target]]) });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      await new FullRebuildController(port, store).rebuild();
+      const occurrences = () => store.current.getSourceSnapshot(file.path)!.occurrences;
+      const signatures = () => occurrences().map(({ id, linkpath }) => [id, linkpath]);
+      expect(occurrences().map(({ raw }) => raw)).toEqual(["[[Design]]", "[missing](Missing)"]);
+      expect(occurrences()[0]?.position).toMatchObject({ line: 3, column: row.indexOf("[[Design]]"),
+        endColumn: row.indexOf("[[Design]]") + "[[Design]]".length });
+      expect(store.current.getIncomingContributionCount(target.path)).toBe(1);
+      expect(queryIsolatedFiles(store.current)).toEqual([]);
+      const before = signatures();
+      caches.set(file.path, { frontmatterLinks: [
+        { key: "links.0", link: "Design", original: "[[Design]]" },
+        { key: "same", link: "Missing", original: "[missing](Missing)" },
+      ] });
+      incremental.enqueue({ type: "modify", path: file.path });
+      await incremental.whenIdle();
+      expect(signatures()).toEqual(before);
+      expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText)).toEqual(["Missing"]);
+      expect(store.current.toCanonicalState()).toEqual(
+        (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index.toCanonicalState());
+    } finally { incremental.stop(); }
+  });
+
+  it.each(["fallback", "partial", "canvas"])("recovers links after an unfinished Wiki opener in %s", async (mode) => {
+    const file = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
+    const target = fakeFile("Design.md");
+    const caches = new Map<string, CachedMetadata>();
+    const content: Record<string, string> = {};
+    const { port } = createPort([file, target], { content, caches, destinations: new Map([["Design.md", target]]) });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      for (const [step, prefix] of ["", "😀 unfinished [[ and "].entries()) {
+        const text = prefix + "[Design](Design.md) and [[Missing]]";
+        content[file.path] = mode === "canvas" ? JSON.stringify({ nodes: [{ type: "text", id: "node", text }] }) : text;
+        if (mode === "partial") caches.set(file.path, { links: [positioned(text, "Missing", "[[Missing]]")] });
+        if (step === 0) await new FullRebuildController(port, store).rebuild();
+        else { incremental.enqueue({ type: "modify", path: file.path }); await incremental.whenIdle(); }
+        const occurrences = store.current.getSourceSnapshot(file.path)!.occurrences;
+        expect(occurrences.map(({ linkpath }) => linkpath)).toEqual(["Design.md", "Missing"]);
+        expect(occurrences[0]?.position?.column).toBe(prefix.length);
+        expect(store.current.getIncomingContributionCount(target.path)).toBe(1);
+        expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText)).toEqual(["Missing"]);
+        expect(queryIsolatedFiles(store.current)).toEqual([]);
+        expect(store.current.toCanonicalState()).toEqual(
+          (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index.toCanonicalState());
+      }
+    } finally { incremental.stop(); }
+  });
+
   it("slices large YAML fallback and skips it when native property metadata is available", async () => {
     const file = fakeFile("Source.md");
     const values = Array.from({ length: 1000 }, (_, index) => `"😀 [[key${index}]]": "[[Note${index}]]"`);

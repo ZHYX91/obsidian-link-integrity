@@ -7,6 +7,8 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 
 ## [Unreleased]
 
+- Keep link and comment delimiters within each YAML property value or list item. Preserve links after an unfinished `[[` in notes and Canvas text.
+
 - Preserve single-reference ignores on property links as the native metadata cache becomes available, and exclude YAML property names from diagnostics.
 - Keep real links in multiline YAML properties and exclude YAML comments from broken-link results, including with indented delimiters and CR line endings.
 

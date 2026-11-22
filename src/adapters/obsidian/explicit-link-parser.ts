@@ -75,7 +75,7 @@ function* extractMarkdownSteps(source: string, properties: "include" | "skip" = 
   }
   const frontmatter = yield* frontmatterFromLines(source, lines);
   const blocks = { lines, linesByStart, opaqueClosers: yield* indexOpaqueClosers(source), frontmatter,
-    yamlNonValues: frontmatter === null ? [] : properties === "skip" ? [frontmatter] : yield* yamlNonValueRanges(source, frontmatter) };
+    propertyValues: frontmatter === null || properties === "skip" ? [] : yield* yamlScalarRanges(source, frontmatter) };
   let destinations = yield* indexMarkdownDestinations(source);
   const definitions = new Set<string>();
   let syntax = source;
@@ -93,7 +93,7 @@ function* extractMarkdownSteps(source: string, properties: "include" | "skip" = 
   }
   const { masked, inline: established, frontmatterEnd, syntaxRanges } =
     yield* maskMarkdownNonContent(source, blocks, destinations, syntax, definitions);
-  const { wikiReferences, markdown } = yield* extractMarkdownLinks(source, masked, destinations, established, frontmatterEnd);
+  const { wikiReferences, markdown } = yield* extractMarkdownLinks(source, masked, destinations, established, frontmatterEnd, blocks.propertyValues);
   const references: ParsedExplicitReference[] = [];
   let wiki = 0;
   let inline = 0;
@@ -301,84 +301,94 @@ function* extractMarkdownLinks(
   destinations: MarkdownDestinationIndex,
   inline: ReadonlyMap<number, ParsedExplicitReference>,
   frontmatterEnd: number,
+  propertyValues: readonly MaskedRange[],
 ): Generator<void, { wikiReferences: ParsedExplicitReference[]; markdown: ParsedExplicitReference[] }> {
   const wikiReferences: ParsedExplicitReference[] = [];
   const markdown: ParsedExplicitReference[] = [];
-  const labelStack: number[] = [];
-  let index = 0;
-  while (index < masked.length) {
-    if (index % 1024 === 0) yield;
-    const established = inline.get(index);
-    if (established !== undefined) markdown.push(established);
-    const character = masked[index];
-    if (character === "\n" || character === "\r") {
-      const nextLine = index + (character === "\r" && masked[index + 1] === "\n" ? 2 : 1);
-      if (/[\r\n]/u.test(masked[destinations.afterWhitespace[nextLine]!] ?? "")) labelStack.length = 0;
-      index += 1;
-      continue;
-    }
-    if (character === "\\") {
-      index += Math.min(2, masked.length - index);
-      continue;
-    }
-    const embeddedWiki = character === "!" && masked[index + 1] === "[" && masked[index + 2] === "[";
-    const opening = embeddedWiki ? index + 1 : index;
-    if (masked[opening] === "[" && masked[opening + 1] === "[") {
-      const closing = yield* findWikiClosing(masked, opening + 2);
-      if (closing < 0) { index = lineEndOffset(masked, opening + 2); continue; }
-      const linktext = readWikiLinktext(source.slice(opening + 2, closing)).trim();
-      if (linktext.length > 0) wikiReferences.push({ raw: source.slice(index, closing + 2),
-        linktext, embedded: embeddedWiki, startOffset: index, endOffset: closing + 2 });
-      index = closing + 2;
-      continue;
-    }
-    if (index >= frontmatterEnd) { index += 1; continue; }
-    if (character === "[" && masked[index + 1] !== "[") {
-      labelStack.push(index);
-      index += 1;
-      continue;
-    }
-    if (character !== "]" || labelStack.length === 0) {
-      index += 1;
-      continue;
-    }
+  // Each YAML value has its own inline syntax. The last region is the Markdown body.
+  for (let region = 0; region <= propertyValues.length; region += 1) {
+    if (region % 128 === 0) yield;
+    const property = propertyValues[region];
+    const end = property?.end ?? masked.length;
+    const labelStack: number[] = [];
+    let index = property?.start ?? frontmatterEnd;
+    while (index < end) {
+      if (index % 1024 === 0) yield;
+      const established = inline.get(index);
+      if (established !== undefined) markdown.push(established);
+      const character = masked[index];
+      if (character === "\n" || character === "\r") {
+        const nextLine = index + (character === "\r" && masked[index + 1] === "\n" ? 2 : 1);
+        if (/[\r\n]/u.test(masked[destinations.afterWhitespace[nextLine]!] ?? "")) labelStack.length = 0;
+        index += 1;
+        continue;
+      }
+      if (character === "\\") {
+        index += Math.min(2, masked.length - index);
+        continue;
+      }
+      const embeddedWiki = character === "!" && masked[index + 1] === "[" && masked[index + 2] === "[";
+      const opening = embeddedWiki ? index + 1 : index;
+      if (masked[opening] === "[" && masked[opening + 1] === "[") {
+        const closing = yield* findWikiClosing(masked, opening + 2, end);
+        if (closing < 0) { index = opening + 1; continue; }
+        const linktext = readWikiLinktext(source.slice(opening + 2, closing)).trim();
+        if (linktext.length > 0) wikiReferences.push({ raw: source.slice(index, closing + 2),
+          linktext, embedded: embeddedWiki, startOffset: index, endOffset: closing + 2 });
+        index = closing + 2;
+        continue;
+      }
+      if (property === undefined) { index += 1; continue; }
+      if (character === "[" && masked[index + 1] !== "[") {
+        labelStack.push(index);
+        index += 1;
+        continue;
+      }
+      if (character !== "]" || labelStack.length === 0) {
+        index += 1;
+        continue;
+      }
 
-    const labelStart = labelStack.pop();
-    if (labelStart === undefined || masked[index + 1] !== "(") {
-      index += 1;
-      continue;
+      const labelStart = labelStack.pop();
+      if (labelStart === undefined || masked[index + 1] !== "(") {
+        index += 1;
+        continue;
+      }
+      const parsedDestination = readMarkdownDestination(source, index + 2, destinations);
+      if (parsedDestination === null || parsedDestination.linkEnd > end) {
+        index += 1;
+        continue;
+      }
+      const reference = markdownReference(source, labelStart, parsedDestination);
+      if (reference.linktext.length > 0) markdown.push(reference);
+      if (!reference.embedded) labelStack.length = 0;
+      index = parsedDestination.linkEnd;
     }
-    const parsedDestination = readMarkdownDestination(source, index + 2, destinations);
-    if (parsedDestination === null) {
-      index += 1;
-      continue;
-    }
-    const reference = markdownReference(source, labelStart, parsedDestination);
-    if (reference.linktext.length > 0) markdown.push(reference);
-    if (!reference.embedded) labelStack.length = 0;
-    index = parsedDestination.linkEnd;
   }
   return { wikiReferences, markdown };
 }
 
-function* findWikiClosing(source: string, start: number): Generator<void, number> {
-  for (let index = start; index < source.length; index += 1) {
+// An unfinished opener must release the following Markdown. Stopping at the
+// next opener also bounds total lookahead on a line of unfinished tokens.
+function* findWikiClosing(source: string, start: number, end: number,
+  literalAt?: (offset: number) => InlineLiteral | null): Generator<void, number> {
+  for (let index = start; index + 1 < end; index += 1) {
     if (index % 1024 === 0) yield;
     const character = source[index];
     if (character === "\n" || character === "\r") return -1;
     if (character === "\\") {
+      if (source[index + 1] === "\n" || source[index + 1] === "\r") return -1;
       index += 1;
       continue;
     }
+    if (literalAt && (character === "`" || character === "%" || character === "<")) {
+      const literal = literalAt(index);
+      if (literal !== null) { index = literal.end - 1; continue; }
+    }
+    if (character === "[" && source[index + 1] === "[") return -1;
     if (character === "]" && source[index + 1] === "]") return index;
   }
   return -1;
-}
-
-function lineEndOffset(source: string, start: number): number {
-  let index = start;
-  while (index < source.length && source[index] !== "\n" && source[index] !== "\r") index += 1;
-  return index < source.length ? index + 1 : source.length;
 }
 
 function readMarkdownDestination(
@@ -444,7 +454,7 @@ interface BlockIndex {
   linesByStart: ReadonlyMap<number, SourceLineRange>;
   opaqueClosers: ReadonlyMap<string, readonly MaskedRange[]>;
   frontmatter: MaskedRange | null;
-  yamlNonValues: readonly MaskedRange[];
+  propertyValues: readonly MaskedRange[];
 }
 
 function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destinations: MarkdownDestinationIndex,
@@ -458,17 +468,24 @@ function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destination
   const frontmatterRange = blocks.frontmatter;
   if (frontmatterRange !== null) {
     syntaxRanges.push({ ...frontmatterRange, kind: "frontmatter" });
-    for (const { start, end } of blocks.yamlNonValues) {
-      for (let offset = start; offset < end; offset += 4096) {
-        yield;
-        maskRange(characters, offset, Math.min(offset + 4096, end));
-      }
+    let gapStart = frontmatterRange.start;
+    for (const value of blocks.propertyValues) {
+      yield* maskGap(characters, gapStart, value.start);
+      gapStart = value.end;
     }
+    yield* maskGap(characters, gapStart, frontmatterRange.end);
   }
   yield* maskDelimitedBlocks(characters, source, blocks, frontmatterRange, destinations, inline,
     syntax, definitions, syntaxRanges, projection);
   const masked = projection === undefined ? yield* joinMask(characters) : "";
   return { masked, inline, syntaxRanges, frontmatterEnd: frontmatterRange?.end ?? 0 };
+}
+
+function* maskGap(characters: string[], start: number, end: number): Generator<void, void> {
+  for (let offset = start; offset < end; offset += 4096) {
+    yield;
+    maskRange(characters, offset, Math.min(offset + 4096, end));
+  }
 }
 
 function* joinMask(characters: string[]): Generator<void, string> {
@@ -482,6 +499,11 @@ function* joinMask(characters: string[]): Generator<void, string> {
 
 interface MaskedRange {
   readonly start: number;
+  readonly end: number;
+}
+
+interface InlineLiteral {
+  readonly kind: "code" | "comment" | "raw-html" | "tag";
   readonly end: number;
 }
 
@@ -530,15 +552,16 @@ function* maskDelimitedBlocks(
     }
     syntaxRanges.push({ start, end, kind });
   };
-  for (let cursor = 0; cursor < (frontmatter?.end ?? 0); cursor += 1) {
-    if (cursor % 1024 === 0) yield;
-    if (characters[cursor] !== source[cursor]) continue;
-    const closing = source.startsWith("%%", cursor)
-      ? findUnmaskedDelimiter(characters, source, "%%", cursor + 2) : -1;
-    const end = closing >= 0 ? closing + 2 : inlineClosers.get(cursor) ?? 0;
-    if (end > cursor && end <= frontmatter!.end) {
-      yield* mask(cursor + (closing < 0 && isEscaped(source, cursor) ? 1 : 0), end);
-      cursor = end - 1;
+  for (const value of blocks.propertyValues) {
+    for (let cursor = value.start; cursor < value.end; cursor += 1) {
+      if (cursor % 1024 === 0) yield;
+      const commentEnd = source.startsWith("%%", cursor)
+        ? nextOpaqueEnd(opaqueClosers.get("%%"), cursor + 2) : null;
+      const end = commentEnd ?? inlineClosers.get(cursor) ?? 0;
+      if (end > cursor && end <= value.end) {
+        yield* mask(cursor + (commentEnd === null && isEscaped(source, cursor) ? 1 : 0), end);
+        cursor = end - 1;
+      }
     }
   }
   const inlineBoundary = function* (lineIndex: number, text: string): Generator<void, number> {
@@ -682,7 +705,33 @@ function* maskDelimitedBlocks(
     }
     // Recognize opaque syntax in source order so fences inside comments/raw HTML
     // and HTML openers inside code spans never become a second active block.
-    let wiki = false;
+    const literalAt = (offset: number): InlineLiteral | null => {
+      if (source.startsWith("<!--", offset) && !isEscaped(source, offset)) {
+        const end = source.startsWith("<!-->", offset) ? offset + 5
+          : source.startsWith("<!--->", offset) ? offset + 6
+            : nextOpaqueEnd(opaqueClosers.get("-->"), offset + 4) ?? source.length;
+        return { kind: "comment", end };
+      }
+      if (source.startsWith("%%", offset)) {
+        const end = nextOpaqueEnd(opaqueClosers.get("%%"), offset + 2);
+        if (end !== null) return { kind: "comment", end };
+      }
+      if (source[offset] === "<" && !isEscaped(source, offset)) {
+        rawOpening.lastIndex = offset;
+        const name = offset === rawStart ? rawOpening.exec(source)?.[1]?.toLowerCase() : undefined;
+        if (name !== undefined) {
+          const openingEnd = htmlTagEnd(source, rawOpening.lastIndex, containers, linesByStart);
+          return { kind: "raw-html", end: nextOpaqueEnd(opaqueClosers.get(name), openingEnd) ?? source.length };
+        }
+        if (/^\/?[A-Za-z]/u.test(source.slice(offset + 1, offset + 3))) {
+          const tag = scanLiteralHtmlTag(source, offset, containers, linesByStart);
+          if (tag.valid) return { kind: "tag", end: tag.end };
+        }
+      }
+      const end = inlineClosers.get(offset);
+      return end !== undefined && end <= boundary ? { kind: "code", end } : null;
+    };
+    let wikiEnd = 0;
     let checkpointOffset = cursor + 1024;
     while (cursor < line.contentEnd) {
       if (cursor >= checkpointOffset) {
@@ -691,53 +740,27 @@ function* maskDelimitedBlocks(
       }
       if (cursor < inlineEnd) { cursor = inlineEnd; continue; }
       if (characters[cursor] !== source[cursor]) { cursor += 1; continue; }
-      let end: number | null = null;
-      let kind: "comment" | "raw-html" = "comment";
-      if (source.startsWith("<!--", cursor) && !isEscaped(source, cursor)) {
-        end = source.startsWith("<!-->", cursor) ? cursor + 5
-          : source.startsWith("<!--->", cursor) ? cursor + 6
-            : nextOpaqueEnd(opaqueClosers.get("-->"), cursor + 4) ?? source.length;
-      } else if (source.startsWith("%%", cursor)) {
-        end = nextOpaqueEnd(opaqueClosers.get("%%"), cursor + 2);
-      } else if (source[cursor] === "<" && !isEscaped(source, cursor)) {
-        rawOpening.lastIndex = cursor;
-        const name = cursor === rawStart ? rawOpening.exec(source)?.[1]?.toLowerCase() : undefined;
-        if (name !== undefined) {
-          kind = "raw-html";
-          const openingEnd = htmlTagEnd(source, rawOpening.lastIndex, containers, linesByStart);
-          end = nextOpaqueEnd(opaqueClosers.get(name), openingEnd) ?? source.length;
-        } else if (/^\/?[A-Za-z]/u.test(source.slice(cursor + 1, cursor + 3))) {
-          // HTML tag attributes are literal syntax, never WikiLink body text.
-          // Established angle destinations were already handled by their link
-          // opener; preserve source bytes and mask only this valid tag token.
-          const tag = scanLiteralHtmlTag(source, cursor, containers, linesByStart);
-          if (tag.valid) {
-            yield* mask(cursor, tag.end, "raw-html");
-            literalTagEnd = tag.end;
-            cursor = literalTagEnd;
-            continue;
-          }
-        }
-      }
-      if (end !== null) {
-        if (end > line.end) { opaque = { start: cursor, end, containers, kind }; break; }
-        yield* mask(cursor, end, kind);
+      const literal = literalAt(cursor);
+      if (literal !== null) {
+        const { end, kind } = literal;
+        if (kind === "tag") {
+          yield* mask(cursor, end, "raw-html");
+          literalTagEnd = end;
+        } else if (kind === "code") {
+          yield* mask(cursor + (isEscaped(source, cursor) ? 1 : 0), end);
+          inlineEnd = end;
+        } else if (end > line.end) {
+          opaque = { start: cursor, end, containers, kind };
+          break;
+        } else yield* mask(cursor, end, kind);
         cursor = end;
         continue;
       }
-      inlineEnd = inlineClosers.get(cursor) ?? 0;
-      if (inlineEnd > boundary) inlineEnd = 0;
-      if (inlineEnd > cursor) {
-        yield* mask(cursor + (isEscaped(source, cursor) ? 1 : 0), inlineEnd);
-        cursor = inlineEnd;
-        continue;
-      }
       if (source[cursor] === "\\" && source[cursor + 1] !== "`") { cursor += 2; continue; }
-      if (source.startsWith("[[", cursor)) { wiki = true; cursor += 2; continue; }
-      if (wiki) {
-        if (source.startsWith("]]", cursor)) { wiki = false; cursor += 2; }
-        else cursor += 1;
-        continue;
+      if (cursor < wikiEnd) { cursor += 1; continue; }
+      if (source.startsWith("[[", cursor)) {
+        const closing = yield* findWikiClosing(source, cursor + 2, line.contentEnd, literalAt);
+        if (closing >= 0) { wikiEnd = closing + 2; cursor += 2; continue; }
       }
       if (source[cursor] === "$") {
         const double = source[cursor + 1] === "$";
@@ -936,29 +959,6 @@ function nextOpaqueEnd(ranges: readonly MaskedRange[] | undefined, start: number
   return ranges[low]?.end ?? null;
 }
 
-function findUnmaskedDelimiter(
-  characters: readonly string[],
-  source: string,
-  delimiter: string,
-  start: number,
-): number {
-  let cursor = start;
-  while (cursor < source.length) {
-    const index = source.indexOf(delimiter, cursor);
-    if (index < 0) return -1;
-    let unmasked = true;
-    for (let offset = 0; offset < delimiter.length; offset += 1) {
-      if (characters[index + offset] !== delimiter[offset]) {
-        unmasked = false;
-        break;
-      }
-    }
-    if (unmasked) return index;
-    cursor = index + delimiter.length;
-  }
-  return -1;
-}
-
 function scanLiteralHtmlTag(
   source: string,
   start: number,
@@ -1042,7 +1042,7 @@ interface FrontmatterRange extends MaskedRange {
 }
 
 /** Only source text inside YAML scalar values can contribute property links. */
-function* yamlNonValueRanges(source: string, region: FrontmatterRange): Generator<void, MaskedRange[]> {
+function* yamlScalarRanges(source: string, region: FrontmatterRange): Generator<void, MaskedRange[]> {
   const yaml = source.slice(region.contentStart, region.contentEnd).replace(/\r(?!\n)/gu, "\n");
   // No source link can start here. Avoid parsing normal link-free metadata.
   if (!yaml.includes("[")) return [];
@@ -1062,8 +1062,7 @@ function* yamlNonValueRanges(source: string, region: FrontmatterRange): Generato
     }
     yield;
   }
-  const hidden: MaskedRange[] = [];
-  let cursor = region.start;
+  const values: MaskedRange[] = [];
   let visited = 0;
   // Keep only mapping values and sequence entries, in source order. Tags,
   // aliases, keys and actual comments remain outside scalar content ranges.
@@ -1083,12 +1082,10 @@ function* yamlNonValueRanges(source: string, region: FrontmatterRange): Generato
         if (last?.type !== "newline") continue;
         start = region.contentStart + last.offset + last.source.length;
       }
-      if (start > cursor) hidden.push({ start: cursor, end: start });
-      cursor = start + token.source.length;
+      if (token.source.includes("[")) values.push({ start, end: start + token.source.length });
     }
   }
-  if (cursor < region.end) hidden.push({ start: cursor, end: region.end });
-  return hidden;
+  return values;
 }
 
 const frontmatterOpening = /^(?:\uFEFF)?---[ \t]*(?:[\r\n]|$)/u;
