@@ -2,6 +2,46 @@ import { describe, expect, it, vi } from "vitest";
 import { addSettingsTabArrows } from "../../src/ui/settings-tab-arrows";
 
 describe("settings tab overflow", () => {
+  it("reveals the originally clipped tab when the reverse arrow takes up space", () => {
+    const list = document.createElement("div");
+    document.body.append(list);
+    const tabs = [60, 85, 65, 70].map(() => {
+      const tab = document.createElement("button");
+      tab.setAttribute("role", "tab");
+      list.append(tab);
+      return tab;
+    });
+    let position = 0;
+    const cleanup = addSettingsTabArrows(list, "ltr", "Earlier", "More");
+    const frame = list.parentElement!;
+    const previous = frame.querySelector<HTMLButtonElement>('[aria-label="Earlier"]')!;
+    const next = frame.querySelector<HTMLButtonElement>('[aria-label="More"]')!;
+    const start = (): number => previous.disabled ? 0 : 32;
+    const end = (): number => next.disabled ? 190 : 158;
+    Object.defineProperty(frame, "clientWidth", { value: 190 });
+    Object.defineProperty(list, "scrollWidth", { value: 280 });
+    Object.defineProperty(list, "scrollBy", { value: ({ left }: ScrollToOptions) => {
+      position += left ?? 0;
+    } });
+    vi.spyOn(list, "getBoundingClientRect").mockImplementation(() => new DOMRect(start(), 0, end() - start(), 34));
+    const offsets = [0, 60, 145, 210, 280];
+    tabs.forEach((tab, index) => {
+      vi.spyOn(tab, "getBoundingClientRect").mockImplementation(() => new DOMRect(
+        start() + offsets[index]! - position, 0, offsets[index + 1]! - offsets[index]!, 34,
+      ));
+    });
+    window.dispatchEvent(new Event("resize"));
+    expect(previous.disabled).toBe(true);
+    expect(next.disabled).toBe(false);
+
+    next.click();
+
+    expect(previous.disabled).toBe(false);
+    expect(tabs[2]!.getBoundingClientRect().right).toBe(list.getBoundingClientRect().right);
+    cleanup();
+    frame.remove();
+  });
+
   it.each(["ltr", "rtl"] as const)("reveals hidden labels in %s without selecting a tab", (direction) => {
     const tabs = document.createElement("div");
     document.body.append(tabs);
