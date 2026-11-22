@@ -1,7 +1,7 @@
 import type { FileTypeCategoryId, FormatFamilyId } from "./file-types";
 import { classifyFileExtension, normalizeExtension } from "./file-types";
 import type { FileRecord, LinkOccurrence } from "./model";
-import { normalizeLookupKey } from "./model";
+import { canonicalLookupKey, normalizeLookupKey } from "./model";
 
 export interface CandidateScope {
   readonly familyIds: ReadonlySet<FormatFamilyId>;
@@ -39,14 +39,12 @@ export const ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY: GraphContributionPolicy = Obje
 
 export function isCandidateFile(file: FileRecord, scope: CandidateScope): boolean {
   if (scope.excludedPaths?.has(file.path) === true) return false;
-  const classification = classifyFileExtension(file.extension.length > 0
-    ? file.extension
-    : file.path);
+  const classification = classifyFileExtension(file.extension);
   if (classification.isKnown &&
     classification.familyIds.some((id) => scope.familyIds.has(id))) return true;
   if (classification.isKnown && scope.categoryIds !== undefined &&
     classification.categoryIds.some((id) => scope.categoryIds?.has(id) === true)) return true;
-  const extension = normalizeExtension(file.extension.length > 0 ? file.extension : file.path);
+  const extension = normalizeExtension(file.extension);
   const customFamilySelected = scope.familyIds.has("other-custom") ||
     scope.categoryIds?.has("other") === true;
   return customFamilySelected && scope.customExtensions !== undefined &&
@@ -68,9 +66,9 @@ function hasNormalizedLookupKey(
   lookupKey: string,
 ): boolean {
   if (keys === undefined) return false;
-  const normalized = normalizeLookupKey(lookupKey);
+  const normalized = canonicalLookupKey(lookupKey);
   for (const key of keys) {
-    if (normalizeLookupKey(key) === normalized) return true;
+    if (canonicalLookupKey(key) === normalized || normalizeLookupKey(key) === normalized) return true;
   }
   return false;
 }

@@ -121,7 +121,7 @@ function projectFile(
     : brokenOutgoingCount > 0
       ? "low"
       : "high";
-  const fileType = classifyFileExtension(file.extension.length > 0 ? file.extension : file.path);
+  const fileType = classifyFileExtension(file.extension);
   return {
     path: file.path,
     extension: file.extension,

@@ -1,4 +1,4 @@
-import { classifyFileExtension, normalizeExtension } from "./file-types";
+import { classifyFileExtension, extensionFromPath, normalizeExtension } from "./file-types";
 
 export const LINK_OCCURRENCE_KINDS = [
   "markdown-link",
@@ -64,12 +64,13 @@ export function createFileRecord(
   path: string,
   options: {
     readonly lookupKeys?: readonly string[];
+    readonly extension?: string;
     readonly targetFingerprint?: string | null;
     readonly modifiedAt?: number;
   } = {},
 ): FileRecord {
   const normalizedPath = normalizeVaultPath(path);
-  const extension = normalizeExtension(normalizedPath);
+  const extension = options.extension === undefined ? extensionFromPath(normalizedPath) : normalizeExtension(options.extension);
   return {
     path: normalizedPath,
     extension,
@@ -85,7 +86,7 @@ export function normalizeFileRecord(file: FileRecord): FileRecord {
   const path = normalizeVaultPath(file.path);
   return {
     path,
-    extension: normalizeExtension(file.extension.length > 0 ? file.extension : path),
+    extension: normalizeExtension(file.extension),
     lookupKeys: normalizeLookupKeys(file.lookupKeys),
     modifiedAt: Number.isFinite(file.modifiedAt) ? file.modifiedAt : 0,
     ...(file.targetFingerprint === undefined ? {} : { targetFingerprint: file.targetFingerprint }),
@@ -103,12 +104,14 @@ export function normalizeVaultPath(path: string): string {
 }
 
 export function normalizeLookupKey(key: string): string {
-  const normalized = key.trim().split("\\").join("/").toLocaleLowerCase("en-US");
-  const withoutLeadingSlash = normalized.replace(/^\/+|\/+$/gu, "");
-  const withoutExtension = classifyFileExtension(withoutLeadingSlash).isKnown
-    ? withoutLeadingSlash.replace(/\.[^/.]+$/u, "")
-    : withoutLeadingSlash;
-  return collapsePathSegments(withoutExtension);
+  const path = canonicalLookupKey(key);
+  const extension = extensionFromPath(path);
+  return extension && classifyFileExtension(extension).isKnown ? path.slice(0, -(extension.length + 1)) : path;
+}
+
+/** Normalize a dependency key already derived from a link, preserving its remaining suffixes. */
+export function canonicalLookupKey(key: string): string {
+  return collapsePathSegments(key.trim().replaceAll("\\", "/").toLocaleLowerCase("en-US"));
 }
 
 export function makeFileLookupKeys(path: string): readonly string[] {
@@ -116,9 +119,19 @@ export function makeFileLookupKeys(path: string): readonly string[] {
   const fullPathKey = normalizeLookupKey(normalizedPath);
   // The host can resolve any path suffix, not only the basename or full path.
   // These are conservative dependencies; the host still chooses the target.
-  const keys = [fullPathKey];
-  for (let slash = fullPathKey.indexOf("/"); slash >= 0; slash = fullPathKey.indexOf("/", slash + 1)) {
-    keys.push(fullPathKey.slice(slash + 1));
+  const keys: string[] = [];
+  const addSuffixes = (key: string): void => {
+    keys.push(key);
+    for (let slash = key.indexOf("/"); slash >= 0; slash = key.indexOf("/", slash + 1)) {
+      keys.push(key.slice(slash + 1));
+    }
+  };
+  addSuffixes(fullPathKey);
+  // The host can also resolve a note with its .md omitted (e.g. A.tar.gz
+  // can resolve A.tar.gz.md). Index that authored spelling as a dependency.
+  if (normalizedPath.toLowerCase().endsWith(".md") && fullPathKey.includes(".")) {
+    const omitted = normalizeLookupKey(fullPathKey);
+    if (omitted !== fullPathKey) addSuffixes(omitted);
   }
   return keys;
 }
@@ -167,7 +180,7 @@ export function isFileLevelResolved(occurrence: LinkOccurrence): boolean {
 }
 
 export function getFileClassification(file: FileRecord) {
-  return classifyFileExtension(file.extension.length > 0 ? file.extension : file.path);
+  return classifyFileExtension(file.extension);
 }
 
 function validateOccurrenceResolution(occurrence: LinkOccurrence): void {
@@ -186,7 +199,7 @@ function validateOccurrenceResolution(occurrence: LinkOccurrence): void {
 }
 
 function normalizeLookupKeys(keys: readonly string[]): readonly string[] {
-  return Array.from(new Set(keys.map(normalizeLookupKey).filter((key) => key.length > 0)));
+  return Array.from(new Set(keys.map(canonicalLookupKey).filter((key) => key.length > 0)));
 }
 
 function collapsePathSegments(path: string): string {

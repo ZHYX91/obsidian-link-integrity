@@ -1,7 +1,7 @@
 import type { CachedMetadata, MetadataCache, Vault } from "obsidian";
 import { describe, expect, it } from "vitest";
 import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
-import { AtomicLinkIndexStore, FullRebuildController, IncrementalIndexController } from "../../src/features/index";
+import { AtomicLinkIndexStore, FullRebuildController, IncrementalIndexController, LinkIndexCoordinator } from "../../src/features/index";
 import { queryBrokenLinks, queryIsolatedFiles } from "../../src/features/queries";
 
 describe("host suffix-resolution dependencies", () => {
@@ -47,6 +47,30 @@ describe("host suffix-resolution dependencies", () => {
       incremental.enqueue({ type: "rename", oldPath: "Parent/Source.md", path: "Else/Source.md" });
       await check("Else/Source.md", "Else/Subdir/Target.md");
     } finally { incremental.stop(); }
+  });
+
+  it("retains multi-extension dependencies across repeated policy rebuilds and target changes", async () => {
+    const target = "assets/a.tar.gz.md";
+    const vault = suffixFixture({ "S.md": "[[assets/a.tar.gz.md]] and [[assets/a.tar.gz]]" });
+    const coordinator = new LinkIndexCoordinator(vault.port);
+    coordinator.start();
+    try {
+      await coordinator.rebuild();
+      const initial = coordinator.index.getSourceSnapshot("S.md")!.occurrences.map((link) => link.lookupKey);
+      for (let pass = 0; pass < 2; pass++) {
+        await coordinator.regraph({ allows: () => true });
+        expect(coordinator.index.getSourceSnapshot("S.md")!.occurrences.map((link) => link.lookupKey)).toEqual(initial);
+      }
+      for (const present of [true, false, true]) {
+        if (present) vault.content.set(target, "");
+        else vault.content.delete(target);
+        coordinator.enqueue({ type: present ? "create" : "delete", path: target });
+        await coordinator.whenIdle();
+        expect(queryBrokenLinks(coordinator.index)).toHaveLength(present ? 0 : 2);
+        const fresh = (await new FullRebuildController(vault.port, new AtomicLinkIndexStore()).rebuild()).index;
+        expect(coordinator.index.toCanonicalState()).toEqual(fresh.toCanonicalState());
+      }
+    } finally { coordinator.stop(); }
   });
 
   it("rejects an in-flight source snapshot when a suffix competitor becomes available", async () => {

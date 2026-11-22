@@ -449,10 +449,8 @@ function matchesFileType(file: FileRecord, rule: ExpectedIsolationRule): boolean
     rule.fileTypeCategoryIds.length > 0 ||
     rule.fileExtensions.length > 0;
   if (!hasCondition) return true;
-  const classification = classifyFileExtension(file.extension.length > 0
-    ? file.extension
-    : file.path);
-  const extension = normalizeExtension(file.extension.length > 0 ? file.extension : file.path);
+  const classification = classifyFileExtension(file.extension);
+  const extension = normalizeExtension(file.extension);
   return classification.familyIds.some((id) => rule.fileTypeFamilyIds.includes(id)) ||
     classification.categoryIds.some((id) => rule.fileTypeCategoryIds.includes(id)) ||
     rule.fileExtensions.includes(extension);
@@ -521,7 +519,7 @@ function patternValue(file: FileRecord, target: ExpectedPatternTarget): string {
 function basenameWithoutExtension(file: FileRecord): string {
   const segments = file.path.split("/");
   const basename = segments[segments.length - 1] ?? file.path;
-  const extension = normalizeExtension(file.extension.length > 0 ? file.extension : file.path);
+  const extension = normalizeExtension(file.extension);
   return extension.length > 0 && basename.toLocaleLowerCase("en-US").endsWith(`.${extension}`)
     ? basename.slice(0, -(extension.length + 1))
     : basename;

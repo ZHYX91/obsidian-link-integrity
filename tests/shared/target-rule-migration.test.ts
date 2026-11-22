@@ -35,6 +35,13 @@ describe("target-rule settings migration", () => {
     expect(reloaded.shouldPersistMigration).toBe(false);
   });
 
+  it.each(["/pdf", "/png", "folder/pdf"])("keeps an unconfirmed extensionless target %s paused", (value) => {
+    const rule = normalizeIgnoreRule(targetRule("legacy", value))!;
+    expect(rule.enabled).toBe(false);
+    expect(rule.matcher.pathKind).not.toBe("vault");
+    expect(normalizeIgnoreRule(JSON.parse(JSON.stringify(rule)))).toEqual(rule);
+  });
+
   it.each(["relative-v2", "future-vault", ""])(
     "retains an unknown path marker %j paused through normalization and reload",
     (pathKind) => {

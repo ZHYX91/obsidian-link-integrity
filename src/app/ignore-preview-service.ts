@@ -47,7 +47,7 @@ function* previewContexts(index: LinkIndex, rule: IgnoreRule): Iterable<IgnoreEv
   if (rule.scope === "exclude-isolated-candidate") {
     for (const file of index.iterateFiles()) yield {
       candidatePath: file.path, extension: file.extension,
-      formatFamilyIds: classifyFileExtension(file.path).familyIds,
+      formatFamilyIds: classifyFileExtension(file.extension).familyIds,
     };
     return;
   }
