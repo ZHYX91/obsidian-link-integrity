@@ -132,6 +132,7 @@ Settings use a serialized, coalescing save queue. The ordinary saved state does 
 
 - Rapid edits may coalesce, but a write that already started is not silently cancelled.
 - A failed save retains pending in-memory settings and exposes Retry.
+- External changes reload the settings in the running plugin. Saving applies edited fields and rule IDs to the latest file through an atomic update. Concurrent edits to the same field retain the local edit.
 - A future-schema `data.json` is write-protected so an older plugin cannot overwrite a newer format.
 - Rule Undo applies only while the stored rule still matches that action’s applied receipt; later edits expire the old Undo. Expected-file Undo follows a legitimate rename of the original TFile and refuses changed identity or current marking state. Undo changes only the corresponding settings entry and never implies that Vault content changed.
 

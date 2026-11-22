@@ -70,7 +70,23 @@ export class SettingsSaveCoordinator<T> {
   }
 
   private enqueuePending(): Promise<void> {
-    const operation = this.queue.then(() => this.persistPendingSnapshot());
+    return this.enqueue(() => this.persistPendingSnapshot());
+  }
+
+  discardPending(): void {
+    this.cancelTimer();
+    this.pendingSnapshot = null;
+    this.setStatus("saved", null);
+  }
+
+  /** Order host settings reloads with saves, retries and the final close. */
+  runExternalReload(reload: () => Promise<void>): Promise<void> {
+    if (this.closed) return this.closePromise ?? this.queue;
+    return this.enqueue(reload);
+  }
+
+  private enqueue(task: () => Promise<void>): Promise<void> {
+    const operation = this.queue.then(task);
     // Keep the internal tail fulfilled so one failed write cannot poison later retries,
     // while returning the original operation to the caller for honest error reporting.
     this.queue = operation.catch(() => undefined);

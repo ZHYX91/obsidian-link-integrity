@@ -1,5 +1,7 @@
 import { findCurrentMarkdownResultPosition } from "../adapters/obsidian/sidebar-navigation";
 import { runIndexPreview } from "./index-preview";
+import { processSettingsData } from "../adapters/obsidian/settings-data";
+import { mergeSettings, settingsFileUpdate } from "../shared/settings-merge";
 import { IgnorePreviewService } from "./ignore-preview-service";
 import { applySidebarIgnore } from "./sidebar-ignore-actions";
 import { occurrenceTargetFilePath } from "../shared/target-file-identity";
@@ -51,6 +53,7 @@ import {
   normalizeSettings,
   type LinkIntegritySettings,
   type SettingsChangeImpact,
+  type SettingsLoadResult,
 } from "../shared/settings";
 import type {
   BrokenLinkResult,
@@ -75,6 +78,9 @@ type InitialMetadataState = "dormant" | "waiting" | "fallback" | "resolved";
 export default class LinkIntegrityPlugin extends Plugin {
   public override settings!: LinkIntegritySettings;
   private settingsWriteProtected = false;
+  private diskSettings!: LinkIntegritySettings;
+  private pendingExternalSettings = false;
+  private settingsTab!: LinkIntegritySettingTab;
   private saveCoordinator!: SettingsSaveCoordinator<LinkIntegritySettings>;
   private coordinator!: LinkIndexCoordinator;
   private query!: SidebarQueryService;
@@ -108,9 +114,16 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (this.unloaded || this.lifecycleGeneration !== generation) return;
     const loaded = loadSettings(data);
     this.settings = loaded.settings;
+    this.diskSettings = loaded.settings;
     this.settingsWriteProtected = loaded.writeProtected;
     this.saveCoordinator = new SettingsSaveCoordinator(
-      async (snapshot) => this.saveData(snapshot),
+      async () => {
+        if (this.settingsWriteProtected) return;
+        // A reload earlier in the queue may already have rebased the scheduled snapshot.
+        const local = this.settings;
+        const saved = await processSettingsData(this, (raw) => settingsFileUpdate(this.diskSettings, local, raw));
+        this.acceptDiskSettings(saved, local);
+      },
       { onError: (error) => this.reportError(error) },
     );
     if (loaded.shouldPersistMigration) this.saveCoordinator.schedule(this.settings);
@@ -157,7 +170,8 @@ export default class LinkIntegrityPlugin extends Plugin {
         this.persistViewState(state, previousState),
       onActionError: (error) => this.reportError(error),
     }));
-    this.addSettingTab(new LinkIntegritySettingTab(this.app, this));
+    this.settingsTab = new LinkIntegritySettingTab(this.app, this);
+    this.addSettingTab(this.settingsTab);
     this.registerVaultRenameEvent();
 
     this.refreshEntrypoints();
@@ -170,6 +184,10 @@ export default class LinkIntegrityPlugin extends Plugin {
         void this.ensureIndex().catch((error: unknown) => this.reportError(error));
       }
     });
+    if (this.pendingExternalSettings) {
+      this.pendingExternalSettings = false;
+      await this.onExternalSettingsChange();
+    }
   }
 
   public override onunload(): void {
@@ -194,6 +212,35 @@ export default class LinkIntegrityPlugin extends Plugin {
     this.bodyLinks?.close();
     this.coordinatorStarted = false;
     void this.saveCoordinator?.close().catch((error: unknown) => this.reportError(error));
+  }
+
+  public override async onExternalSettingsChange(): Promise<void> {
+    if (this.unloaded) return;
+    if (this.saveCoordinator === undefined) {
+      this.pendingExternalSettings = true;
+      return;
+    }
+    await this.saveCoordinator.runExternalReload(async () => {
+      const loaded = loadSettings(await this.loadData());
+      this.acceptDiskSettings(loaded, this.diskSettings);
+      if (!this.unloaded && loaded.shouldPersistMigration) this.saveCoordinator.schedule(this.settings);
+    }).catch((error: unknown) => this.reportError(error));
+  }
+
+  private acceptDiskSettings(loaded: SettingsLoadResult, base: LinkIntegritySettings): void {
+    const wasProtected = this.settingsWriteProtected;
+    const next = wasProtected || loaded.writeProtected ? loaded.settings : mergeSettings(base, this.settings, loaded.settings);
+    this.diskSettings = loaded.settings;
+    this.settingsWriteProtected = loaded.writeProtected;
+    if (loaded.writeProtected) this.saveCoordinator.discardPending();
+    if (this.unloaded) {
+      this.settings = next;
+      return;
+    }
+    if (wasProtected !== loaded.writeProtected || JSON.stringify(this.settings) !== JSON.stringify(next)) {
+      this.applySettings(next, "query-only");
+      this.settingsTab.refreshFromDisk();
+    }
   }
 
   public getSettings(): LinkIntegritySettings {
@@ -237,12 +284,16 @@ export default class LinkIntegrityPlugin extends Plugin {
     settings: LinkIntegritySettings,
     impact: SettingsChangeImpact = "query-only",
   ): void {
-    if (this.unloaded) return;
+    if (this.unloaded || this.settingsWriteProtected) return;
+    const next = normalizeSettings(settings);
+    this.saveCoordinator.schedule(next);
+    this.applySettings(next, impact);
+  }
+
+  private applySettings(nextSettings: LinkIntegritySettings, impact: SettingsChangeImpact): void {
     const scanOnStartupWasEnabled = this.settings.general.scanOnStartup;
-    const nextSettings = normalizeSettings(settings);
     const graphChanged = graphContributionRulesChanged(this.settings.ignoreRules, nextSettings.ignoreRules);
     this.settings = nextSettings;
-    if (!this.settingsWriteProtected) this.saveCoordinator.schedule(this.settings);
     if (impact === "regraph" || graphChanged) this.updateGraphContributionPolicy();
     this.refreshEntrypoints();
     this.query.notify();

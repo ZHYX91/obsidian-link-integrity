@@ -48,6 +48,10 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
     this.renderImperative(false);
   }
 
+  public refreshFromDisk(): void {
+    if (this.imperativeVisible) this.renderImperative(false);
+  }
+
   public override hide(): void {
     super.hide();
     this.imperativeVisible = false;
