@@ -59,6 +59,45 @@ describe("current explicit body proof", () => {
     test.bodies.set(test.path, current);
     expect((await test.service.source(test.path, current)).hints).toEqual([]);
   });
+  it("proves the same multiline Markdown link when its title uses editor-normalized line endings", async () => {
+    const test = bodySetup('intro\r\n[label](Missing "first\r\nsecond")');
+    const authored = await test.service.source(test.path, test.text);
+    expect(authored.hints).toHaveLength(1);
+    for (const newline of ["\n", "\r"]) {
+      const buffer = test.text.replace(/\r\n/gu, newline);
+      const projected = await test.service.source(test.path, buffer);
+      expect(projected.hints).toHaveLength(1);
+      const hint = projected.hints[0]!;
+      expect(buffer.slice(hint.from, hint.to)).toBe(buffer.slice(buffer.indexOf("[label]")));
+    }
+  });
+  it.each(['[first\nsecond](Missing)', '![label](Missing "first\nsecond")', '\\![label](Missing "first\nsecond")'])(
+    "retains the parsed range for multiline labels, embeds and escaped image markers: %s", async (text) => {
+      const test = bodySetup(text);
+      const source = await test.service.source(test.path, text);
+      expect(source.hints.map((hint) => text.slice(hint.from, hint.to))).toEqual([text.slice(text.startsWith("\\!") ? 2 : 0)]);
+    },
+  );
+  it.each([
+    '[unclosed [label](Missing "first\nsecond")',
+    '[label](Missing "first\nsecond',
+    '<pre>\n[label](Missing "first\nsecond")\n</pre>',
+    '~~~\n[label](Missing "first\nsecond")\n~~~',
+    '%%\n[label](Missing "first\nsecond")',
+  ])("keeps incomplete or protected multiline Markdown out of body hints: %s", async (text) => {
+    const test = bodySetup(text);
+    expect((await test.service.source(test.path, text)).hints).toEqual([]);
+  });
+  it("rejects indexed multiline raw text that differs beyond line endings", async () => {
+    const test = bodySetup('[label](Missing "first\r\nsecond")');
+    const snapshot = test.index.getSourceSnapshot(test.path)!;
+    const buffer = test.text.replace("\r\n", "\n");
+    for (const stale of [buffer.replace("first", "First"), buffer.replace("\n", " "), buffer.replace("\n", "\n\n")]) {
+      const occurrence = { ...snapshot.occurrences[0]!, raw: stale };
+      const links = await test.port.proveSource(test.path, buffer, { ...snapshot, occurrences: [occurrence] }, new AbortController().signal);
+      expect(links).toEqual([]);
+    }
+  });
   it("proves normalized CRLF coordinates and rejects changed raw text/cache/file identity", async () => {
     const test = bodySetup("🌤️\r\n[[Missing]]");
     expect((await test.service.source(test.path, test.text.replace(/\r\n/gu, "\n"))).hints[0]?.from).toBe(4);

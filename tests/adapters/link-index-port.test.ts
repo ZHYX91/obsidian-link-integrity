@@ -4,6 +4,7 @@ import type {
   Vault,
 } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
+import { Parser } from "yaml";
 
 import { ObsidianLinkIndexPort } from "../../src/adapters/obsidian";
 import { occurrenceIdMatches } from "../../src/core/occurrence-identity";
@@ -898,6 +899,157 @@ describe("ObsidianLinkIndexPort", () => {
       expect.objectContaining({ line: 1, column: 0, endLine: 1, endColumn: 9 }),
       expect.objectContaining({ line: 3, column: 7, endLine: 3, endColumn: 17 }),
     ]);
+  });
+
+  it.each(["\n", "\r\n", "\r"])("keeps indented YAML delimiters inside the property region with %j", async (newline) => {
+    const source = fakeFile("Source.md");
+    for (const cached of [false, true]) {
+      const content: Record<string, string> = {};
+      const caches = new Map<string, CachedMetadata>();
+      if (cached) caches.set(source.path, { links: [], frontmatterLinks: [] });
+      const { port } = createPort([source], { content, caches, destinations: new Map() });
+      const store = new AtomicLinkIndexStore();
+      const incremental = new IncrementalIndexController(port, store);
+      incremental.start();
+      try {
+        for (const [step, delimiter] of ["---", "..."].entries()) {
+          content[source.path] = ["\uFEFF---", "summary: | # [[HeaderComment]]", "  content", "  " + delimiter,
+            "  # [[ScalarLink]]",
+            "# [[Ghost]]", 'related: "[[Property]]"', "...  ", "[[Body]]"].join(newline);
+          if (step === 0) await new FullRebuildController(port, store).rebuild();
+          else {
+            incremental.enqueue({ type: "modify", path: source.path });
+            await incremental.whenIdle();
+          }
+          expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText).sort())
+            .toEqual(cached ? ["Body"] : ["Body", "Property", "ScalarLink"]);
+          const rebuilt = (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index;
+          expect(store.current.toCanonicalState()).toEqual(rebuilt.toCanonicalState());
+        }
+      } finally { incremental.stop(); }
+    }
+  });
+
+
+  it.each(["\n", "\r\n", "\r"])("keeps property ignores stable from fallback to native metadata with %j", async (eol) => {
+    const file = fakeFile("Source.md");
+    const content = ["---", '"[[Key]]": normal value', 'list: ["[[Missing]]", "[[Missing]]"]',
+      'nested: { "[[NestedKey]]": "[[Real]]" }', "---", "[[Missing]]"].join(eol);
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([file], { content: { [file.path]: content }, caches, destinations: new Map() });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      await new FullRebuildController(port, store).rebuild();
+      const occurrences = () => store.current.getSourceSnapshot(file.path)!.occurrences;
+      expect(occurrences().map(({ linkpath }) => linkpath).sort()).toEqual(["Missing", "Missing", "Missing", "Real"]);
+      const ids = () => occurrences().map(({ id }) => id).sort();
+      const before = ids();
+      const properties = occurrences().filter(({ kind, linkpath }) => kind === "frontmatter" && linkpath === "Missing");
+      expect(properties).toHaveLength(2);
+      const ignores = new IgnoreService([{ id: "selected", enabled: true, scope: "ignore-occurrence",
+        matcher: { kind: "occurrence-id", value: properties[1]!.id }, createdAt: 1, note: "" }]);
+      const visible = () => queryBrokenLinks(store.current)
+        .filter(({ occurrence }) => !ignores.shouldHideBrokenResult(createOccurrenceIgnoreContext(occurrence)))
+        .map(({ occurrence }) => occurrence.id).sort();
+      const visibleBefore = visible();
+      expect(visibleBefore).toHaveLength(3);
+      caches.set(file.path, { frontmatterLinks: [
+        { key: "list.0", link: "Missing", original: "[[Missing]]" },
+        { key: "list.1", link: "Missing", original: "[[Missing]]" },
+        { key: "nested.[[NestedKey]]", link: "Real", original: "[[Real]]" },
+      ] });
+      incremental.enqueue({ type: "modify", path: file.path });
+      await incremental.whenIdle();
+      expect(ids()).toEqual(before);
+      expect(visible()).toEqual(visibleBefore);
+    } finally { incremental.stop(); }
+  });
+
+  it.each(["\n", "\r\n", "\r"])("keeps each YAML scalar independent before and after native metadata with %j", async (eol) => {
+    const file = fakeFile("Source.md");
+    const target = fakeFile("Design.md");
+    const row = 'links: ["😀 [[Design]]", "[[", "Ghost]]", "[opener", "end](Phantom)"]';
+    const text = ["---", "start: '%%'", "tick: '`'", row, "stop: '%%'", "tock: '`'",
+      "same: '%% [[Ignored]] %% [missing](Missing)'", "---"].join(eol);
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([file, target], { content: { [file.path]: text },
+      caches, destinations: new Map([["Design", target]]) });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      await new FullRebuildController(port, store).rebuild();
+      const occurrences = () => store.current.getSourceSnapshot(file.path)!.occurrences;
+      const signatures = () => occurrences().map(({ id, linkpath }) => [id, linkpath]);
+      expect(occurrences().map(({ raw }) => raw)).toEqual(["[[Design]]", "[missing](Missing)"]);
+      expect(occurrences()[0]?.position).toMatchObject({ line: 3, column: row.indexOf("[[Design]]"),
+        endColumn: row.indexOf("[[Design]]") + "[[Design]]".length });
+      expect(store.current.getIncomingContributionCount(target.path)).toBe(1);
+      expect(queryIsolatedFiles(store.current)).toEqual([]);
+      const before = signatures();
+      caches.set(file.path, { frontmatterLinks: [
+        { key: "links.0", link: "Design", original: "[[Design]]" },
+        { key: "same", link: "Missing", original: "[missing](Missing)" },
+      ] });
+      incremental.enqueue({ type: "modify", path: file.path });
+      await incremental.whenIdle();
+      expect(signatures()).toEqual(before);
+      expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText)).toEqual(["Missing"]);
+      expect(store.current.toCanonicalState()).toEqual(
+        (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index.toCanonicalState());
+    } finally { incremental.stop(); }
+  });
+
+  it.each(["fallback", "partial", "canvas"])("recovers links after an unfinished Wiki opener in %s", async (mode) => {
+    const file = fakeFile(mode === "canvas" ? "Board.canvas" : "Source.md");
+    const target = fakeFile("Design.md");
+    const caches = new Map<string, CachedMetadata>();
+    const content: Record<string, string> = {};
+    const { port } = createPort([file, target], { content, caches, destinations: new Map([["Design.md", target]]) });
+    const store = new AtomicLinkIndexStore();
+    const incremental = new IncrementalIndexController(port, store);
+    incremental.start();
+    try {
+      for (const [step, prefix] of ["", "😀 unfinished [[ and "].entries()) {
+        const text = prefix + "[Design](Design.md) and [[Missing]]";
+        content[file.path] = mode === "canvas" ? JSON.stringify({ nodes: [{ type: "text", id: "node", text }] }) : text;
+        if (mode === "partial") caches.set(file.path, { links: [positioned(text, "Missing", "[[Missing]]")] });
+        if (step === 0) await new FullRebuildController(port, store).rebuild();
+        else { incremental.enqueue({ type: "modify", path: file.path }); await incremental.whenIdle(); }
+        const occurrences = store.current.getSourceSnapshot(file.path)!.occurrences;
+        expect(occurrences.map(({ linkpath }) => linkpath)).toEqual(["Design.md", "Missing"]);
+        expect(occurrences[0]?.position?.column).toBe(prefix.length);
+        expect(store.current.getIncomingContributionCount(target.path)).toBe(1);
+        expect(queryBrokenLinks(store.current).map(({ targetText }) => targetText)).toEqual(["Missing"]);
+        expect(queryIsolatedFiles(store.current)).toEqual([]);
+        expect(store.current.toCanonicalState()).toEqual(
+          (await new FullRebuildController(port, new AtomicLinkIndexStore()).rebuild()).index.toCanonicalState());
+      }
+    } finally { incremental.stop(); }
+  });
+
+  it("slices large YAML fallback and skips it when native property metadata is available", async () => {
+    const file = fakeFile("Source.md");
+    const values = Array.from({ length: 1000 }, (_, index) => `"😀 [[key${index}]]": "[[Note${index}]]"`);
+    const note = ["---", ...values, "---", "[[Body]]"].join("\r\n");
+    const caches = new Map<string, CachedMetadata>();
+    const { port } = createPort([file], { content: { [file.path]: note }, caches, destinations: new Map() });
+    const parsing = vi.spyOn(Parser.prototype, "parse");
+    try {
+      caches.set(file.path, { frontmatterLinks: [{ key: "native", original: "[[Native]]", link: "Native" }] });
+      const cached = await port.buildSourceSnapshot(file.path);
+      expect(cached?.occurrences.map(({ linkpath }) => linkpath)).toEqual(["Body", "Native"]);
+      expect(parsing).not.toHaveBeenCalled();
+      caches.clear();
+      const parsed = await port.buildSourceSnapshot(file.path);
+      expect(parsed?.occurrences.map(({ linkpath }) => linkpath)).toEqual([
+        ...values.map((_row, index) => `Note${index}`), "Body",
+      ]);
+      expect(parsing.mock.calls.length).toBeGreaterThan(1);
+      expect(parsed?.occurrences[999]?.position).toMatchObject({ line: 1000, column: values[999]!.indexOf("[[Note999]]") });
+    } finally { parsing.mockRestore(); }
   });
 
   it("keeps fallback diagnostics out of code blocks and frontmatter comments", async () => {

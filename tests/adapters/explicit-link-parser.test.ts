@@ -10,6 +10,7 @@ import {
   extractBasesExplicitReferences,
   extractMarkdownExplicitReferences,
   parseMarkdownSourceAsync,
+  sourceLineStarts,
   isExternalReference,
 } from "../../src/adapters/obsidian/explicit-link-parser";
 
@@ -32,6 +33,17 @@ describe("extractMarkdownExplicitReferences", () => {
     ["`$` [[X]] `$`", true],
   ] as const)("preserves Obsidian math boundaries in %j", (source, visible) => {
     expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual(visible ? ["X"] : []);
+  });
+
+  it.each([
+    ["", [0]],
+    ["😀", [0]],
+    ["😀\r\n[[A]]\r[[B]]\n", [0, 4, 10, 16]],
+    ["\n\r\n\r", [0, 1, 3, 4]],
+  ] as const)("retains editor line starts from the parsed source %j", async (source, starts) => {
+    const { lines } = await parseMarkdownSourceAsync(source);
+    expect(sourceLineStarts(lines)).toEqual(starts);
+    expect(sourceLineStarts(source)).toEqual(starts);
   });
 
   it("does not mistake an escaped bang for a nested image when proving outer metadata", () => {
@@ -199,6 +211,25 @@ describe("extractMarkdownExplicitReferences", () => {
     expect(extractMarkdownExplicitReferences(source).map(({ linktext }) => linktext)).toEqual([
       "A(B(C(D))).md",
     ]);
+  });
+
+  it.each(["`]]`", "%% ]] %%", "<!-- ]] -->", '<span title="]]">'])(
+    "requires a Wiki closer outside literal %s", (literal) => {
+      const text = `unfinished [[ and [Design](Design.md) ${literal}`;
+      expect(extractMarkdownExplicitReferences(text).map(({ linktext }) => linktext)).toEqual(["Design.md"]);
+    },
+  );
+
+  it.each(["[[", "[[x "])("keeps lookahead linear after repeated unfinished %j openers", async (prefix) => {
+    const work: number[] = [];
+    for (const count of [8_000, 16_000]) {
+      let checkpoints = 0;
+      const scheduler = new WorkScheduler({ yieldEvery: 1, yieldControl: async () => { checkpoints++; } });
+      const parsed = await parseMarkdownSourceAsync(prefix.repeat(count) + " [Design](Design.md)", scheduler);
+      expect(parsed.references.map(({ linktext }) => linktext)).toEqual(["Design.md"]);
+      work.push(checkpoints);
+    }
+    expect(work[1]).toBeLessThanOrEqual(2 * work[0]! + 16);
   });
 
   it("keeps unmatched bracket-heavy input bounded and produces no false links", () => {
@@ -424,6 +455,19 @@ describe("extractMarkdownExplicitReferences", () => {
       expect(extractMarkdownExplicitReferences(source), original).toEqual(count === 2 ? ["Target", "Missing"].map((linktext) =>
         expect.objectContaining({ linktext, startOffset: source.indexOf(`[[${linktext}]]`) })) : []);
     }
+  });
+
+  it.each([
+    ["['[[', 'Ghost]]']", []],
+    ['["[description", "more](Ghost)"]', []],
+    ["['[[', '[[Design]]']", ["Design"]],
+    ["['%%', '[[Design]]', '%%']", ["Design"]],
+    ["['`', '[[Design]]', '`']", ["Design"]],
+  ] as const)("does not pair syntax across items in YAML %s", (values, expected) => {
+    const source = `---\nrelated: ${values}\n---`;
+    const parsed = extractMarkdownExplicitReferences(source);
+    expect(parsed.map(({ linktext }) => linktext)).toEqual(expected);
+    for (const item of parsed) expect(source.slice(item.startOffset, item.endOffset)).toBe(item.raw);
   });
 
   it("ignores YAML comments while retaining frontmatter values and later headings", () => {

@@ -2,16 +2,10 @@ import { parseLinktext, resolveSubpath, type App } from "obsidian";
 import type { SourcePosition, SourceSnapshot } from "../../core/model";
 import type { BodyLinkPort, ProvenBodyLink } from "../../features/body-links/body-link-service";
 import { WorkScheduler, yieldBrowserTask } from "../../scheduling/work-scheduler";
-import { parseMarkdownSourceAsync } from "./explicit-link-parser";
+import { parseMarkdownSourceAsync, sourceLineStarts } from "./explicit-link-parser";
 import { extractProvenMarkdownNonLinkExclusions } from "./body-link-syntax";
 
 export function normalizedBodyText(text: string): string { return text.replace(/\r\n|\r/gu, "\n"); }
-
-export function bodyLineStarts(text: string): number[] {
-  const starts = [0];
-  for (const match of text.matchAll(/\r\n|\r|\n/gu)) starts.push(match.index + match[0].length);
-  return starts;
-}
 
 export function bodySourceRange(text: string, starts: readonly number[], position: SourcePosition | null): { from: number; to: number } | null {
   if (position?.line == null || position.column === null || position.endLine === null || position.endColumn === null ||
@@ -69,8 +63,8 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
       await yieldBrowserTask();
       if (signal.aborted) throw new Error("Body source proof cancelled.");
     } });
-    const { references, syntaxRanges } = await parseMarkdownSourceAsync(text, scheduler);
-    const exclusions = await extractProvenMarkdownNonLinkExclusions(text, scheduler, syntaxRanges);
+    const { references, syntaxRanges, lines, inlineLinks } = await parseMarkdownSourceAsync(text, scheduler, "skip");
+    const exclusions = await extractProvenMarkdownNonLinkExclusions(text, scheduler, lines, syntaxRanges, inlineLinks);
     if (signal.aborted || this.app.metadataCache.getFileCache(file) !== cache) return null;
     const byRange = new Map(references.map((reference) => [`${reference.startOffset}:${reference.endOffset}`, reference]));
     const protectedRanges = [...exclusions].sort((left, right) => left.from - right.from);
@@ -88,17 +82,17 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
       }
       return (merged[low]?.from ?? Infinity) < to;
     };
-    const starts = bodyLineStarts(text);
+    const starts = sourceLineStarts(lines);
     const links: ProvenBodyLink[] = [];
     for (const occurrence of snapshot.occurrences) {
       const pause = scheduler.checkpoint(); if (pause !== null) await pause;
       if (occurrence.kind !== "markdown-link" && occurrence.kind !== "markdown-embed") continue;
       const range = bodySourceRange(text, starts, occurrence.position);
-      if (range === null || text.slice(range.from, range.to) !== occurrence.raw ||
-        protectedAt(range.from, range.to)) continue;
+      if (range === null || protectedAt(range.from, range.to)) continue;
       const reference = byRange.get(`${range.from}:${range.to}`);
       const destination = reference === undefined ? null : canonicalBodyDestination(reference.linktext);
-      if (reference === undefined || reference.raw !== occurrence.raw ||
+      if (reference === undefined || reference.raw !== text.slice(range.from, range.to) ||
+        (reference.raw !== occurrence.raw && normalizedBodyText(reference.raw) !== normalizedBodyText(occurrence.raw)) ||
         reference.embedded !== (occurrence.kind === "markdown-embed") ||
         destination === null || destination !== canonicalBodyDestination(occurrence.linkpath + (occurrence.subpath ?? ""))) continue;
       links.push({ ...range, occurrence, linktext: reference.linktext, label: referenceLabel(reference.raw, reference.embedded), embedded: reference.embedded });

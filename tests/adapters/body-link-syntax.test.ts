@@ -2,6 +2,7 @@ import { Worker } from "node:worker_threads";
 import path from "node:path";
 import { build } from "esbuild";
 import { beforeAll, describe, expect, it } from "vitest";
+import { extractMarkdownExplicitReferences } from "../../src/adapters/obsidian/explicit-link-parser";
 import { extractMarkdownNonLinkExclusions, type BodyRange } from "../../src/adapters/obsidian/body-link-syntax";
 
 const oldUrlPattern = /[a-z][a-z0-9+.-]*:\/\/[^\s<>]+|mailto:[^\s<>]+|\bwww\.[^\s<>]+|[\w.+-]+@[\w.-]+\.[\p{L}]{2,}/giu;
@@ -27,10 +28,20 @@ describe("linear body syntax semantics", () => {
     for (const text of [...urlCases, ...randomCases("abcxyzABC0123_+.-@:/!ü中 ", 300)]) expect(await extractMarkdownNonLinkExclusions(text), text).toEqual(oldUrls(text));
   });
   it("preserves incomplete line/EOF and escaped bracket protection without masking complete links", async () => {
-    const patterns = [/\\\[[\s\S]*?(?:\\\]|$)/gu, /!?\[[^\]\r\n]*(?=\r|\n|$)/gu, /!?\[[^\]\r\n]*\]\([^\r\n)]*(?=\r|\n|$)/gu];
+    const math = /\\\[[\s\S]*?(?:\\\]|$)/gu;
+    const patterns = [/!?\[[^\]\r\n]*(?=\r|\n|$)/gu, /!?\[[^\]\r\n]*\]\([^\r\n)]*(?=\r|\n|$)/gu];
     const cases = ["[[Missing]]", "[label](Missing)", "[label](Missing", "![[", "[[a]] [[", "[x](a) [tail", "[x]( [y](", "\\[x\\] [[Missing]]", "[tail\r\nbody", ...randomCases("ab[]()!\\\r\n", 300)];
     for (const text of cases) {
-      const expected = patterns.flatMap((pattern) => [...text.matchAll(pattern)].map((match) => ({ from: match.index, to: match.index + match[0].length })));
+      // The line-only oracle cannot see a parser-confirmed closing delimiter on a later line.
+      // Hide just that opener from the old incomplete patterns. Other openers still protect their suffix.
+      const lineGuardText = text.split("");
+      for (const ref of extractMarkdownExplicitReferences(text)) {
+        const label = ref.startOffset + Number(ref.embedded);
+        if (/[\r\n]/u.test(ref.raw) && text[label + 1] !== "[") lineGuardText[label] = " ";
+      }
+      const guard = lineGuardText.join("");
+      const matches = [...text.matchAll(math), ...patterns.flatMap((pattern) => [...guard.matchAll(pattern)])];
+      const expected = matches.map((match) => ({ from: match.index, to: match.index + match[0].length }));
       for (const opening of text.matchAll(/!?\[\[/gu)) if (text.indexOf("]]", opening.index + opening[0].length) < 0) expected.push({ from: opening.index, to: text.length });
       expect(coverage(text, await extractMarkdownNonLinkExclusions(text)), text).toBe(coverage(text, expected));
     }
