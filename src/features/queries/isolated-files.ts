@@ -63,16 +63,14 @@ export function createIsolatedFileProjection(
   index: LinkIndex,
   options: IsolatedFileQueryOptions = {},
 ): IsolatedFileProjection {
-  const mode = options.mode ?? "isolated";
-  const candidateScope = options.candidateScope ?? createDefaultCandidateScope();
-  const expectedRules = options.expectedRules ?? [];
-  const expectedFilePaths = options.expectedFilePaths ?? new Set<string>();
+  const project = createIsolatedFileProjector(index, options);
   const includeExpected = options.includeExpected ?? false;
   const files = options.paths === undefined ? index.iterateFiles() : filesAtPaths(index, options.paths);
-  const candidates = Array.from(files).filter((file) => isCandidateFile(file, candidateScope));
-  const allResults = candidates
-    .map((file) => projectFile(index, file, mode, expectedRules, expectedFilePaths))
-    .filter((result): result is IsolatedFileResult => result !== null);
+  const allResults: IsolatedFileResult[] = [];
+  for (const file of files) {
+    const item = project(file);
+    if (item !== null) allResults.push(item);
+  }
   const expectedExcludedCount = allResults.filter(({ classification }) =>
     classification === "expected-isolated").length;
   const items = allResults
@@ -86,7 +84,21 @@ export function createIsolatedFileProjection(
   };
 }
 
-function* filesAtPaths(index: LinkIndex, paths: Iterable<string>): Iterable<FileRecord> {
+/** Reuse the query scope and rules for every file in one snapshot. */
+export function createIsolatedFileProjector(
+  index: LinkIndex,
+  options: Pick<IsolatedFileQueryOptions, "mode" | "candidateScope" | "expectedRules" | "expectedFilePaths">,
+): (file: FileRecord) => IsolatedFileResult | null {
+  const mode = options.mode ?? "isolated";
+  const candidateScope = options.candidateScope ?? createDefaultCandidateScope();
+  const expectedRules = options.expectedRules ?? [];
+  const expectedFilePaths = options.expectedFilePaths ?? new Set<string>();
+  return file => isCandidateFile(file, candidateScope)
+    ? projectFile(index, file, mode, expectedRules, expectedFilePaths)
+    : null;
+}
+
+export function* filesAtPaths(index: LinkIndex, paths: Iterable<string>): Iterable<FileRecord> {
   for (const path of paths) {
     const file = index.getFile(path);
     if (file !== null) yield file;
