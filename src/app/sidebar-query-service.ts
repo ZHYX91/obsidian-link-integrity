@@ -382,6 +382,7 @@ function toBrokenResult(diagnostic: BrokenLinkDiagnostic): BrokenLinkResult {
     context: diagnostic.raw,
     reason: diagnostic.reason,
     location: {
+      ...(diagnostic.occurrence.kind === "frontmatter" ? { inFrontmatter: true as const } : {}),
       line: diagnostic.occurrence.position?.line ?? null,
       column: diagnostic.occurrence.position?.column ?? null,
       property: diagnostic.occurrence.position?.property ?? null,

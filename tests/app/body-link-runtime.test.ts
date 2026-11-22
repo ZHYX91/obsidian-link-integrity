@@ -66,16 +66,73 @@ describe("body runtime composition", () => {
   });
   it("lists proven diagnostics while Off and navigates without changing source text", async () => {
     const test = bodySetup(); const runtime = new BodyLinkRuntime(test.app, () => test.index, async () => {}, () => test.settings, () => true, vi.fn());
-    const selection = vi.fn(); const editor = { getValue: () => test.text, offsetToPos: (offset: number) => ({ line: 0, ch: offset }), setSelection: selection, scrollIntoView: vi.fn() } as unknown as Editor;
+    const selection = vi.fn(); const editor = { getValue: () => test.text, offsetToPos: (offset: number) => ({ line: 0, ch: offset }), setSelection: selection, scrollIntoView: vi.fn(), focus: vi.fn() } as unknown as Editor;
     await runtime.current(editor, { file: test.files.get(test.path) } as MarkdownFileInfo);
     document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!.click(); expect(selection).toHaveBeenCalledWith({ line: 0, ch: 0 }, { line: 0, ch: test.text.length });
     expect(test.bodies.get(test.path)).toBe(test.text); runtime.close();
   });
-  it("offers the command in Reading and revalidates source mode before selecting a range", async () => {
-    const test = bodySetup("intro\r\n[[Missing|Label]]"); const select = vi.fn(); const setViewState = vi.fn(async () => {});
+  it("drops a result if the pane opens a replacement file with the same path and contents", async () => {
+    const test = bodySetup();
+    const runtime = new BodyLinkRuntime(test.app, () => test.index, async () => {}, () => test.settings, () => true, vi.fn());
+    const info = { file: test.files.get(test.path)! };
+    const editor = { getValue: () => test.text, setSelection: vi.fn() };
+    try {
+      await runtime.current(editor as unknown as Editor, info as MarkdownFileInfo);
+      const row = document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!;
+      info.file = bodySetup().files.get(test.path)!;
+      row.click();
+      expect(editor.setSelection).not.toHaveBeenCalled();
+    } finally {
+      runtime.close();
+    }
+  });
+  it.each(["replace-view", "replace-editor"])("ignores a stale editor diagnostic after %s", async (change) => {
+    const test = bodySetup();
+    const runtime = new BodyLinkRuntime(test.app, () => test.index, async () => {}, () => test.settings, () => true, vi.fn());
+    const editor = { getValue: () => test.text, offsetToPos: () => ({ line: 0, ch: 0 }),
+      setSelection: vi.fn(), scrollIntoView: vi.fn(), focus: vi.fn() } as unknown as Editor;
+    const view = new MarkdownView(null as never);
+    const leaf = { view };
+    Object.assign(view, { file: test.files.get(test.path), editor, leaf, containerEl: document.createElement("div") });
+    try {
+      await runtime.current(editor, view);
+      const row = document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!;
+      if (change === "replace-view") leaf.view = new MarkdownView(null as never);
+      else Object.assign(view, { editor: { ...editor } });
+      row.click();
+      expect(editor.setSelection).not.toHaveBeenCalled();
+      expect(editor.focus).not.toHaveBeenCalled();
+    } finally { runtime.close(); }
+  });
+  it.each(["during-open", "after-open"])("never reopens a diagnostic in a reused leaf %s", async (stage) => {
+    const test = bodySetup();
+    let ready!: () => void;
+    const runtime = new BodyLinkRuntime(test.app, () => test.index,
+      () => new Promise<void>((resolve) => { ready = resolve; }), () => test.settings, () => true, vi.fn());
+    const view = new MarkdownView(null as never);
+    const leaf = { view, setViewState: vi.fn(async () => {}) };
+    Object.assign(view, { file: test.files.get(test.path), leaf, containerEl: document.createElement("div") });
+    const replacement = new MarkdownView(null as never);
+    try {
+      const opening = runtime.preview(view);
+      if (stage === "during-open") leaf.view = replacement;
+      ready();
+      await opening;
+      const row = document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic");
+      if (stage === "during-open") expect(row).toBeNull();
+      else {
+        expect(row).not.toBeNull();
+        leaf.view = replacement;
+        row!.click();
+      }
+      expect(leaf.setViewState).not.toHaveBeenCalled();
+    } finally { runtime.close(); }
+  });
+  it.each(["\n", "\r\n", "\r"])("revalidates Reading diagnostics with editor EOL %j", async (eol) => {
+    const test = bodySetup("intro\r\n[[Missing|Label]] [[Missing|Label]]"); const select = vi.fn(); const setViewState = vi.fn(async () => {});
     const view = new MarkdownView(null as never);
     Object.assign(view, { file: test.files.get(test.path), getMode: () => "preview", containerEl: document.createElement("div"),
-      editor: { getValue: () => test.text.replace(/\r\n/gu, "\n"), offsetToPos: (offset: number) => ({ line: 0, ch: offset }), setSelection: select, scrollIntoView: vi.fn() },
+      editor: { getValue: () => test.text.replace(/\r\n/gu, eol), offsetToPos: (offset: number) => ({ line: 0, ch: offset }), setSelection: select, scrollIntoView: vi.fn(), focus: vi.fn() },
       leaf: { view, setViewState } });
     Object.assign(test.app, { workspace: { getActiveViewOfType: () => view } });
     let command!: { checkCallback: (checking: boolean) => boolean };
@@ -83,9 +140,10 @@ describe("body runtime composition", () => {
     runtime.register({ addCommand: (value: typeof command) => { command = value; }, registerEditorExtension: vi.fn(), registerMarkdownPostProcessor: vi.fn() } as unknown as Plugin);
     expect(command.checkCallback(true)).toBe(true); expect(document.querySelector("dialog")).toBeNull(); command.checkCallback(false);
     await vi.waitFor(() => expect(document.querySelector(".link-integrity-body-diagnostic")).not.toBeNull());
-    document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!.click(); await vi.waitFor(() => expect(select).toHaveBeenCalledOnce());
+    document.querySelectorAll<HTMLButtonElement>(".link-integrity-body-diagnostic")[1]!.click(); await vi.waitFor(() => expect(select).toHaveBeenCalledOnce());
     expect(setViewState).toHaveBeenCalledWith({ type: "markdown", state: { file: test.path, mode: "source" } });
-    expect(select).toHaveBeenCalledWith({ line: 0, ch: 6 }, { line: 0, ch: 23 });
+    expect(select).toHaveBeenCalledWith({ line: 0, ch: 23 + eol.length }, { line: 0, ch: 40 + eol.length });
+    expect(view.editor.focus).toHaveBeenCalledOnce();
     runtime.close(); expect(command.checkCallback(true)).toBe(false);
   });
   it("releases pending metadata for deleted/non-Markdown paths", () => {

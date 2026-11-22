@@ -16,6 +16,7 @@ export type BrokenReason =
   | "invalid";
 
 export interface ResultLocation {
+  readonly inFrontmatter?: boolean;
   readonly line: number | null;
   readonly column: number | null;
   readonly property: string | null;

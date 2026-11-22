@@ -375,17 +375,17 @@ function renderExpectedRules(
   container.append(pathList, textElement(container, "h4", t("settings.expected.rules")));
 
   let closeEditor: (() => void) | null = null;
-  const openEditor = (rule: ExpectedIsolationRule | null): void => {
+  const openEditor = (rule: ExpectedIsolationRule | null, opener: HTMLButtonElement): void => {
     closeEditor?.();
-    closeEditor = openExpectedRuleDialog(container, rule, context);
+    closeEditor = openExpectedRuleDialog(container, rule, context, opener);
   };
   const list = container.ownerDocument.createElement("div");
   list.className = "link-integrity-expected-rule-list";
   for (const rule of settings.isolatedFiles.expectedRules) {
-    list.append(renderExpectedRuleCard(container.ownerDocument, rule, context, () => openEditor(rule)));
+    list.append(renderExpectedRuleCard(container.ownerDocument, rule, context, (opener) => openEditor(rule, opener)));
   }
   container.append(list);
-  const add = button(container, t("settings.expected.addRule"), () => openEditor(null));
+  const add = button(container, t("settings.expected.addRule"), () => openEditor(null, add));
   add.classList.add("mod-cta", "link-integrity-add-rule");
   add.disabled = context.writeProtected;
   return () => closeEditor?.();
@@ -395,7 +395,7 @@ function renderExpectedRuleCard(
   document: Document,
   rule: ExpectedIsolationRule,
   context: SettingsUiContext,
-  onEdit: () => void,
+  onEdit: (opener: HTMLButtonElement) => void,
 ): HTMLElement {
   const { t } = context.translator;
   const card = document.createElement("article");
@@ -427,7 +427,7 @@ function renderExpectedRuleCard(
   edit.type = "button";
   edit.textContent = t("common.edit");
   edit.disabled = context.writeProtected;
-  edit.addEventListener("click", onEdit);
+  edit.addEventListener("click", () => onEdit(edit));
   card.append(enabled, text, edit);
   return card;
 }
@@ -456,11 +456,11 @@ function openExpectedRuleDialog(
   host: HTMLElement,
   sourceRule: ExpectedIsolationRule | null,
   context: SettingsUiContext,
+  opener: HTMLButtonElement,
 ): () => void {
   const document = host.ownerDocument;
   const ownerWindow = document.defaultView;
   const { t } = context.translator;
-  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const overlay = document.createElement("div");
   overlay.className = "link-integrity-rule-modal";
   overlay.dir = context.translator.direction;
@@ -487,18 +487,24 @@ function openExpectedRuleDialog(
   document.body.append(overlay);
 
   let closed = false;
-  let previewGeneration = 0;
+  let previewController: AbortController | null = null;
   let previewTimer: number | null = null;
+  const cancelPreview = (): void => {
+    previewController?.abort();
+    previewController = null;
+    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    previewTimer = null;
+  };
   let editorCleanup: (() => void) | null = null;
   let draft = sourceRule === null ? null : cloneExpectedRule(sourceRule);
   const close = (): void => {
     if (closed) return;
     closed = true;
-    previewGeneration += 1;
-    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    cancelPreview();
     editorCleanup?.();
+    const returnFocus = overlay.contains(document.activeElement) || document.activeElement === document.body;
     overlay.remove();
-    previousFocus?.focus();
+    if (returnFocus && opener.isConnected) opener.focus();
   };
   closeButton.addEventListener("click", close);
   overlay.addEventListener("click", (event) => {
@@ -559,8 +565,7 @@ function openExpectedRuleDialog(
   const renderEditor = (advancedOpen = true): void => {
     if (draft === null) return;
     // A rebuilt editor owns a new preview surface; callbacks from the old one are stale.
-    previewGeneration += 1;
-    if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+    cancelPreview();
     editorCleanup?.();
     editorCleanup = null;
     content.replaceChildren();
@@ -692,8 +697,7 @@ function openExpectedRuleDialog(
     content.append(actions);
 
     const schedulePreview = (): void => {
-      const generation = ++previewGeneration;
-      if (previewTimer !== null) ownerWindow?.clearTimeout(previewTimer);
+      cancelPreview();
       const errors = draft === null ? [] : validateExpectedIsolationRule(draft);
       validation.textContent = formatExpectedRuleErrors(errors, t);
       validation.hidden = errors.length === 0;
@@ -704,11 +708,13 @@ function openExpectedRuleDialog(
       }
       const candidate = cloneExpectedRule(draft);
       if (ownerWindow === null) return;
+      const controller = new AbortController();
+      previewController = controller;
       previewTimer = ownerWindow.setTimeout(() => runAction(
         () => context.requestExpectedRulePreview?.(candidate, (state) => {
-          if (closed || generation !== previewGeneration || !preview.isConnected) return;
+          if (closed || controller.signal.aborted || !preview.isConnected) return;
           renderExpectedPreview(preview, state, context);
-        }),
+        }, controller.signal),
         context,
       ), 250);
     };

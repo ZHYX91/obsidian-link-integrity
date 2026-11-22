@@ -1,7 +1,8 @@
 import { classifyFileExtension, type FileRecord, type LinkIndex, type LinkOccurrence } from "../core";
 import { occurrenceIdSource } from "../core/occurrence-identity";
 import { diagnoseOccurrence } from "../features/queries";
-import { WorkScheduler, type WorkSchedulerOptions } from "../scheduling/work-scheduler";
+import { runIndexPreview } from "./index-preview";
+import type { WorkSchedulerOptions } from "../scheduling/work-scheduler";
 import {
   createOccurrenceIgnoreContext, previewIgnoreRuleSteps,
   type IgnoreEvaluationContext, type IgnoreRule, type IgnoreRulePreview,
@@ -13,49 +14,33 @@ export class IgnorePreviewService {
     private readonly options: WorkSchedulerOptions = {},
   ) {}
 
-  public async preview(rule: IgnoreRule, signal?: AbortSignal): Promise<IgnoreRulePreview> {
-    while (true) {
-      signal?.throwIfAborted();
-      const index = this.getIndex();
-      const version = index.version;
-      const scheduler = new WorkScheduler(this.options);
-      const files = new Set<string>();
-      const targetsBySource = new Map<string, Set<string>>();
-      let connectionCount = 0;
-      const steps = previewIgnoreRuleSteps(rule, previewContexts(index, rule), undefined, (context) => {
-        const source = context.candidatePath ?? context.sourcePath;
-        if (source == null) return;
-        files.add(source);
-        const target = context.targetPath;
-        if (rule.scope !== "exclude-graph-contribution" || target == null) return;
-        files.add(target);
-        let targets = targetsBySource.get(source);
-        if (targets === undefined) {
-          targets = new Set<string>();
-          targetsBySource.set(source, targets);
-        }
-        if (!targets.has(target)) {
-          targets.add(target);
-          connectionCount += 1;
-        }
-      });
-      let step = steps.next();
-      while (!step.done) {
-        const pause = scheduler.checkpoint();
-        if (pause !== null) await pause;
-        signal?.throwIfAborted();
-        if (this.getIndex() !== index || index.version !== version) break;
-        step = steps.next();
-      }
-      if (step.done) return {
-        ...step.value,
-        affectedFileCount: files.size,
-        affectedConnectionCount: connectionCount,
-      };
-      // A published index replaced the one being counted. Retry against its complete snapshot.
-      steps.return({ matchCount: 0, samples: [] });
-    }
+  public preview(rule: IgnoreRule, signal?: AbortSignal): Promise<IgnoreRulePreview> {
+    return runIndexPreview(this.getIndex, (index) => previewIgnore(index, rule), signal, this.options);
   }
+}
+
+function* previewIgnore(index: LinkIndex, rule: IgnoreRule): Generator<void, IgnoreRulePreview> {
+  const files = new Set<string>();
+  const targetsBySource = new Map<string, Set<string>>();
+  let connectionCount = 0;
+  const preview = yield* previewIgnoreRuleSteps(rule, previewContexts(index, rule), undefined, (context) => {
+    const source = context.candidatePath ?? context.sourcePath;
+    if (source == null) return;
+    files.add(source);
+    const target = context.targetPath;
+    if (rule.scope !== "exclude-graph-contribution" || target == null) return;
+    files.add(target);
+    let targets = targetsBySource.get(source);
+    if (targets === undefined) {
+      targets = new Set<string>();
+      targetsBySource.set(source, targets);
+    }
+    if (!targets.has(target)) {
+      targets.add(target);
+      connectionCount += 1;
+    }
+  });
+  return { ...preview, affectedFileCount: files.size, affectedConnectionCount: connectionCount };
 }
 
 function* previewContexts(index: LinkIndex, rule: IgnoreRule): Iterable<IgnoreEvaluationContext | null> {

@@ -31,6 +31,7 @@ describe("read-only body diagnostics", () => {
     expect(document.querySelectorAll(".link-integrity-body-diagnostic")).toHaveLength(50);
     [...document.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Next")!.click();
     expect(document.querySelectorAll(".link-integrity-body-diagnostic")).toHaveLength(25);
+    expect(document.activeElement).toBe(document.querySelector(".link-integrity-body-diagnostic"));
     document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!.click(); expect(navigate).toHaveBeenCalledOnce(); expect(closed).toHaveBeenCalledOnce();
     expect(document.activeElement).toBe(focus); close(); expect(closed).toHaveBeenCalledOnce();
   });

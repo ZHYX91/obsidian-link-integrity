@@ -45,7 +45,6 @@ describe("LinkIntegritySettingTab", () => {
     const tab = new LinkIntegritySettingTab({} as never, owner as never);
 
     expect(tab.getSettingDefinitions()).toEqual([]);
-    (tab as unknown as { activateSurface(): void }).activateSurface();
     const context = (tab as unknown as { createContext(): SettingsUiContext }).createContext();
     expect(context.getSettings!()).toBe(settings);
     expect(context.createId!("expected-rule")).toMatch(/^expected-rule:/u);

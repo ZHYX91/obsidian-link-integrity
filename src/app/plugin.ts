@@ -1,4 +1,5 @@
-import { findFrontmatterPropertyLine } from "../adapters/obsidian/frontmatter-navigation";
+import { findCurrentMarkdownResultPosition } from "../adapters/obsidian/sidebar-navigation";
+import { runIndexPreview } from "./index-preview";
 import { IgnorePreviewService } from "./ignore-preview-service";
 import { applySidebarIgnore } from "./sidebar-ignore-actions";
 import { occurrenceTargetFilePath } from "../shared/target-file-identity";
@@ -19,7 +20,7 @@ import {
 import { ObsidianLinkIndexPort } from "../adapters/obsidian";
 import {
   ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY,
-  getExpectedRuleStats,
+  expectedRuleStatsSteps,
   LinkIndex,
   type ExpectedIsolationRule,
   type ExpectedRuleStats,
@@ -90,6 +91,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   private initialMetadataTimeout: number | null = null;
   private initialMetadataGateResolve: (() => void) | null = null;
   private lifecycleGeneration = 0;
+  private readonly pendingFileOpens = new Map<WorkspaceLeaf, { opened: Promise<void>; controller: AbortController }>();
   private metadataEventsRegistered = false;
   private baselineAvailable = false;
   private rebuildPromise: Promise<void> | null = null;
@@ -101,8 +103,10 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   public override async onload(): Promise<void> {
     this.unloaded = false;
-    this.lifecycleGeneration += 1;
-    const loaded = loadSettings(await this.loadData());
+    const generation = ++this.lifecycleGeneration;
+    const data: unknown = await this.loadData();
+    if (this.unloaded || this.lifecycleGeneration !== generation) return;
+    const loaded = loadSettings(data);
     this.settings = loaded.settings;
     this.settingsWriteProtected = loaded.writeProtected;
     this.saveCoordinator = new SettingsSaveCoordinator(
@@ -158,10 +162,11 @@ export default class LinkIntegrityPlugin extends Plugin {
 
     this.refreshEntrypoints();
     this.app.workspace.onLayoutReady(() => {
+      if (this.unloaded || this.lifecycleGeneration !== generation) return;
       this.layoutReady = true;
       const sidebarAlreadyOpen = this.app.workspace
         .getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE).length > 0;
-      if (!this.unloaded && (this.settings.general.scanOnStartup || this.settings.brokenLinks.bodyHints || sidebarAlreadyOpen)) {
+      if (this.settings.general.scanOnStartup || this.settings.brokenLinks.bodyHints || sidebarAlreadyOpen) {
         void this.ensureIndex().catch((error: unknown) => this.reportError(error));
       }
     });
@@ -170,6 +175,7 @@ export default class LinkIntegrityPlugin extends Plugin {
   public override onunload(): void {
     this.unloaded = true;
     this.lifecycleGeneration += 1;
+    for (const request of this.pendingFileOpens.values()) request.controller.abort();
     this.runtimeStarted = false;
     this.layoutReady = false;
     this.disposeInitialMetadataWait();
@@ -214,14 +220,9 @@ export default class LinkIntegrityPlugin extends Plugin {
     return this.saveCoordinator.retry();
   }
 
-  public previewExpectedRule(rule: ExpectedIsolationRule): ExpectedRuleStats {
-    return getExpectedRuleStats(this.coordinator.index.files, [rule])[0] ?? {
-      ruleId: rule.id,
-      name: rule.name,
-      matchCount: 0,
-      samples: [],
-      errors: [],
-    };
+  public previewExpectedRule(rule: ExpectedIsolationRule, signal?: AbortSignal): Promise<ExpectedRuleStats> {
+    return runIndexPreview(() => this.coordinator.index,
+      (index) => expectedRuleStatsSteps(index.iterateFiles(), rule), signal);
   }
 
   public previewIgnoreRule(rule: IgnoreRule, signal?: AbortSignal): Promise<IgnoreRulePreview> {
@@ -254,10 +255,13 @@ export default class LinkIntegrityPlugin extends Plugin {
   }
 
   public async activateView(): Promise<void> {
+    if (this.unloaded) return;
+    const generation = this.lifecycleGeneration;
     let leaf = this.app.workspace.getLeavesOfType(LINK_INTEGRITY_VIEW_TYPE)[0];
     if (leaf === undefined) {
       leaf = this.app.workspace.getRightLeaf(false) ?? this.app.workspace.getLeaf(true);
       await leaf.setViewState({ type: LINK_INTEGRITY_VIEW_TYPE, active: true });
+      if (this.unloaded || this.lifecycleGeneration !== generation || leaf.getViewState().type !== LINK_INTEGRITY_VIEW_TYPE) return;
     }
     await this.app.workspace.revealLeaf(leaf);
   }
@@ -591,22 +595,23 @@ export default class LinkIntegrityPlugin extends Plugin {
     return this.coordinator.subscribeDiagnostics(listener);
   }
 
-  private async openBrokenLink(result: BrokenLinkResult): Promise<void> {
-    const leaf = await this.openFile(result.sourcePath);
-    if (!(leaf.view instanceof MarkdownView)) {
-      this.showNonMarkdownLocation(result);
-      return;
-    }
-    const line = result.location.line ?? (result.location.property === null
-      ? null
-      : findFrontmatterPropertyLine(leaf.view.editor.getValue(), result.location.property));
-    if (line === null) return;
-    const column = result.location.line === null ? 0 : result.location.column ?? 0;
-    leaf.view.editor.setCursor({ line, ch: column });
-    leaf.view.editor.scrollIntoView({
-      from: { line, ch: column },
-      to: { line, ch: column },
-    }, true);
+  private openBrokenLink(result: BrokenLinkResult): Promise<void> {
+    return this.openFile(result.sourcePath, async (leaf, file, signal) => {
+      const view = leaf.view;
+      if (view instanceof MarkdownView) {
+        if (view.file !== file) return;
+        const editor = view.editor;
+        const source = editor.getValue();
+        const cursor = await findCurrentMarkdownResultPosition(source, result, signal);
+        if (cursor === null || signal.aborted || leaf.view !== view || view.editor !== editor ||
+          view.file !== file || file.path !== result.sourcePath || this.app.vault.getFileByPath(file.path) !== file ||
+          editor.getValue() !== source) return;
+        editor.setCursor(cursor);
+        editor.scrollIntoView({ from: cursor, to: cursor }, true);
+      } else if (leaf.getViewState().state?.file === file.path) {
+        this.showNonMarkdownLocation(result);
+      }
+    });
   }
 
   private showNonMarkdownLocation(result: BrokenLinkResult): void {
@@ -621,12 +626,32 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (parts.length > 0) new Notice(`Link Integrity: ${parts.join(" · ")}`, 8_000);
   }
 
-  private async openFile(path: string): Promise<WorkspaceLeaf> {
+  private async openFile(
+    path: string,
+    onOpen?: (leaf: WorkspaceLeaf, file: TFile, signal: AbortSignal) => void | Promise<void>,
+  ): Promise<void> {
+    if (this.unloaded) return;
     const file = this.app.vault.getFileByPath(path);
     if (file === null) throw new Error(`Vault file no longer exists: ${path}`);
     const leaf = this.app.workspace.getLeaf(false);
-    await leaf.openFile(file);
-    return leaf;
+    const previous = this.pendingFileOpens.get(leaf);
+    previous?.controller.abort();
+    const controller = new AbortController();
+    const ownsFile = () => !controller.signal.aborted && file.path === path && this.app.vault.getFileByPath(path) === file;
+
+    // The host can finish opening a file after a later click. Serialize only the
+    // host opens in this pane; a newer click can cancel source verification immediately.
+    const openIfCurrent = async () => { if (ownsFile()) await leaf.openFile(file); };
+    const opened = previous === undefined ? Promise.resolve().then(openIfCurrent) : previous.opened.then(openIfCurrent, openIfCurrent);
+    this.pendingFileOpens.set(leaf, { opened, controller });
+    try {
+      await opened;
+      if (ownsFile()) await onOpen?.(leaf, file, controller.signal);
+    } catch (error) {
+      if (!controller.signal.aborted) throw error;
+    } finally {
+      if (this.pendingFileOpens.get(leaf)?.controller === controller) this.pendingFileOpens.delete(leaf);
+    }
   }
 
   private showBrokenLinkActions(result: BrokenLinkResult, anchor: HTMLElement): void {

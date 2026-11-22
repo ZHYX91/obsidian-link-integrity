@@ -53,10 +53,13 @@ export function extractMarkdownExplicitReferences(
   return finishSteps(extractMarkdownSteps(source)).references;
 }
 
+type ReferenceLinkVisitor = (start: number, end: number, lines: readonly SourceLineRange[], destination: string) => void;
+
 export async function parseMarkdownSourceAsync(
   source: string, scheduler = new WorkScheduler(), properties: "include" | "skip" = "include",
+  visitReferenceLink?: ReferenceLinkVisitor,
 ) {
-  const steps = extractMarkdownSteps(source, properties);
+  const steps = extractMarkdownSteps(source, properties, visitReferenceLink);
   let step = steps.next();
   while (!step.done) {
     const pause = scheduler.checkpoint();
@@ -66,7 +69,9 @@ export async function parseMarkdownSourceAsync(
   return step.value;
 }
 
-function* extractMarkdownSteps(source: string, properties: "include" | "skip" = "include") {
+function* extractMarkdownSteps(
+  source: string, properties: "include" | "skip" = "include", visitReferenceLink?: ReferenceLinkVisitor,
+) {
   const lines = yield* scanSourceLines(source);
   const linesByStart = new Map<number, SourceLineRange>();
   for (const [i, line] of lines.entries()) {
@@ -77,7 +82,7 @@ function* extractMarkdownSteps(source: string, properties: "include" | "skip" = 
   const blocks = { lines, linesByStart, opaqueClosers: yield* indexOpaqueClosers(source), frontmatter,
     propertyValues: frontmatter === null || properties === "skip" ? [] : yield* yamlScalarRanges(source, frontmatter) };
   let destinations = yield* indexMarkdownDestinations(source);
-  const definitions = new Set<string>();
+  const definitions = new Map<string, string>();
   let syntax = source;
   // Definitions belong to blocks and may follow their uses. Establish their
   // source grammar before reference links can deactivate outer inline labels.
@@ -92,7 +97,7 @@ function* extractMarkdownSteps(source: string, properties: "include" | "skip" = 
     }
   }
   const { masked, inline: established, frontmatterEnd, syntaxRanges } =
-    yield* maskMarkdownNonContent(source, blocks, destinations, syntax, definitions);
+    yield* maskMarkdownNonContent(source, blocks, destinations, syntax, definitions, undefined, visitReferenceLink);
   const { wikiReferences, markdown } = yield* extractMarkdownLinks(source, masked, destinations, established, frontmatterEnd, blocks.propertyValues);
   const references: ParsedExplicitReference[] = [];
   let wiki = 0;
@@ -458,7 +463,7 @@ interface BlockIndex {
 }
 
 function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destinations: MarkdownDestinationIndex,
-  syntax: string, definitions: Set<string>, projection?: string[]) {
+  syntax: string, definitions: Map<string, string>, projection?: string[], visitReferenceLink?: ReferenceLinkVisitor) {
   // Every offset used by RegExp, indexOf, and slice is a UTF-16 code-unit offset.
   // Keep the mask indexed in the same coordinate system; spreading a string
   // collapses surrogate pairs and shifts every later mask range.
@@ -476,7 +481,7 @@ function* maskMarkdownNonContent(source: string, blocks: BlockIndex, destination
     yield* maskGap(characters, gapStart, frontmatterRange.end);
   }
   yield* maskDelimitedBlocks(characters, source, blocks, frontmatterRange, destinations, inline,
-    syntax, definitions, syntaxRanges, projection);
+    syntax, definitions, syntaxRanges, projection, visitReferenceLink);
   const masked = projection === undefined ? yield* joinMask(characters) : "";
   return { masked, inline, syntaxRanges, frontmatterEnd: frontmatterRange?.end ?? 0 };
 }
@@ -515,9 +520,10 @@ function* maskDelimitedBlocks(
   destinations: MarkdownDestinationIndex,
   inline: Map<number, ParsedExplicitReference>,
   syntax: string,
-  definitions: Set<string>,
+  definitions: Map<string, string>,
   syntaxRanges: MarkdownSyntaxRange[],
   projection?: string[],
+  visitReferenceLink?: ReferenceLinkVisitor,
 ): Generator<void, void> {
   let fence: {
     readonly character: string;
@@ -799,10 +805,13 @@ function* maskDelimitedBlocks(
         const following = source[cursor + 1] === "["
           ? /^\[((?:\\.|[^[\]\\]){0,999})\]/su.exec(syntax.slice(cursor + 1, boundary)) : null;
         const label = following?.[1] || (cursor - opening.offset <= 1000 ? syntax.slice(opening.offset + 1, cursor) : "");
-        if (projection === undefined && label && label.length <= 999 && definitions.has(normalizeReferenceLabel(label))) {
+        const definition = projection === undefined && label && label.length <= 999
+          ? definitions.get(normalizeReferenceLabel(label)) : undefined;
+        if (definition !== undefined) {
+          const end = cursor + 1 + (following?.[0].length ?? 0);
+          visitReferenceLink?.(opening.offset - (opening.image ? 1 : 0), end, blocks.lines, definition);
           if (!opening.image) linkEpoch += 1;
           if (following !== null) {
-            const end = cursor + 1 + following[0].length;
             syntaxRanges.push({ start: cursor + 1, end, kind: "metadata" });
             cursor = end;
             continue;
@@ -829,7 +838,7 @@ function isSetextUnderline(text: string): boolean {
 }
 
 /** Leading definitions supply no setext body. Read only their needed lines. */
-function referenceDefinitionLines(first: string, readLine: () => string | null, definitions: Set<string>): number {
+function referenceDefinitionLines(first: string, readLine: () => string | null, definitions: Map<string, string>): number {
   let text = first;
   let lines = 1;
   const append = (): boolean => {
@@ -843,10 +852,6 @@ function referenceDefinitionLines(first: string, readLine: () => string | null, 
   while (/^ {0,3}\[(?:\\.|[^[\]\\]){0,999}$/su.test(text) && append()) { /* continue label */ }
   const label = /^ {0,3}\[((?:\\.|[^[\]\\]){1,999})\]: */su.exec(text);
   if (label === null || label[1]!.trim().length === 0) return 0;
-  const complete = (count: number): number => {
-    if (count > 0) definitions.add(normalizeReferenceLabel(label[1]!));
-    return count;
-  };
   let cursor = label[0].length;
   if (cursor === text.length) {
     if (!append()) return 0;
@@ -870,6 +875,14 @@ function referenceDefinitionLines(first: string, readLine: () => string | null, 
   if (angle ? depth !== -1 : cursor === start || depth !== 0) return 0;
   const destinationLines = lines;
   const end = cursor;
+  const destination = text.slice(angle ? start + 1 : start, angle ? end - 1 : end);
+  const complete = (count: number): number => {
+    if (count > 0) {
+      const key = normalizeReferenceLabel(label[1]!);
+      if (!definitions.has(key)) definitions.set(key, destination);
+    }
+    return count;
+  };
   while (text[cursor] === " ") cursor += 1;
   const sameLine = cursor < text.length;
   if (!sameLine) {
@@ -1162,7 +1175,7 @@ export function maskRange(characters: string[], start: number, end: number): voi
   }
 }
 
-function unescapeMarkdownDestination(value: string): string {
+export function unescapeMarkdownDestination(value: string): string {
   // Decode at the Markdown destination boundary, in one lexical pass. An
   // escaped ampersand or a decoded backslash must not start a second escape.
   return value.replace(/\\([!-/:-@[-`{-~])|&(?:#[xX][\da-fA-F]{1,6}|#\d{1,7}|[a-zA-Z][a-zA-Z\d]*);/gu,
