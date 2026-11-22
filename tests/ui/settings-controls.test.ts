@@ -25,6 +25,7 @@ vi.mock("obsidian", () => {
     onChange(callback: (value: never) => void): this { this.change = callback; return this; }
   }
   return {
+    setIcon: vi.fn(),
     Setting: class {
       settingEl: HTMLElement;
       constructor(container: HTMLElement) {

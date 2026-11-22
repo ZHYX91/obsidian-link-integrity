@@ -949,6 +949,56 @@
 }
 
 /* Shared settings navigation contract used across the plugin family. */
+.link-integrity-tab-frame {
+  display: flex;
+  align-items: stretch;
+  min-inline-size: 0;
+  container: link-integrity-tab-frame / inline-size;
+}
+
+.link-integrity-tab-frame > .link-integrity-settings-tabs {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.link-integrity-tab-frame > button.link-integrity-tab-arrow {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  block-size: auto;
+  min-block-size: 34px;
+  padding: 0;
+  color: var(--text-accent);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  cursor: var(--cursor, default);
+}
+
+.link-integrity-tab-frame.has-overflow > button.link-integrity-tab-arrow:not(:disabled) { display: inline-flex; }
+.link-integrity-tab-frame > button.link-integrity-tab-arrow:hover { background: var(--background-modifier-hover); }
+.link-integrity-tab-arrow:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.link-integrity-tab-arrow::before {
+  content: "";
+  box-sizing: border-box;
+  inline-size: 8px;
+  block-size: 8px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(-135deg);
+}
+
+.link-integrity-tab-arrow[data-direction="right"]::before {
+  transform: rotate(45deg);
+}
+
+@media (pointer: coarse) {
+  .link-integrity-tab-frame > button.link-integrity-tab-arrow { flex-basis: 44px; min-block-size: 44px; }
+}
+
 .link-integrity-settings-tabs {
   align-items: stretch;
   border-block-end: 1px solid var(--background-modifier-border);
@@ -1235,4 +1285,8 @@
 
 .link-integrity-settings-support a {
   cursor: var(--cursor, default);
+}
+
+@container link-integrity-tab-frame (max-width: 600px) {
+  .link-integrity-settings-tabs > button.link-integrity-settings-tab { padding-inline: 8px !important; }
 }

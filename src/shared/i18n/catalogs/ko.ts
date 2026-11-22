@@ -107,6 +107,8 @@ export const KO_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "고정 레이아웃 파일",
   "fileType.category.other": "기타 첨부 파일",
   "settings.tabs.label": "Link Integrity 설정 섹션",
+  "settings.tabs.earlier": "이전 탭 표시",
+  "settings.tabs.more": "다음 탭 표시",
   "settings.tab.general": "일반",
   "settings.tab.broken": "깨진 링크",
   "settings.tab.isolated": "고립된 파일",

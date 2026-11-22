@@ -81,6 +81,8 @@ After filtering, the count is shown as “visible / configured-scope total” so
 
 Settings use the plugin-rendered top-tab surface on every supported Obsidian version and contain three tabs: General, Broken links, and Isolated files. Declarative settings remain disabled because they bypass this layout. All tabs share one settings model, value sources, and side effects.
 
+When settings tabs extend past the visible row, accent-colored arrows show which way to scroll. Each click reveals the nearest clipped tab on that side and keeps the current settings page open. The arrows disappear when all tabs fit.
+
 ### 4.1 General
 
 - Language: Follow Obsidian or one of 12 bundled languages.

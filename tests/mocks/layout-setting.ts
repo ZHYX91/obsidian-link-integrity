@@ -53,3 +53,7 @@ class LayoutDropdown {
   setDisabled(): this { return this; }
   onChange(): this { return this; }
 }
+
+export function setIcon(button: HTMLElement, name: string): void {
+  button.dataset.icon = name;
+}

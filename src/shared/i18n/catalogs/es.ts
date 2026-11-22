@@ -113,6 +113,8 @@ export const ES_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "Archivos de diseño fijo",
   "fileType.category.other": "Otros adjuntos",
   "settings.tabs.label": "Secciones de ajustes de Link Integrity",
+  "settings.tabs.earlier": "Mostrar pestañas anteriores",
+  "settings.tabs.more": "Mostrar las pestañas siguientes",
   "settings.tab.general": "General",
   "settings.tab.broken": "Enlaces rotos",
   "settings.tab.isolated": "Archivos aislados",

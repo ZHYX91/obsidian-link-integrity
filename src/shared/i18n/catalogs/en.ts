@@ -197,6 +197,8 @@ export const EN_MESSAGES = {
   "fileType.family.ebook": "E-books",
   "fileType.family.other-custom": "Custom extensions",
   "settings.tabs.label": "Link Integrity settings sections",
+  "settings.tabs.earlier": "Show earlier tabs",
+  "settings.tabs.more": "Show more tabs",
   "settings.tab.general": "General",
   "settings.tab.broken": "Broken links",
   "settings.tab.isolated": "Isolated files",

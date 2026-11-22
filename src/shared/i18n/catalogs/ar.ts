@@ -218,6 +218,8 @@ export const AR_MESSAGES = {
   "fileType.family.ebook": "كتب إلكترونية",
   "fileType.family.other-custom": "امتدادات مخصّصة",
   "settings.tabs.label": "صفحات إعدادات Link Integrity",
+  "settings.tabs.earlier": "إظهار علامات التبويب السابقة",
+  "settings.tabs.more": "إظهار علامات التبويب التالية",
   "settings.tab.general": "عام",
   "settings.tab.broken": "الروابط المعطّلة",
   "settings.tab.isolated": "الملفات المنعزلة",

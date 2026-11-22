@@ -107,6 +107,8 @@ export const RU_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "Файлы с фиксированной разметкой",
   "fileType.category.other": "Другие вложения",
   "settings.tabs.label": "Разделы настроек Link Integrity",
+  "settings.tabs.earlier": "Показать предыдущие вкладки",
+  "settings.tabs.more": "Показать следующие вкладки",
   "settings.tab.general": "Общие",
   "settings.tab.broken": "Неработающие ссылки",
   "settings.tab.isolated": "Изолированные файлы",

@@ -173,6 +173,8 @@ export const ZH_TW_MESSAGES = {
   "fileType.family.ebook": "電子書",
   "fileType.family.other-custom": "自訂副檔名",
   "settings.tabs.label": "Link Integrity 設定分類",
+  "settings.tabs.earlier": "顯示前面的分頁",
+  "settings.tabs.more": "顯示後面的分頁",
   "settings.tab.general": "一般",
   "settings.tab.broken": "無效連結",
   "settings.tab.isolated": "孤立檔案",

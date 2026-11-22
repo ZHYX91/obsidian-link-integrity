@@ -107,6 +107,8 @@ export const JA_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "固定レイアウトファイル",
   "fileType.category.other": "その他の添付ファイル",
   "settings.tabs.label": "Link Integrity の設定区分",
+  "settings.tabs.earlier": "前のタブを表示",
+  "settings.tabs.more": "次のタブを表示",
   "settings.tab.general": "一般",
   "settings.tab.broken": "無効なリンク",
   "settings.tab.isolated": "孤立ファイル",

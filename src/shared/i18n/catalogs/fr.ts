@@ -113,6 +113,8 @@ export const FR_MESSAGES = localizedCatalog({
   "fileType.category.fixed-layout": "Fichiers à mise en page fixe",
   "fileType.category.other": "Autres pièces jointes",
   "settings.tabs.label": "Sections des paramètres Link Integrity",
+  "settings.tabs.earlier": "Afficher les onglets précédents",
+  "settings.tabs.more": "Afficher les onglets suivants",
   "settings.tab.general": "Général",
   "settings.tab.broken": "Liens rompus",
   "settings.tab.isolated": "Fichiers isolés",
