@@ -2,6 +2,10 @@ import { fileURLToPath } from "node:url";
 
 import { configDefaults, defineConfig } from "vitest/config";
 
+const nodeTests = configDefaults.include.map((pattern) => `tests/{core,features,scripts}/${pattern}`);
+const browserTests = ["**/*.browser.{test,spec}.?(c|m)[jt]s?(x)"];
+const excluded = [...configDefaults.exclude, "benchmarks/**"];
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -21,8 +25,17 @@ export default defineConfig({
         statements: 80
       }
     },
-    environment: "happy-dom",
-    exclude: [...configDefaults.exclude, "benchmarks/**"],
-    setupFiles: ["./tests/setup/obsidian-dom.ts"],
+    projects: [
+      { extends: true, test: {
+        name: "node", environment: "node", include: nodeTests, exclude: [...excluded, ...browserTests],
+      } },
+      { extends: true, test: {
+        name: "host", environment: "happy-dom", exclude: [...excluded, ...nodeTests, ...browserTests],
+        setupFiles: ["./tests/setup/obsidian-dom.ts"],
+      } },
+      { extends: true, test: {
+        name: "chromium", environment: "node", include: browserTests, exclude: excluded,
+      } },
+    ],
   },
 });
