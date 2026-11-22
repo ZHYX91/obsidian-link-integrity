@@ -16,6 +16,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Recheck links to notes with compound file extensions after graph rule changes. Classify extensionless files consistently in root and nested folders and keep ambiguous legacy target ignores paused.
 - Preserve case-sensitive glob rules and require review when a saved file-type condition is unreadable.
 - Keep the selected periodic-note folder when a new path is invalid, and support marking deeply nested folders as expected isolated.
+- Keep regular-expression text in Bases formulas out of broken-link and isolation results.
 
 ## [0.5.7] - 2026-11-21
 

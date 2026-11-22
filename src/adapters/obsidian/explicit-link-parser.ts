@@ -194,10 +194,21 @@ function extractBasesFormulaReferences(
     : { startOffset: scalarStart + exactValueOffset + start,
       endOffset: scalarStart + exactValueOffset + end };
   let index = 0;
+  let expectsOperand = true;
+  let previousToken = "";
   while (index < formula.length) {
-    const character = formula[index];
+    const character = formula[index]!;
+    if (/\s/u.test(character)) { index += 1; continue; }
+    const followsDot = previousToken === ".";
+    previousToken = character;
+    if (character === "/" && expectsOperand) {
+      index = skipFormulaRegex(formula, index);
+      expectsOperand = false;
+      continue;
+    }
     if (character === "\"" || character === "'") {
       index = skipFormulaString(formula, index);
+      expectsOperand = false;
       continue;
     }
     const embeddedWiki = character === "!" && formula[index + 1] === "[" && formula[index + 2] === "[";
@@ -216,11 +227,12 @@ function extractBasesFormulaReferences(
           });
         }
         index = closing + 2;
+        expectsOperand = false;
         continue;
       }
     }
     if (formula.startsWith("link", index) && !isFormulaIdentifierPart(formula[index - 1]) &&
-      formula.slice(0, index).trimEnd().at(-1) !== ".") {
+      !followsDot) {
       let cursor = index + 4;
       if (!isFormulaIdentifierPart(formula[cursor])) {
         while (cursor < formula.length && /\s/u.test(formula[cursor] ?? "")) cursor += 1;
@@ -241,14 +253,34 @@ function extractBasesFormulaReferences(
               });
             }
             index = parsed.end;
+            expectsOperand = false;
             continue;
           }
         }
       }
     }
+    // A slash after a value divides it. After an operator or an opening
+    // delimiter it starts a regular expression, whose contents are literal.
+    expectsOperand = "([,{:=!&|?<>+-*/%".includes(character);
     index += 1;
   }
   return references;
+}
+
+function skipFormulaRegex(formula: string, start: number): number {
+  let inClass = false;
+  for (let index = start + 1; index < formula.length; index += 1) {
+    const character = formula[index];
+    if (character === "\\") { index += 1; continue; }
+    if (character === "[") inClass = true;
+    else if (character === "]") inClass = false;
+    else if (character === "/" && !inClass) {
+      let end = index + 1;
+      while (/[a-z]/iu.test(formula[end] ?? "")) end += 1;
+      return end;
+    }
+  }
+  return formula.length;
 }
 
 function findFormulaWikiClosing(source: string, start: number): number {

@@ -608,6 +608,19 @@ describe("extractBasesExplicitReferences", () => {
     ]);
   });
 
+  it("distinguishes regex operands from division without treating patterns as file references", () => {
+    const formulas = [
+      'file.name.replace(/link("Ghost")/g, "") + link("Real")',
+      String.raw`/prefix\/[/]link("Ghost")/i.matches(file.name) && [[Real]]`,
+      'value / link("Divisor") / factor',
+      '/first/ / link("AfterRegex") / 2',
+      'if(!/link("Ghost")/, link("Yes"), link("No"))',
+    ];
+    const source = "formulas:\n" + formulas.map((formula, n) => `  f${n}: ${JSON.stringify(formula)}`).join("\n");
+    expect(extractBasesExplicitReferences(source).map(({ linktext }) => linktext))
+      .toEqual(["Real", "Real", "Divisor", "AfterRegex", "Yes", "No"]);
+  });
+
   it("rejects malformed Bases YAML instead of inventing a partial graph", () => {
     expect(() => extractBasesExplicitReferences("filters: [unterminated")).toThrow(
       "Invalid Bases source.",
