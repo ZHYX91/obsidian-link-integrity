@@ -20,6 +20,8 @@ import type {
   SidebarTabId,
 } from "../ui/sidebar";
 
+type QueryExecution = "sync" | "scheduled";
+
 export class SidebarQueryService implements SidebarQueryPort {
   private readonly listeners = new Set<() => void>();
   private brokenLinks: readonly BrokenLinkResult[] = [];
@@ -56,7 +58,7 @@ export class SidebarQueryService implements SidebarQueryPort {
     activeTab: SidebarTabId | null = null,
   ): SidebarQuerySnapshot => {
     if (activeTab !== null && this.isDirty(activeTab)) {
-      const steps = this.prepareTab(activeTab);
+      const steps = this.prepareTab(activeTab, "sync");
       while (!steps.next().done) { /* Synchronous callers use the same projection as the mounted sidebar. */ }
     }
     return {
@@ -89,7 +91,7 @@ export class SidebarQueryService implements SidebarQueryPort {
 
   private async runPreparation(tab: SidebarTabId, revision: number): Promise<boolean> {
     const scheduler = new WorkScheduler();
-    const steps = this.prepareTab(tab);
+    const steps = this.prepareTab(tab, "scheduled");
     let step = steps.next();
     while (!step.done) {
       const pause = scheduler.checkpoint();
@@ -108,11 +110,11 @@ export class SidebarQueryService implements SidebarQueryPort {
     return tab === "broken-links" ? this.brokenLinksDirty : this.isolatedFilesDirty;
   }
 
-  private prepareTab(tab: SidebarTabId): Generator<void> {
-    return tab === "broken-links" ? this.prepareBrokenLinks() : this.prepareIsolatedFiles();
+  private prepareTab(tab: SidebarTabId, execution: QueryExecution): Generator<void> {
+    return tab === "broken-links" ? this.prepareBrokenLinks(execution) : this.prepareIsolatedFiles(execution);
   }
 
-  private *prepareBrokenLinks(): Generator<void> {
+  private *prepareBrokenLinks(execution: QueryExecution): Generator<void> {
     const paths = this.brokenPaths === null ? null : new Set(this.brokenPaths);
     const index = this.getIndex();
     const settings = this.getSettings();
@@ -126,7 +128,7 @@ export class SidebarQueryService implements SidebarQueryPort {
       }
       yield;
     }
-    const sorted = yield* sortSteps(broken, compareBrokenResults);
+    const sorted = yield* sortResults(broken, compareBrokenResults, execution);
     this.brokenLinks = paths === null ? sorted : yield* mergeResultSteps(
       this.brokenLinks, sorted, paths, (item) => item.sourcePath, compareBrokenResults,
     );
@@ -135,7 +137,7 @@ export class SidebarQueryService implements SidebarQueryPort {
     this.brokenLinksKnown = true;
   }
 
-  private *prepareIsolatedFiles(): Generator<void> {
+  private *prepareIsolatedFiles(execution: QueryExecution): Generator<void> {
     const index = this.getIndex();
     const settings = this.getSettings();
     const options = settings.isolatedFiles;
@@ -160,7 +162,7 @@ export class SidebarQueryService implements SidebarQueryPort {
       }
       yield;
     }
-    const sorted = yield* sortSteps(items, compareIsolatedResults);
+    const sorted = yield* sortResults(items, compareIsolatedResults, execution);
     let isolated = sorted;
     if (options.allowNoIncomingFilter) {
       isolated = [];
@@ -243,6 +245,13 @@ function compareBrokenResults(left: BrokenLinkResult, right: BrokenLinkResult): 
 
 function compareIsolatedResults(left: IsolatedFileResult, right: IsolatedFileResult): number {
   return left.path.localeCompare(right.path);
+}
+
+function* sortResults<T>(
+  items: T[], compare: (left: T, right: T) => number, execution: QueryExecution,
+): Generator<void, T[]> {
+  if (execution === "sync") return items.sort(compare);
+  return yield* sortSteps(items, compare);
 }
 
 function* mergeResultSteps<T>(
