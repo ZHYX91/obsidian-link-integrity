@@ -299,6 +299,7 @@ export default class LinkIntegrityPlugin extends Plugin {
       if (this.unloaded) return;
       const startsNewRebuild = this.coordinator.state !== "rebuilding";
       if (startsNewRebuild) this.discardPendingSourceEvents();
+      this.registerMetadataEvents();
       const rebuild = this.coordinator.rebuild();
       await rebuild;
       this.baselineAvailable = true;
@@ -328,8 +329,6 @@ export default class LinkIntegrityPlugin extends Plugin {
         errorMessage: errorMessage(error),
       }, true);
       throw error;
-    } finally {
-      if (!this.unloaded) this.registerMetadataEvents();
     }
   }
 
@@ -472,7 +471,12 @@ export default class LinkIntegrityPlugin extends Plugin {
     // Without a complete baseline, a future rebuild reads authoritative current Vault state.
     // Retaining arbitrary history after a failed first build only grows memory and cannot
     // safely manufacture a partial index. Events that arrive during staging are still replayed.
-    if (!this.baselineAvailable && this.coordinator.state !== "rebuilding") {
+    if (this.coordinator.state === "rebuilding") {
+      // The staging buffer coalesces these events before the first ready result.
+      this.coordinator.enqueue(event);
+      return;
+    }
+    if (!this.baselineAvailable) {
       this.discardPendingSourceEvents();
       return;
     }

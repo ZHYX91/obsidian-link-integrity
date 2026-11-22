@@ -85,7 +85,7 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 全量重建先从 adapter 取得当前文件登记表，再在独立 staging `LinkIndex` 中以有限并发构建来源快照。控制器同时按文件数上限和约 8 ms 主线程时间预算主动让步，并支持可注入的让步函数和节流进度回调，避免快速文件或单批解析工作长期占用渲染线程。
 
-当启动扫描、侧栏或手动重建请求 baseline 时，Vault 的 create、modify、delete、rename 事件会在首次宿主级 Metadata Cache 解析完成边界之前注册，并进入有界合并缓冲。新一轮全量 staging 开始前已经积累的事件由即将读取当前 Vault 的 baseline 吸收，不再重复回放；只有 staging 开始后到达的事件才交给协调器在 staging 上重放，追赶到当前 Vault 状态后再原子发布。Metadata Cache 的 change/delete 监听则等到首次解析完成边界（或有界兜底等待）和全量重建结束后再挂载。有界等待超时只放行 baseline，不会把缓存误标为已解析；一次性宿主级 `resolved` 监听会继续保留，若信号稍后到达则合成一次全来源重验证纠正兜底结果。运行时刻意不订阅逐文件 `resolve(file)`：内容和命名空间事件已经会重验证变化来源及其引用者，而重放宿主启动期解析尾流只会重复全量扫描。
+当启动扫描、侧栏或手动重建请求 baseline 时，Vault 的 create、modify、delete、rename 事件会在首次宿主级 Metadata Cache 解析完成边界之前注册，并进入有界合并缓冲。新一轮全量 staging 开始前已经积累的事件由即将读取当前 Vault 的 baseline 吸收，不再重复回放；只有 staging 开始后到达的事件才交给协调器在 staging 上重放，追赶到当前 Vault 状态后再原子发布。Metadata Cache 的 change/delete 监听在首次解析完成（或兜底等待超时）后、读取全量索引前挂载。扫描和应用图规则期间到达的变化进入同一回放队列。有界等待超时只放行 baseline，不会把缓存误标为已解析；一次性宿主级 `resolved` 监听会继续保留，若信号稍后到达则合成一次全来源重验证纠正兜底结果。逐文件的 `resolve(file)` 用于刷新正文提示。内容和命名空间事件负责重验证图关系，启动末尾的解析事件不会再次触发全量扫描。
 
 只有 staging 完整成功后，`AtomicLinkIndexStore` 才一次性发布新索引。构建失败不会改变当前索引；已有索引继续作为最近一次可信结果，并由应用状态标记失败或可能过期。
 
