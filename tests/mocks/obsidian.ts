@@ -1,5 +1,9 @@
 import { StateField } from "@codemirror/state";
 
+export function normalizePath(path: string): string {
+  return path.replaceAll("\\", "/").replace(/\/{2,}/gu, "/");
+}
+
 export const editorInfoField = StateField.define<unknown>({ create: () => undefined, update: (value) => value });
 
 export class MarkdownRenderChild {

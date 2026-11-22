@@ -12,6 +12,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Preserve single-reference ignores on property links as the native metadata cache becomes available, and exclude YAML property names from diagnostics.
 - Keep real links in multiline YAML properties and exclude YAML comments from broken-link results, including with indented delimiters and CR line endings.
 - Include metadata changes received during the first scan before showing its results.
+- Keep synced settings and rules when another device edits the configuration while the plugin is running.
 
 ## [0.5.7] - 2026-11-21
 

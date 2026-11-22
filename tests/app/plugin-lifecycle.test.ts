@@ -14,6 +14,12 @@ import type { BrokenLinkResult, IndexStatus, SidebarViewState } from "../../src/
 import type { BodyLinkRuntime } from "../../src/app/body-link-runtime";
 import { bodySetup } from "../helpers/body-links";
 
+// Lifecycle tests inject a Vault without persistent storage.
+vi.mock("../../src/adapters/obsidian/settings-data", () => ({
+  processSettingsData: async (plugin: LinkIntegrityPlugin, update: (raw: unknown) => { result: unknown }) =>
+    update(await plugin.loadData()).result,
+}));
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
