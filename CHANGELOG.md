@@ -5,7 +5,7 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
-## [Unreleased]
+## [0.5.8] - 2026-11-22
 
 - Keep the cursor in place when the active definition of a reference-style Markdown link has changed since the diagnostic was indexed.
 - Keep link and comment delimiters within each YAML property value or list item. Preserve links after an unfinished `[[` in notes and Canvas text.
@@ -17,6 +17,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Preserve case-sensitive glob rules and require review when a saved file-type condition is unreadable.
 - Keep the selected periodic-note folder when a new path is invalid, and support marking deeply nested folders as expected isolated.
 - Keep regular-expression text in Bases formulas out of broken-link and isolation results.
+- Show hidden settings tabs with theme-accented scroll arrows that release their space when hidden and keep the current settings page selected.
 
 ## [0.5.7] - 2026-11-21
 
