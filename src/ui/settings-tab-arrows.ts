@@ -68,8 +68,14 @@ export function addSettingsTabArrows(
     frame.classList.toggle("has-overflow", overflowing);
     const earlier = overflowing && firstClippedTab(direction === "rtl") !== undefined;
     const later = overflowing && firstClippedTab(direction === "ltr") !== undefined;
+    const viewport = earlier && previous.disabled ? tabs.getBoundingClientRect() : undefined;
     previous.disabled = !earlier;
     next.disabled = !later;
+    // Keep the same content in view when a scroll reveals the start control.
+    if (viewport !== undefined) {
+      const resized = tabs.getBoundingClientRect();
+      tabs.scrollLeft += direction === "rtl" ? resized.right - viewport.right : resized.left - viewport.left;
+    }
     if ((focused === previous && previous.disabled) || (focused === next && next.disabled)) {
       const remaining = previous.disabled ? next : previous;
       const target = remaining.disabled ? tabs.querySelector<HTMLElement>('[aria-selected="true"]') : remaining;
