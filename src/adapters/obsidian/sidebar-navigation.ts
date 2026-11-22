@@ -3,11 +3,12 @@ import { isScalar, isSeq } from "yaml";
 import { WorkScheduler, yieldBrowserTask } from "../../scheduling/work-scheduler";
 import type { SourcePosition } from "../../core/model";
 import { normalizedBodyText } from "./body-link-port";
-import { parseMarkdownSourceAsync } from "./explicit-link-parser";
+import { isExternalReference, parseMarkdownSourceAsync, unescapeMarkdownDestination } from "./explicit-link-parser";
 import { findFrontmatterProperty } from "./frontmatter-navigation";
 
 interface MarkdownResult {
   readonly rawText: string;
+  readonly targetText: string;
   readonly location: Pick<SourcePosition, "line" | "column" | "property"> & { readonly inFrontmatter?: boolean };
 }
 
@@ -34,7 +35,7 @@ export async function findCurrentMarkdownResultPosition(
         if (pause !== null) await pause;
         if (!isScalar(value) || typeof value.value !== "string") continue;
         const scalar = normalizedBodyText(value.value);
-        if (scalar.includes(raw) && await containsCurrentReference(scalar, raw, scheduler)) {
+        if (scalar.includes(raw) && await containsCurrentReference(scalar, raw, result.targetText, scheduler)) {
           return signal?.aborted ? null : { line: selected.line, ch: 0 };
         }
       }
@@ -42,7 +43,7 @@ export async function findCurrentMarkdownResultPosition(
     }
     if (line === null || !Number.isInteger(line) || line < 0 ||
       (column !== null && (!Number.isInteger(column) || column < 0))) return null;
-    const confirmed = await containsCurrentReference(source, raw, scheduler, {
+    const confirmed = await containsCurrentReference(source, raw, result.targetText, scheduler, {
       line, column, inFrontmatter: result.location.inFrontmatter === true,
     });
     return confirmed && !signal?.aborted ? { line, ch: column ?? 0 } : null;
@@ -52,7 +53,7 @@ export async function findCurrentMarkdownResultPosition(
   }
 }
 
-async function containsCurrentReference(source: string, raw: string, scheduler: WorkScheduler,
+async function containsCurrentReference(source: string, raw: string, target: string, scheduler: WorkScheduler,
   position?: { line: number; column: number | null; inFrontmatter: boolean }): Promise<boolean> {
   const accepts = (start: number, lines: readonly { start: number; contentEnd: number }[]): boolean => {
     if (!position) return true;
@@ -64,8 +65,11 @@ async function containsCurrentReference(source: string, raw: string, scheduler: 
   // The host owns reference-style destinations. Witness their complete span
   // and active definition without adding fallback graph edges.
   const properties = position?.inFrontmatter ? "include" : "skip";
-  const { references, lines, frontmatterEnd } = await parseMarkdownSourceAsync(source, scheduler, properties, (start, end, lines) => {
-    if (!native && accepts(start, lines) && normalizedBodyText(source.slice(start, end)) === raw) native = true;
+  const { references, lines, frontmatterEnd } = await parseMarkdownSourceAsync(source, scheduler, properties, (start, end, lines, destination) => {
+    if (native || !accepts(start, lines) || normalizedBodyText(source.slice(start, end)) !== raw) return;
+    let current = unescapeMarkdownDestination(destination);
+    try { current = decodeURIComponent(current); } catch { /* Literal percent in a Vault path. */ }
+    native = !isExternalReference(current) && current === target;
   });
   if (native && !position?.inFrontmatter) return true;
   for (const reference of references) {

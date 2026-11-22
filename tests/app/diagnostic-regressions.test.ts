@@ -23,7 +23,7 @@ function markdownNavigation(source: () => string) {
   Object.assign(plugin, { app });
   const runtime = plugin as unknown as { openBrokenLink(result: unknown): Promise<void> };
   const open = (rawText: string, line: number | null, column: number | null, property: string | null = null) =>
-    runtime.openBrokenLink({ sourcePath: file.path, rawText, location: { line, column, property, canvasNodeId: null } });
+    runtime.openBrokenLink({ sourcePath: file.path, targetText: "Missing", rawText, location: { line, column, property, canvasNodeId: null } });
   return { open, plugin, view, setCursor, getValue, leaf, getFileByPath };
 }
 
@@ -149,6 +149,17 @@ describe("diagnostic preview and navigation regressions", () => {
     pending[1]!(); await last;
     expect(leaf.openFile.mock.calls.map(([file]) => file.path)).toEqual(["A.md", "C.md"]);
     expect(view.file).toBe(files[2]);
+  });
+
+  it("only moves the cursor while a reference definition still points at the reported target", async () => {
+    let target = "Missing";
+    const h = markdownNavigation(() => `[see][ref]\n\n[ref]: ${target}`);
+    await h.open("[see][ref]", 0, 0);
+    expect(h.setCursor).toHaveBeenCalledOnce();
+    target = "Fixed";
+    await h.open("[see][ref]", 0, 0);
+    expect(h.leaf.openFile).toHaveBeenCalledTimes(2);
+    expect(h.setCursor).toHaveBeenCalledOnce();
   });
 
   it("drops a source position when the editor changes during verification", async () => {

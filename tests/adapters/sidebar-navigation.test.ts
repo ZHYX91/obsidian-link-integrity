@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { findCurrentMarkdownResultPosition as locate } from "../../src/adapters/obsidian/sidebar-navigation";
 
-const result = (rawText: string, line: number | null, column: number | null, property: string | null = null) =>
-  ({ rawText, location: { line, column, property, canvasNodeId: null } });
+const result = (rawText: string, line: number | null, column: number | null, property: string | null = null, targetText = "Missing") =>
+  ({ rawText, targetText, location: { line, column, property, canvasNodeId: null } });
 
 describe("sidebar source navigation", () => {
   it.each(["\n", "\r\n", "\r"])("proves the current token and preserves UTF-16 coordinates with %j", async (eol) => {
@@ -27,6 +27,20 @@ describe("sidebar source navigation", () => {
       expect(await locate(`${raw}\n\n[ref]: Missing`, result(raw, 0, 0))).toEqual({ line: 0, ch: 0 });
       expect(await locate(`${raw}\n\n` + "```\n[ref]: Missing\n```", result(raw, 0, 0))).toBeNull();
     });
+  it("verifies the active first definition against the indexed target, including its fragment", async () => {
+    const raw = "[see][ref]";
+    const resultAt = result(raw, 0, 0, null, "A & B.md#Topic");
+    const locateWith = (defs: string) => locate(raw + "\n\n" + defs, resultAt);
+    const original = '[ref]:\n  <A%20&amp;%20B.md#Topic> "caption"';
+    expect(await locateWith(original + "\n[ref]: Wrong")).toEqual({ line: 0, ch: 0 });
+    for (const target of ["Fixed.md#Topic", "A%20&amp;%20B.md#Other", "https://example.com"]) {
+      expect(await locateWith("[ref]: " + target + "\n" + original)).toBeNull();
+    }
+    const encoded = result(raw, 0, 0, null, "literal%20.md");
+    expect(await locate(raw + "\n\n[ref]: literal%2520.md", encoded)).toEqual({ line: 0, ch: 0 });
+    expect(await locate(raw + "\n\n[ref]: literal%20.md", encoded)).toBeNull();
+  });
+
   it("retains native inline links whose label contains formatting", async () => {
     const raw = "[text with `sample` and **bold**](Missing)";
     expect(await locate(raw, result(raw, 0, 0))).toEqual({ line: 0, ch: 0 });
