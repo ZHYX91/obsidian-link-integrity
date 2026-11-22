@@ -247,6 +247,8 @@ export const ZH_CN_MESSAGES = {
   "settings.expected.validation.patternLength": "命名模式最多只能有 {max} 个字符。",
   "settings.expected.validation.date": "日期格式有误。可使用 YYYY、MM、DD、WW、Q、GGGG；普通文字请放在方括号中。",
   "settings.expected.validation.regex": "正则表达式有误。仅支持 i/u 标志，不支持前后查找和反向引用。",
+  "settings.expected.validation.fileTypes": "这条规则包含无法识别的文件类型。请先核对已选类型，再移除不支持的类型。",
+  "settings.expected.removeUnsupportedTypes": "移除不支持的文件类型",
   "settings.expected.validation.folder": "请输入有效的 Vault 文件夹路径。",
   "settings.expected.validation.generic": "部分规则条件无效，请检查上方输入。",
   "settings.expected.periodFolder": "文件夹",

@@ -252,6 +252,8 @@ export const PT_BR_MESSAGES = localizedCatalog({
   "settings.expected.validation.patternLength": "O padrão de nome deve ter no máximo {max} caracteres.",
   "settings.expected.validation.date": "Confira o formato de data. Use YYYY, MM, DD, WW, Q ou GGGG; coloque texto literal entre colchetes.",
   "settings.expected.validation.regex": "Confira a expressão regular. Apenas as opções i/u são aceitas; pesquisas de contexto e retroreferências não são suportadas.",
+  "settings.expected.validation.fileTypes": "Alguns tipos de arquivo salvos não são compatíveis. Confira a seleção antes de removê-los.",
+  "settings.expected.removeUnsupportedTypes": "Remover tipos de arquivo incompatíveis",
   "settings.expected.validation.folder": "Informe um caminho de pasta válido no Vault.",
   "settings.expected.validation.generic": "Uma ou mais condições da regra são inválidas. Revise os campos acima.",
   "settings.expected.periodFolder": "Pasta",

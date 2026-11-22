@@ -12,6 +12,7 @@ import {
   validateExpectedIsolationRule,
   type ExpectedIsolationRule,
 } from "../../src/core/expected-isolation-rules";
+import { loadSettings, cloneSettings } from "../../src/shared/settings";
 import * as model from "../../src/core/model";
 
 const { createFileRecord } = model;
@@ -126,6 +127,53 @@ describe("expected-isolated rules", () => {
     expect(rule?.namingPatterns[0]?.pattern).toBe(overlong);
     expect(validateExpectedIsolationRule(rule!)).toContain("regex pattern > 512 chars.");
     expect(matchesExpectedIsolationRule(createFileRecord("anything.md"), rule!)).toBe(false);
+  });
+
+  it.each([
+    { fileTypeFamilyIds: "png" }, { fileTypeFamilyIds: ["unknown-type"] },
+    { fileTypeCategoryIds: [false] }, { fileExtensions: null },
+    { fileType: { familyIds: ["png", "unknown-type"] } }, { fileType: "png" },
+  ])("pauses an unrecognized type condition through load, save and reopen: %j", (type) => {
+    const data = { schemaVersion: 4, isolatedFiles: { expectedRules: [{
+      id: "archive", name: "Archive", enabled: true, folder: { path: "Archive", mode: "recursive" }, ...type,
+    }] } };
+    const first = loadSettings(data).settings;
+    const reopened = loadSettings(JSON.parse(JSON.stringify(cloneSettings(first)))).settings;
+    for (const settings of [first, reopened]) {
+      const rule = settings.isolatedFiles.expectedRules[0]!;
+      expect(rule.enabled).toBe(false);
+      expect(rule.unrecognizedFileTypes).toBeDefined();
+      expect(validateExpectedIsolationRule(rule)).toContain("Unrecognized file type conditions.");
+      expect(matchesExpectedIsolationRule(createFileRecord("Archive/Report.md"), { ...rule, enabled: true })).toBe(false);
+    }
+    expect(reopened.isolatedFiles.expectedRules).toEqual(first.isolatedFiles.expectedRules);
+  });
+
+  it.each([
+    { flags: "u", caseSensitive: false, matchLowercase: false },
+    { flags: "iu", caseSensitive: true, matchLowercase: true },
+    { caseSensitive: true, matchLowercase: false }, { caseSensitive: false, matchLowercase: true },
+  ])("retains glob case matching across repeated normalization: %j", ({ matchLowercase, ...options }) => {
+    const [rule] = normalizeExpectedIsolationRules([{
+      id: "special", name: "Special", namingPatterns: [{ kind: "glob", pattern: "Special-*", ...options }],
+    }]);
+    const [loaded] = normalizeExpectedIsolationRules(JSON.parse(JSON.stringify([rule])));
+    expect(matchesExpectedIsolationRule(createFileRecord("Special-note.md"), loaded!)).toBe(true);
+    expect(matchesExpectedIsolationRule(createFileRecord("special-note.md"), loaded!)).toBe(matchLowercase);
+  });
+
+  it.each(["../Notes", null, { path: "Notes" }])("pauses a saved invalid periodic folder: %j", (folder) => {
+    const initial = loadSettings({ schemaVersion: 4, isolatedFiles: { periodicNotesPreset: {
+      enabled: true, entries: { daily: { folder, enabled: true } },
+    } } }).settings;
+    const reopened = loadSettings(JSON.parse(JSON.stringify(cloneSettings(initial)))).settings;
+    for (const settings of [initial, reopened]) {
+      const preset = settings.isolatedFiles.periodicNotesPreset;
+      expect(preset.entries.daily).toMatchObject({ enabled: false, invalidFolder: folder });
+      expect(matchExpectedIsolationRules(createFileRecord("Elsewhere/2026-11-22.md"),
+        createPeriodicExpectedIsolationRules(preset)).expected).toBe(false);
+      expect(preset.entries.weekly.enabled).toBe(true);
+    }
   });
 
   it("matches formerly catastrophic constructs without backtracking", () => {

@@ -10,6 +10,7 @@ function formatExpectedRuleError(message: string, t: Translator["t"]): string {
   if (message === "Rule name required." || message === "Rule name > 120 chars.") {
     return t("settings.expected.validation.name");
   }
+  if (message === "Unrecognized file type conditions.") return t("settings.expected.validation.fileTypes");
   if (message === "Rule needs a condition.") return t("settings.expected.validation.condition");
   if (message === "Invalid pattern ID." || message.startsWith("Duplicate pattern ID:") ||
       message === "Pattern required." || message === "Glob pattern cannot be empty.") {

@@ -246,6 +246,8 @@ export const VI_MESSAGES = localizedCatalog({
   "settings.expected.validation.patternLength": "Mẫu tên không được dài quá {max} ký tự.",
   "settings.expected.validation.date": "Kiểm tra định dạng ngày. Dùng YYYY, MM, DD, WW, Q hoặc GGGG; đặt văn bản cố định trong ngoặc vuông.",
   "settings.expected.validation.regex": "Kiểm tra biểu thức chính quy. Chỉ hỗ trợ cờ i/u, không hỗ trợ tìm trước/sau hay tham chiếu ngược.",
+  "settings.expected.validation.fileTypes": "Một số loại tệp đã lưu không được hỗ trợ. Hãy kiểm tra các loại đã chọn trước khi xóa các loại không được hỗ trợ.",
+  "settings.expected.removeUnsupportedTypes": "Xóa loại tệp không được hỗ trợ",
   "settings.expected.validation.folder": "Nhập đường dẫn thư mục Vault hợp lệ.",
   "settings.expected.validation.generic": "Một số điều kiện của quy tắc không hợp lệ. Hãy kiểm tra các trường bên trên.",
   "settings.expected.periodFolder": "Thư mục",

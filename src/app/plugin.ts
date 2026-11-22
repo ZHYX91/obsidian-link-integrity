@@ -23,6 +23,7 @@ import { ObsidianLinkIndexPort } from "../adapters/obsidian";
 import {
   ALLOW_ALL_GRAPH_CONTRIBUTION_POLICY,
   expectedRuleStatsSteps,
+  MAX_EXPECTED_RULE_NAME_LENGTH,
   LinkIndex,
   type ExpectedIsolationRule,
   type ExpectedRuleStats,
@@ -819,9 +820,12 @@ export default class LinkIntegrityPlugin extends Plugin {
     if (existing?.enabled === true) return;
     const translator = createTranslator(this.settings.general.locale, getLanguage());
     const suffix = document.defaultView?.crypto.randomUUID?.() ?? Date.now().toString(36);
+    const fullLabel = translator.t("sidebar.isolated.expectedFolderRuleName", { path });
+    const name = fullLabel.length <= MAX_EXPECTED_RULE_NAME_LENGTH ? fullLabel :
+      `…${fullLabel.slice(1 - MAX_EXPECTED_RULE_NAME_LENGTH).replace(/^[\uDC00-\uDFFF]/u, "")}`;
     const rule: ExpectedIsolationRule = existing === null ? {
       id: `expected-folder:${suffix}`,
-      name: translator.t("sidebar.isolated.expectedFolderRuleName", { path }),
+      name,
       enabled: true,
       fileTypeFamilyIds: [],
       fileTypeCategoryIds: [],
@@ -841,7 +845,9 @@ export default class LinkIntegrityPlugin extends Plugin {
       },
     }, "query-only");
 
-    const receipt = JSON.stringify(this.settings.isolatedFiles.expectedRules.find(({ id }) => id === rule.id));
+    const applied = this.settings.isolatedFiles.expectedRules.find(({ id }) => id === rule.id);
+    if (applied?.enabled !== true) return;
+    const receipt = JSON.stringify(applied);
     const fragment = document.createDocumentFragment();
     const message = document.createElement("span");
     message.textContent = translator.t("sidebar.isolated.markedExpectedFolder", {

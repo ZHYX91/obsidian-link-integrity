@@ -252,6 +252,8 @@ export const FR_MESSAGES = localizedCatalog({
   "settings.expected.validation.patternLength": "Le motif de nom doit contenir au plus {max} caractères.",
   "settings.expected.validation.date": "Vérifiez le format de date. Utilisez YYYY, MM, DD, WW, Q ou GGGG ; encadrez le texte littéral de crochets.",
   "settings.expected.validation.regex": "Vérifiez l’expression régulière. Seuls les indicateurs i/u sont admis ; les assertions et références arrière ne sont pas prises en charge.",
+  "settings.expected.validation.fileTypes": "Certains types de fichiers enregistrés ne sont pas pris en charge. Vérifiez les types sélectionnés avant de retirer ceux qui ne sont pas pris en charge.",
+  "settings.expected.removeUnsupportedTypes": "Retirer les types de fichiers non pris en charge",
   "settings.expected.validation.folder": "Saisissez un chemin de dossier Vault valide.",
   "settings.expected.validation.generic": "Certaines conditions de la règle sont invalides. Vérifiez les champs ci-dessus.",
   "settings.expected.periodFolder": "Dossier",

@@ -291,6 +291,8 @@ export const AR_MESSAGES = {
   "settings.expected.validation.patternLength": "يجب ألا يتجاوز نمط الاسم {max} حرفًا.",
   "settings.expected.validation.date": "تحقق من تنسيق التاريخ. استخدم YYYY أو MM أو DD أو WW أو Q أو GGGG، وضع النص الثابت بين معقوفين.",
   "settings.expected.validation.regex": "تحقق من التعبير النمطي. يُسمح بعلامتي i/u فقط؛ ولا تُدعم عمليات النظر للأمام أو الخلف ولا المراجع الخلفية.",
+  "settings.expected.validation.fileTypes": "تتضمن القاعدة أنواع ملفات غير مدعومة. راجع الأنواع المحددة قبل إزالة الأنواع غير المدعومة.",
+  "settings.expected.removeUnsupportedTypes": "إزالة أنواع الملفات غير المدعومة",
   "settings.expected.validation.folder": "أدخل مسار مجلد صالحًا داخل Vault.",
   "settings.expected.validation.generic": "شرط واحد أو أكثر من شروط القاعدة غير صالح. راجع الحقول أعلاه.",
   "settings.expected.periodFolder": "المجلد",
