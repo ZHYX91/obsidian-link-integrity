@@ -492,6 +492,51 @@ describe("plugin index lifecycle", () => {
     expect(runtime.initialMetadataState).toBe("dormant");
   });
 
+  it("reconciles descendants when only their parent folder event is delivered", async () => {
+    vi.useFakeTimers();
+    const vaultEvents = new TestEvents();
+    const metadataEvents = new TestEvents();
+    const names = (folder: string) => [folder + "/one.md", folder + "/nested/two.md", "Sameish/keep.md"];
+    let files = names("Same").map((path) => createMockFile(path, 1));
+    const app = {
+      vault: { on: vaultEvents.on, getFiles: () => files,
+        getFileByPath: (path: string) => files.find((file) => file.path === path) ?? null,
+        cachedRead: async () => "" },
+      metadataCache: { on: metadataEvents.on, offref: metadataEvents.offref,
+        getFileCache: () => ({}), getFirstLinkpathDest: () => null },
+      workspace: { onLayoutReady: () => undefined, getLeavesOfType: () => [] },
+    };
+    const plugin = new LinkIntegrityPlugin(app as never, {} as never);
+    Object.assign(plugin, { app });
+    vi.spyOn(plugin, "loadData").mockResolvedValue(createDefaultSettings());
+    await plugin.onload();
+    const runtime = plugin as unknown as PluginRuntimeInspection;
+    const drain = async () => {
+      await vi.advanceTimersByTimeAsync(150);
+      await runtime.coordinator.whenIdle();
+      expect(runtime.coordinator.index.files.map(({ path }) => path).sort()).toEqual(files.map(({ path }) => path).sort());
+    };
+    try {
+      const initial = plugin.ensureIndex();
+      metadataEvents.emit("resolved");
+      await initial;
+      expect(runtime.coordinator.index.files).toHaveLength(3);
+      files = names("Moved").map((path) => createMockFile(path, 1));
+      vaultEvents.emit("rename", createMockFolder("Moved"), "Same");
+      await drain();
+      files = files.slice(-1);
+      vaultEvents.emit("delete", createMockFolder("Moved"));
+      await drain();
+      files = names("Restored").map((path) => createMockFile(path, 1));
+      const restored = createMockFolder("Restored");
+      Object.assign(restored, { children: [files[0]] });
+      vaultEvents.emit("create", restored);
+      await drain();
+    } finally {
+      plugin.onunload();
+    }
+  });
+
   it("absorbs pre-scan Vault events into the startup baseline without replaying them", async () => {
     vi.useFakeTimers();
     const fileA = createMockFile("A.md", 1);
