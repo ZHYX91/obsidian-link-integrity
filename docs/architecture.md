@@ -102,7 +102,7 @@ Consistency protection includes:
 
 - lifecycle epoch: results from an old lifecycle cannot publish after stop or restart;
 - operation generation and cancellation signal: an old rebuild cannot clean up a new controller, claim more sources, or publish completion diagnostics;
-- path revision: every affected source has a monotonic revision, so an older asynchronous snapshot cannot overwrite a newer revision;
+- batch ownership: one drain owns the current staging index. Before publication it checks queued events against the affected sources, targets and lookup keys, then retries conflicting work without retaining old paths;
 - bounded quiet-window coalescing: duplicate Vault and Metadata Cache callbacks for one path trigger one build without allowing a continuous stream to postpone updates indefinitely;
 - lookup and target reverse indexes: namespace or target-metadata changes revalidate the direct source, sources currently resolved to the target, and sources that may retarget through a lookup key.
 

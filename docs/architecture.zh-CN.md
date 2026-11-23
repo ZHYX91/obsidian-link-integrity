@@ -101,7 +101,7 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 - lifecycle epoch：停止或重启后，旧生命周期结果不能发布；
 - operation generation 与取消信号：旧重建不能清理新控制器、领取更多来源或发布完成诊断；
-- path revision：每个受影响来源具有单调 revision，旧异步快照不能覆盖新 revision；
+- 批次归属：同一时间只有一个批次维护暂存索引。发布前检查新到事件是否涉及本批的来源、目标或查找键，有冲突就重算，无需长期保留旧路径；
 - 有界安静窗 coalescing：同一路径重复出现的 Vault 与 Metadata Cache 回调只触发一次构建，同时连续事件流也不能无限推迟更新；
 - lookup 和 target 反向索引：命名空间或目标元数据变化时，同时重验证直接来源、解析到该目标的来源以及可能按 lookup key 重新定向的来源。
 

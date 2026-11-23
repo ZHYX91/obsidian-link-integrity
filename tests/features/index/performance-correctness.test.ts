@@ -129,6 +129,28 @@ describe("scheduled incremental publication", () => {
     expect(f.store.current.getSourceSnapshot("A.md")?.occurrences[0]).toEqual(moved);
   });
 
+  it("retries a large Vault event burst when an affected file changes during staging", async () => {
+    const f = fixture();
+    const event = { type: "modify", path: "A.md" } as const;
+    const burstSize = 150_000;
+    const completed: number[] = [];
+    let injectEdit = true;
+    const controller = new IncrementalIndexController(f.port, f.store, {
+      yieldEvery: 1,
+      yieldControl: async () => {
+        if (!injectEdit) return;
+        injectEdit = false;
+        controller.enqueue(event);
+      },
+      onBatchComplete: ({ eventCount }) => completed.push(eventCount),
+    });
+    controller.start();
+    for (let index = 0; index < burstSize; index += 1) controller.enqueue(event);
+    await controller.whenIdle();
+    expect(completed).toEqual([burstSize + 1]);
+    expect(controller.pendingEventCount).toBe(0);
+  });
+
   it("does not publish after stop during a slice", async () => {
     const f = fixture();
     const controller = new IncrementalIndexController(f.port, f.store, {
