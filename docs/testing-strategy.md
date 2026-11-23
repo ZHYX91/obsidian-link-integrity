@@ -23,6 +23,8 @@ Select representative acceptance on the exact candidate by change impact. Deskto
 
 Run `npm test -- --project node` for core logic, feature controllers and repository scripts. Use `npm test -- --project host` for tests using the Obsidian adapter fixtures, and `npm test -- --project chromium` for the layout checks that launch Chrome or Chromium. To run everything, use `npm test`. The regular coverage gate runs all three projects together.
 
+The benchmark commands run their files one at a time so timing measurements do not compete with other benchmark workers. Each scanner case runs a single worker with its own five-second watchdog. The test runner allows additional time to start and stop the worker.
+
 ## Core semantic tests
 
 Pure fixtures should cover:

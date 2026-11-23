@@ -48,7 +48,9 @@ describe("linear body syntax semantics", () => {
   });
 });
 
-describe("bounded body scanner worker regression", () => {
+const workerTimeoutMs = 5_000;
+// The runner also waits for worker creation and termination outside the watchdog.
+describe("bounded body scanner worker regression", { timeout: workerTimeoutMs + 2_000 }, () => {
   let workerSource = "";
   beforeAll(async () => {
     const bundle = await build({ entryPoints: [path.resolve(import.meta.dirname, "../../src/adapters/obsidian/body-link-syntax.ts")],
@@ -64,16 +66,17 @@ describe("bounded body scanner worker regression", () => {
       });`;
   });
   const shapes = ["x", "7", ".", "+", "-", "!", ":", "中", "[", "\\[", "[x](", "x7.+-"];
-  it.each(shapes)("finishes long %s input in a separately terminable worker", async (shape) => {
-    for (const size of [100_000, 200_000]) {
-      const source = shape.repeat(Math.ceil(size / shape.length)).slice(0, size);
-      const result = await boundedScan(workerSource, source);
-      expect(result.error).toBeUndefined(); expect(result.rangeCount).toBeLessThanOrEqual(3);
-    }
+  const cases = shapes.flatMap((shape) => [100_000, 200_000].map((size) => ({ shape, size })));
+  it.each(cases)("finishes $size characters of $shape in a separately terminable worker", async ({ shape, size }) => {
+    const source = shape.repeat(Math.ceil(size / shape.length)).slice(0, size);
+    const result = await boundedScan(workerSource, source);
+    expect(result.error).toBeUndefined(); expect(result.rangeCount).toBeLessThanOrEqual(3);
   });
-  it.each(["a@", "x"])("bounds delimiter failure for %s and a large mixed plain body", async (prefix) => {
+  it.each(["a@", "x"])("bounds delimiter failure for %s", async (prefix) => {
     const source = prefix === "a@" ? prefix + ".".repeat(200_000) : "x".repeat(200_000) + ":";
     expect((await boundedScan(workerSource, source)).rangeCount).toBe(0);
+  });
+  it("bounds a large mixed plain body", async () => {
     expect((await boundedScan(workerSource, "x7.+-".repeat(400_000))).rangeCount).toBe(0);
   });
   it("bounds the two-million-letter source without truncating or hiding ordinary text", async () => {
@@ -86,7 +89,7 @@ async function boundedScan(source: string, input: string): Promise<{ rangeCount?
   try {
     return await new Promise((resolve, reject) => {
       // A worker watchdog bounds a regression failure; this is not a host latency guarantee.
-      const timer = setTimeout(() => { reject(new Error("Body scanner worker exceeded its five-second regression watchdog.")); }, 5_000);
+      const timer = setTimeout(() => { reject(new Error("Body scanner worker exceeded its five-second regression watchdog.")); }, workerTimeoutMs);
       worker.once("message", (value: { rangeCount?: number; error?: string }) => { clearTimeout(timer); resolve(value); });
       worker.once("error", (error) => { clearTimeout(timer); reject(error); }); worker.postMessage(input);
     });

@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     include: ["benchmarks/**/*.test.ts"],
+    fileParallelism: false,
     testTimeout: 120_000,
   },
 }));

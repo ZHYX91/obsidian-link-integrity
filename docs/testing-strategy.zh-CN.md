@@ -22,6 +22,8 @@ Link Integrity 的测试策略优先证明诊断正确性和索引一致性，�
 
 运行 `npm test -- --project node` 检查核心逻辑、功能控制器和仓库脚本。用 `npm test -- --project host` 运行使用模拟 Obsidian 环境的测试，用 `npm test -- --project chromium` 运行会启动 Chrome 或 Chromium 的布局测试。运行全部测试用 `npm test`。常规覆盖率检查会一起运行这三组。
 
+基准测试命令逐个运行测试文件，避免多个基准任务同时计时。每个扫描器用例单独启动一个工作线程，仍由五秒看门狗计时；测试框架额外预留启动和回收线程的时间。
+
 ## 核心语义测试
 
 纯测试 fixture 应覆盖：
