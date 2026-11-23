@@ -64,8 +64,8 @@ describe("body runtime composition", () => {
       runtime.close();
     }
   });
-  it("lists proven diagnostics while Off and navigates without changing source text", async () => {
-    const test = bodySetup(); const runtime = new BodyLinkRuntime(test.app, () => test.index, async () => {}, () => test.settings, () => true, vi.fn());
+  it.each(["Source.md", "Source.MD", "Source.Md"])("lists proven diagnostics in %s while Off and navigates without changing source text", async (path) => {
+    const test = bodySetup("[[Missing|Label]]", path); const runtime = new BodyLinkRuntime(test.app, () => test.index, async () => {}, () => test.settings, () => true, vi.fn());
     const selection = vi.fn(); const editor = { getValue: () => test.text, offsetToPos: (offset: number) => ({ line: 0, ch: offset }), setSelection: selection, scrollIntoView: vi.fn(), focus: vi.fn() } as unknown as Editor;
     await runtime.current(editor, { file: test.files.get(test.path) } as MarkdownFileInfo);
     document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!.click(); expect(selection).toHaveBeenCalledWith({ line: 0, ch: 0 }, { line: 0, ch: test.text.length });

@@ -61,7 +61,7 @@ describe("plugin index lifecycle", () => {
   it("refreshes registered command names without replacing callbacks or registering again", async () => {
     vi.useFakeTimers();
     const view = new MarkdownView(null as never);
-    Object.assign(view, { file: createMockFile("Current.md", 1), getMode: () => "source" });
+    Object.assign(view, { file: createMockFile("Current.MD", 1), getMode: () => "source" });
     let activeView: MarkdownView | null = view;
     const app = {
       vault: { getFiles: () => [], getFileByPath: () => null, on: () => ({}) },

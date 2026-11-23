@@ -188,6 +188,11 @@ export function classifyFileExtension(pathOrExtension: string): FileExtensionCla
 }
 
 /** File names without a suffix have no extension, including in the Vault root. */
+/** The host preserves the spelling of the extension on TFile. */
+export function isMarkdownExtension(extension: string | undefined): extension is "md" | "Md" | "mD" | "MD" {
+  return extension?.toLowerCase() === "md";
+}
+
 export function extensionFromPath(path: string): string {
   const basename = path.trim().split(/[\\/]/u).at(-1) ?? "";
   const dot = basename.lastIndexOf(".");

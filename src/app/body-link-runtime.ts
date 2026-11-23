@@ -1,3 +1,4 @@
+import { isMarkdownExtension } from "../core/file-types";
 import { getLanguage, MarkdownView, type App, type CachedMetadata, type Command, type Editor, type MarkdownFileInfo, type Plugin } from "obsidian";
 import { normalizedBodyText } from "../adapters/obsidian/body-link-port";
 import type { LinkIndex } from "../core";
@@ -46,7 +47,7 @@ export class BodyLinkRuntime {
     this.diagnosticCommand = plugin.addCommand({ id: "broken-links-current-note", name: this.translator().t("body.command"),
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (this.closed || view?.file?.extension !== "md") return false;
+        if (this.closed || !isMarkdownExtension(view?.file?.extension)) return false;
         if (!checking) void (view.getMode() === "preview" ? this.preview(view) : this.current(view.editor, view)).catch(this.report);
         return true;
       },
@@ -60,7 +61,7 @@ export class BodyLinkRuntime {
     if (!this.proofActivated && !this.settings().brokenLinks.bodyHints) { this.invalidate(); return; }
     if (metadata && path === null) this.metadataPending.clear();
     if (path !== null) {
-      if (metadata || this.app.vault.getFileByPath(path)?.extension !== "md") this.metadataPending.delete(path);
+      if (metadata || !isMarkdownExtension(this.app.vault.getFileByPath(path)?.extension)) this.metadataPending.delete(path);
       else this.metadataPending.set(path, this.app.metadataCache.getFileCache(this.app.vault.getFileByPath(path)!));
     }
     this.invalidate();
@@ -95,7 +96,7 @@ export class BodyLinkRuntime {
     return this.service.source(path, text, signal);
   }
   public async preview(view: MarkdownView): Promise<void> {
-    if (this.closed || view.file?.extension !== "md") return;
+    if (this.closed || !isMarkdownExtension(view.file?.extension)) return;
     this.proofActivated = true;
     const file = view.file;
     const path = file.path;
@@ -126,7 +127,7 @@ export class BodyLinkRuntime {
     this.dialogs.add(close);
   }
   public async current(editor: Editor, info: MarkdownFileInfo): Promise<void> {
-    if (this.closed || info.file?.extension !== "md") return;
+    if (this.closed || !isMarkdownExtension(info.file?.extension)) return;
     this.proofActivated = true;
     const file = info.file;
     const path = file.path; const text = editor.getValue();
