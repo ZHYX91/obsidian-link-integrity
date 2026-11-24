@@ -35,8 +35,6 @@ describe("imperative settings tab reveal", () => {
     });
     const cancelAnimationFrame = vi.spyOn(window, "cancelAnimationFrame");
     const container = document.createElement("div");
-    container.lang = hostLocale;
-    container.dir = "auto";
     document.body.append(container);
     const cleanup = renderImperativeSettings(
       container,
@@ -54,8 +52,6 @@ describe("imperative settings tab reveal", () => {
     for (const tab of container.querySelectorAll('[role="tab"]')) {
       expect(document.getElementById(tab.getAttribute("aria-controls")!)).toBe(container.querySelector('[role="tabpanel"]'));
     }
-    expect(container.lang).toBe(locale === "auto" ? hostLocale : locale);
-    expect(container.dir).toBe(initialScrollLeft < 0 ? "rtl" : "ltr");
     expect(tabList).not.toBeNull();
     expect(activeTab).not.toBeNull();
     if (tabList === null || activeTab === null) throw new Error("Settings tabs were not rendered.");
@@ -72,8 +68,6 @@ describe("imperative settings tab reveal", () => {
     expect(document.activeElement).toBe(activeTab);
     expect(tabList.scrollLeft).toBe(initialScrollLeft);
     cleanup();
-    expect(container.lang).toBe(hostLocale);
-    expect(container.dir).toBe("auto");
     expect(cancelAnimationFrame).toHaveBeenCalledWith(47);
     container.remove();
   });
@@ -154,6 +148,22 @@ describe("imperative settings tab reveal", () => {
     expect(onSelectTab).toHaveBeenCalledOnce();
     expect(onSelectTab).toHaveBeenCalledWith("isolated-files", true);
     cleanup();
+  });
+
+  it("restores the host language and direction when the translated settings page closes", () => {
+    const container = document.createElement("div");
+    container.lang = "en";
+    container.dir = "auto";
+    const cleanup = renderImperativeSettings(container, context("ar", "en"), {
+      activeTab: "general",
+      onSelectTab: vi.fn(),
+    });
+
+    expect(container.lang).toBe("ar");
+    expect(container.dir).toBe("rtl");
+    cleanup();
+    expect(container.lang).toBe("en");
+    expect(container.dir).toBe("auto");
   });
 
   it("does not render an empty duplicate heading for an unlabelled section", () => {
