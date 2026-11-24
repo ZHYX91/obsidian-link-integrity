@@ -44,7 +44,6 @@ export interface SidebarRenderOptions {
   readonly onActionError?: (error: unknown) => void;
   readonly document?: Document;
   readonly mountElement?: HTMLElement;
-  readonly disclosures?: Map<string, boolean>;
   readonly rows?: Map<string, { readonly signature: string; readonly element: HTMLLIElement }>;
   readonly requestTabFocus?: (tabId: SidebarTabId) => void;
   readonly commitTabFocus?: () => void;
@@ -501,6 +500,7 @@ export function renderIsolatedResults(container: HTMLElement, options: SidebarRe
   expectedToggle.className = "link-integrity-advanced-toggle";
   const expectedCheckbox = container.ownerDocument.createElement("input");
   expectedCheckbox.type = "checkbox";
+  expectedCheckbox.dataset.focusKey = "show-expected";
   expectedCheckbox.checked = options.state.showExpectedIsolated;
   expectedCheckbox.addEventListener("change", () => options.onStateChange({
     ...options.state,
@@ -686,7 +686,7 @@ function createDisclosure(
 ): HTMLDetailsElement {
   const details = documentFor(options).createElement("details");
   details.dataset.disclosureKey = key;
-  details.open = options.disclosures?.get(key) ?? defaultOpen;
+  details.open = defaultOpen;
   return details;
 }
 

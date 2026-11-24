@@ -27,6 +27,8 @@ interface SidebarFocusMeasurements {
   readonly replaced: boolean;
   readonly updatedLocation: boolean;
   readonly toolbarFocus: readonly boolean[];
+  readonly filterFocus: readonly boolean[];
+  readonly categoryStaysOpen: boolean;
 }
 
 interface LayoutMeasurements {
@@ -213,6 +215,8 @@ describe("Obsidian host CSS layout contract", () => {
   it("keeps focus on sidebar view, grouping, sort and mode controls in each window", () => {
     for (const result of Object.values(measurements.sidebarFocus)) {
       expect(result.toolbarFocus).toEqual([true, true, true, true, true, true, true]);
+      expect(result.filterFocus).toEqual([true, true, true, true]);
+      expect(result.categoryStaysOpen).toBe(true);
     }
   });
 
@@ -336,7 +340,7 @@ function measureFocus(document) {
     return {
       model: createSidebarViewModel(snapshot, currentState), state: currentState, translator,
       navigation: { openBrokenLink() {}, openFile() {}, rebuildIndex() {} },
-      fileTypeCategories: [], defaultFormatFamilyIds: new Set(["markdown"]),
+      fileTypeCategories: [{ id: "notes", label: "Notes", formats: [{ id: "markdown", label: "Markdown", extensions: ["md"] }] }], defaultFormatFamilyIds: new Set(["markdown"]),
       allowNoIncomingFilter: true, onStateChange(next) { currentState = next; mount.update(options(line)); },
     };
   };
@@ -351,11 +355,11 @@ function measureFocus(document) {
   const result = {
     focusedBefore, mainRealmElement, ownerRealmElement,
     focusedAfter: document.activeElement === newButton,
-    toolbarFocus: [],
+    toolbarFocus: [], filterFocus: [],
     replaced: newButton !== oldButton,
     updatedLocation: container.textContent.includes("L43"),
   };
-  function interact(selector, value) {
+  function interact(selector, value, focus = result.toolbarFocus) {
     const control = container.querySelector(selector);
     control.focus();
     if (value === undefined) control.click();
@@ -363,7 +367,7 @@ function measureFocus(document) {
       control.value = value;
       control.dispatchEvent(new document.defaultView.Event("change", { bubbles: true }));
     }
-    result.toolbarFocus.push(document.activeElement === container.querySelector(selector));
+    focus.push(document.activeElement === container.querySelector(selector));
   }
   interact(".link-integrity-grouping-control > button");
   interact(".link-integrity-grouping-choice select", "source");
@@ -373,6 +377,14 @@ function measureFocus(document) {
   interact(".link-integrity-toolbar-view-toggle > button:last-child");
   interact(".link-integrity-toolbar > select", "no-incoming");
   interact(".link-integrity-toolbar-view-toggle > button:first-child");
+  interact(".link-integrity-advanced-toggle input", undefined, result.filterFocus);
+  container.querySelector(".link-integrity-temporary-filter").open = true;
+  const category = ".link-integrity-file-type-category";
+  container.querySelector(category).open = true;
+  interact(category + " .link-integrity-file-format input", undefined, result.filterFocus);
+  result.categoryStaysOpen = container.querySelector(category).open;
+  interact(category + " summary input", undefined, result.filterFocus);
+  interact(".link-integrity-file-types-actions button:nth-child(2)", undefined, result.filterFocus);
   mount.dispose();
   container.remove();
   return result;

@@ -65,7 +65,6 @@ export function mountSidebar(
     onActionError: (error) => current.onActionError?.(error),
     document: container.ownerDocument,
     mountElement: container,
-    disclosures,
     rows,
     requestTabFocus: (tabId) => {
       pendingTabFocus = { tabId, anchor: container.ownerDocument.activeElement };
@@ -133,10 +132,6 @@ export function mountSidebar(
     }
     const idle = options.model.status.state === "idle";
     toolbar.hidden = idle;
-    for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
-      const key = details.dataset.disclosureKey;
-      if (key !== undefined) disclosures.set(key, details.open);
-    }
     const nextResultsKey = JSON.stringify([
       options.translator.locale, options.model.activeTab, options.model.search,
       options.model.status.state, options.allowNoIncomingFilter,
@@ -146,6 +141,10 @@ export function mountSidebar(
     ]);
     if (resultsKey === nextResultsKey) return;
     resultsKey = nextResultsKey;
+    for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
+      const key = details.dataset.disclosureKey;
+      if (key !== undefined) disclosures.set(key, details.open);
+    }
     const focusKey = captureFocusKey(results);
     results.replaceChildren();
     if (idle) {
@@ -156,6 +155,10 @@ export function mountSidebar(
       renderBrokenResults(results, options);
     } else {
       renderIsolatedResults(results, options);
+    }
+    for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
+      const open = disclosures.get(details.dataset.disclosureKey!);
+      if (open !== undefined) details.open = open;
     }
     restoreFocus(results, focusKey);
     for (const [key, row] of rows) if (!results.contains(row.element)) rows.delete(key);
