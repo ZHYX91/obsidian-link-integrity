@@ -447,11 +447,13 @@ function renderBrokenItem(
   button.type = "button";
   button.className = "link-integrity-result-main";
   button.dataset.focusKey = `${key}:main`;
-  button.setAttribute("aria-label", options.translator.t("sidebar.broken.openSource", {
-    path: item.sourcePath,
-  }));
+  const reason = formatBrokenReason(item.reason, options.translator);
+  const location = formatBrokenLocation(item);
+  const occurrence = [item.rawText, location].filter(Boolean).join(" · ");
+  const open = options.translator.t("sidebar.broken.openSource", { path: item.sourcePath });
+  button.setAttribute("aria-label", [open, occurrence, reason].join(" · "));
   button.title = item.sourcePath;
-  const metadata = formatBrokenMetadata(item);
+  const metadata = [parentPath(item.sourcePath), location].filter(Boolean).join(" · ");
   button.append(createText(document, "span", fileName(item.sourcePath), "link-integrity-result-path"));
   if (metadata.length > 0) {
     button.append(createText(document, "span", metadata, "link-integrity-result-context"));
@@ -461,7 +463,7 @@ function renderBrokenItem(
     createText(
       document,
       "span",
-      formatBrokenReason(item.reason, options.translator),
+      reason,
       "link-integrity-reason",
     ),
   );
@@ -469,7 +471,8 @@ function renderBrokenItem(
     () => options.navigation.openBrokenLink(item),
     options.onActionError,
   ));
-  const more = moreButton(document, options.translator.t("common.more"), (anchor) => runAction(
+  const moreLabel = [options.translator.t("common.more"), item.sourcePath, occurrence].join(" · ");
+  const more = moreButton(document, moreLabel, (anchor) => runAction(
     () => options.navigation.openBrokenLinkActions === undefined
       ? options.navigation.openBrokenLink(item)
       : options.navigation.openBrokenLinkActions(item, anchor),
@@ -734,7 +737,8 @@ function renderIsolatedItem(
     () => options.navigation.openFile(item.path),
     options.onActionError,
   ));
-  const more = moreButton(document, options.translator.t("common.more"), (anchor) => runAction(
+  const moreLabel = [options.translator.t("common.more"), item.path].join(" · ");
+  const more = moreButton(document, moreLabel, (anchor) => runAction(
     () => options.navigation.openIsolatedFileActions === undefined
       ? options.navigation.openFile(item.path)
       : options.navigation.openIsolatedFileActions(item, anchor),
@@ -812,13 +816,14 @@ function formatStatus(options: SidebarRenderOptions): string {
   return t("status.ready");
 }
 
-function formatBrokenMetadata(item: BrokenLinkResult): string {
+function formatBrokenLocation(item: BrokenLinkResult): string {
   const parts: string[] = [];
-  const folder = parentPath(item.sourcePath);
-  if (folder.length > 0) parts.push(folder);
   if (item.location.canvasNodeId !== null) parts.push(`Canvas · ${item.location.canvasNodeId}`);
   if (item.location.property !== null) parts.push(`YAML · ${item.location.property}`);
-  if (item.location.line !== null) parts.push(`L${item.location.line + 1}`);
+  if (item.location.line !== null) {
+    const column = item.location.column === null ? "" : `:${item.location.column + 1}`;
+    parts.push(`L${item.location.line + 1}${column}`);
+  }
   return parts.join(" · ");
 }
 

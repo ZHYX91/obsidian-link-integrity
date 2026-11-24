@@ -18,7 +18,7 @@ Link Integrity is a read-only diagnostic tool. The interface helps a user unders
 
 Desktop and mobile use the same product semantics. A narrow layout may rearrange controls, but it must not hide critical state or change the meaning of a count.
 
-Keyboard and screen readers use the setting name shown in each row. Switches have one tab stop and expose their current state.
+Keyboard and screen readers use the setting name shown in each row. Switches have one tab stop and expose their current state. Broken-link buttons announce the source, reference, location and reason. Row menus identify their reference or file.
 
 ## 2. Sidebar information architecture
 

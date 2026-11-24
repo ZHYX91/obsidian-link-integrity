@@ -12,6 +12,34 @@ import {
 } from "../../src/ui/sidebar";
 
 describe("sidebar renderer", () => {
+  it("distinguishes repeated broken references and their actions within the same line", () => {
+    const container = document.createElement("div");
+    const translator = createTranslator("en", "en");
+    const state = { ...viewState(), brokenView: "list" as const };
+    const links = [0, 12].map((column) => ({
+      id: String(column), sourcePath: "Notes/A.md", targetText: "Missing", resolvedTargetPath: null,
+      rawText: "[[Missing]]", context: "[[Missing]] [[Missing]]", reason: "missing-file" as const,
+      location: { line: 1, column, property: null, canvasNodeId: null },
+    }));
+    const nav = navigation();
+    const dispose = renderSidebar(container, {
+      model: createSidebarViewModel({ ...querySnapshot(), brokenLinks: links }, state), state,
+      translator, navigation: nav, fileTypeCategories: [], defaultFormatFamilyIds: new Set(),
+      allowNoIncomingFilter: false, onStateChange: vi.fn(),
+    });
+    for (const link of links) {
+      const occurrence = `Notes/A.md · [[Missing]] · L2:${link.location.column + 1}`;
+      const find = (label: string) => Array.from(container.querySelectorAll("button"))
+        .find((button) => button.getAttribute("aria-label") === label);
+      const name = find(`Open source ${occurrence} · Missing file`);
+      expect(name).toBeDefined();
+      name!.click();
+      expect(nav.openBrokenLink).toHaveBeenLastCalledWith(link);
+      expect(find(`More actions · ${occurrence}`)).toBeDefined();
+    }
+    dispose();
+  });
+
   it("links every tab to the panel owned by its own sidebar leaf", () => {
     const translator = createTranslator("en", "en");
     const state = viewState();
