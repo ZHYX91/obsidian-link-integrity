@@ -1031,9 +1031,19 @@
   font-weight: inherit;
   block-size: auto;
   min-block-size: 34px;
-  margin: 0 0 -1px !important;
+  margin: 0 !important;
   padding: 7px 12px !important;
   white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .link-integrity-settings-tabs {
+    --interactive-accent: Highlight;
+  }
+
+  .link-integrity-settings-tabs > button.link-integrity-settings-tab[aria-selected="false"] {
+    border-block-end-color: Canvas !important;
+  }
 }
 
 .link-integrity-settings-tabs > button.link-integrity-settings-tab:hover {
