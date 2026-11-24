@@ -113,14 +113,7 @@ export function renderImperativeSettings(
     }
   }
 
-  const activeButton = buttons[activeIndex];
-  const ownerWindow = container.ownerDocument.defaultView;
-  const reveal = (): void => {
-    if (activeButton === undefined) return;
-    revealHorizontalTab(activeButton, options.focusActiveTab === true);
-  };
-  const frame = ownerWindow?.requestAnimationFrame(reveal);
-  if (frame !== undefined) cleanups.push(() => ownerWindow?.cancelAnimationFrame(frame));
+  if (options.focusActiveTab) buttons[activeIndex]?.focus({ preventScroll: true });
 
   return () => {
     for (const cleanup of cleanups.reverse()) cleanup();

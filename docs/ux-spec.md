@@ -6,6 +6,8 @@ translation_status: synced
 
 # Link Integrity — UX specification
 
+See the [shared plugin interface](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/shared-ui.md) for cross-plugin interaction and visual conventions.
+
 ## 1. Interaction goals
 
 Link Integrity is a read-only diagnostic tool. The interface helps a user understand a problem and navigate to its source or target; it does not offer bulk deletion, automatic rewriting, or imply that a file is safe to remove. Counts and labels preserve these distinctions:

@@ -5,6 +5,8 @@ translation_status: source
 
 # Link Integrity — 交互规范
 
+跨插件的交互与外观约定见[插件共同界面规范](https://github.com/ZHYX91/obsidian-property-order/blob/main/docs/shared-ui.zh-CN.md)。
+
 ## 1. 交互目标
 
 Link Integrity 是只读诊断工具。界面应让用户先理解问题、再导航到来源或目标；它不提供批量删除、自动改写或暗示“安全清理”的操作。所有计数和标签都必须保持以下区别：
