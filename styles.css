@@ -539,6 +539,7 @@
 
 .link-integrity-file-format {
   display: grid;
+  overflow-wrap: anywhere;
   min-inline-size: 0;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--size-2-2);
@@ -586,6 +587,11 @@
   white-space: nowrap;
 }
 
+.link-integrity-settings-panel .setting-item-info {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
 .link-integrity-settings-section {
   margin-block-end: var(--size-4-6);
 }
@@ -618,6 +624,8 @@
 
 .link-integrity-rule-field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
   min-inline-size: 0;
   gap: var(--size-2-1);
   margin-block: var(--size-2-2);
@@ -1166,6 +1174,7 @@
 
 .link-integrity-index-metrics dt {
   color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .link-integrity-index-metrics dd {
@@ -1284,6 +1293,7 @@
 }
 
 .link-integrity-settings-support a {
+  overflow-wrap: anywhere;
   cursor: var(--cursor, default);
 }
 
