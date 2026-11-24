@@ -154,7 +154,7 @@ export const VI_MESSAGES = localizedCatalog({
   "settings.expected.regex": "Biểu thức chính quy (nâng cao)",
   "settings.expected.preview": "Khớp {count} tệp; ví dụ: {samples}",
   "settings.expected.periodicPreset": "Mẫu ghi chú định kỳ",
-  "settings.expected.periodicPreset.description": "Cấu hình riêng ghi chú ngày, tuần, tháng, quý và năm; không đọc Chrono Notes.",
+  "settings.expected.periodicPreset.description": "Đặt quy tắc riêng cho ghi chú theo ngày, tuần, tháng, quý và năm. Các quy tắc này không dùng thiết lập từ Chrono Notes.",
   "settings.expected.period.daily": "Ghi chú hằng ngày",
   "settings.expected.period.weekly": "Ghi chú hằng tuần",
   "settings.expected.period.monthly": "Ghi chú hằng tháng",

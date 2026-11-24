@@ -228,7 +228,7 @@ export const ZH_CN_MESSAGES = {
   "settings.expected.preview": "匹配 {count} 个文件；样例：{samples}",
   "settings.expected.previewEmpty": "当前没有匹配文件。",
   "settings.expected.periodicPreset": "周期笔记预设",
-  "settings.expected.periodicPreset.description": "独立配置日、周、月、季、年笔记，不读取 Chrono Notes。",
+  "settings.expected.periodicPreset.description": "可分别设置日、周、月、季和年笔记的规则。这里不会导入 Chrono Notes 的设置。",
   "settings.expected.period.daily": "日记",
   "settings.expected.period.weekly": "周记",
   "settings.expected.period.monthly": "月记",

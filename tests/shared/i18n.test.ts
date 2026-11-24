@@ -91,7 +91,8 @@ describe("i18n", () => {
     const t = createTranslator("ar", "en").t;
     expect(t("sidebar.broken.occurrences", { count: 0 })).toContain("لا توجد");
     expect(t("sidebar.broken.occurrences", { count: 1 })).toContain("رابط معطّل");
-    expect(t("sidebar.broken.occurrences", { count: 2 })).toContain("رابطان معطّلان");
+    expect(t("sidebar.broken.occurrences", { count: 2 })).toBe("رابطان معطّلان");
+    expect(t("settings.ignore.matchCount", { count: 2 })).toBe("يطابق عنصرين");
     expect(t("sidebar.broken.occurrences", { count: 3 })).toContain("روابط معطّلة");
     expect(t("sidebar.broken.occurrences", { count: 11 })).toContain("رابطًا معطّلًا");
     expect(t("fileType.selectedCount", { selected: 2, total: 5 })).toContain("2 من 5");

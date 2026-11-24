@@ -227,7 +227,7 @@ export const ZH_TW_MESSAGES = {
   "settings.expected.preview": "符合 {count} 個檔案；範例：{samples}",
   "settings.expected.previewEmpty": "目前沒有符合的檔案。",
   "settings.expected.periodicPreset": "週期筆記預設",
-  "settings.expected.periodicPreset.description": "獨立設定日、週、月、季、年筆記，不讀取 Chrono Notes。",
+  "settings.expected.periodicPreset.description": "可分別設定日、週、月、季和年筆記的規則。這裡不會匯入 Chrono Notes 的設定。",
   "settings.expected.period.daily": "日記",
   "settings.expected.period.weekly": "週記",
   "settings.expected.period.monthly": "月記",
