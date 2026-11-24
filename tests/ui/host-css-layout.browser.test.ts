@@ -85,6 +85,7 @@ interface LayoutMeasurements {
     readonly secondary: SidebarFocusMeasurements;
   };
   readonly summaryDisplay: string;
+  readonly measuredSelectOverflow: number;
   readonly dropdownLayout: Record<"first" | "redrawn" | "migrated",
     readonly { value: string; width: number; labelWidth: number }[]>;
   readonly surfaces: {
@@ -131,6 +132,10 @@ describe("Obsidian host CSS layout contract", () => {
     expect(measurements.result.badgeWidth).toBeLessThanOrEqual(
       measurements.result.mainWidth,
     );
+  });
+
+  it("keeps the host's hidden dropdown measurement out of a narrow panel's scroll area", () => {
+    expect(measurements.measuredSelectOverflow).toBeLessThanOrEqual(1);
   });
 
   it("preserves square host checkboxes and disclosure markers", () => {
@@ -357,7 +362,7 @@ const secondary = measureFocus(iframe.contentDocument);
 const dropdownCss = \`
   .setting-item-control select.dropdown { appearance:none; box-sizing:border-box;
     padding-inline:10px 32px; width:var(--dropdown-fitted-width, auto); }
-  .setting-item-control select.is-measuring { position:absolute; visibility:hidden; width:max-content; }
+  .setting-item-control select.is-measuring { position:absolute; visibility:hidden; width:max-content!important; max-width:none!important; }
 \`;
 for (const doc of [document, iframe.contentDocument]) {
   const style = doc.createElement("style"); style.textContent = dropdownCss; doc.head.append(style);
@@ -379,6 +384,16 @@ function widths() {
 }
 let close = render();
 window.dropdownLayout = { first: widths() };
+surface.style.width = "260px";
+const measuring = surface.querySelector("select.is-measuring");
+measuring.style.fontSize = "27px";
+measuring.replaceChildren(new Option("Связи, сгруппированные по целевому файлу"));
+measuring.closest(".setting-item").style.cssText = "position:relative; padding:16px";
+const controls = measuring.parentElement;
+controls.style.cssText = "width:100%;display:flex;justify-content:flex-start";
+const narrowPanel = surface.querySelector('[role="tabpanel"]');
+window.measuredSelectOverflow = narrowPanel.scrollWidth - narrowPanel.clientWidth;
+surface.style.removeProperty("width");
 close();
 render("broken-links")();
 close = render();
@@ -639,6 +654,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const dialogActions = document.getElementById("dialog-actions").getBoundingClientRect();
   const measurements = {
     dropdownLayout: window.dropdownLayout,
+    measuredSelectOverflow: window.measuredSelectOverflow,
     bodyHints: {
       marked: Array.from(document.querySelectorAll("#body-hint-fixture .link-integrity-broken-body-hint"), decoration),
       native: controlDecoration("unmarked-native"), virtual: controlDecoration("unmarked-virtual"),

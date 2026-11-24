@@ -142,13 +142,35 @@ function renderItem(
     return renderCustomSetting(setting.settingEl, item.id, context);
   }
   if (item.kind === "toggle") {
-    setting.addToggle((toggle) => toggle
-      .setValue(Boolean(getSettingValue(context.settings, item.key)))
-      .setDisabled(context.writeProtected)
-      .onChange((value) => commitControl(context, item.key, value)));
+    setting.addToggle((toggle) => {
+      const checked = Boolean(getSettingValue(context.settings, item.key));
+      const wrapper = toggle.toggleEl;
+      const checkbox = wrapper.matches("input") ? wrapper
+        : wrapper.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      const control = checkbox ?? wrapper;
+      control.setAttribute("aria-label", item.name);
+      if (item.description) control.setAttribute("aria-description", item.description);
+      if (checkbox !== null) {
+        if (checkbox !== wrapper) wrapper.tabIndex = -1;
+        checkbox.tabIndex = 0;
+        checkbox.checked = checked;
+        checkbox.disabled = context.writeProtected;
+      } else {
+        wrapper.setAttribute("role", "switch");
+        wrapper.setAttribute("aria-checked", String(checked));
+        wrapper.setAttribute("aria-disabled", String(context.writeProtected));
+      }
+      toggle.setValue(checked).setDisabled(context.writeProtected).onChange((value) => {
+        if (checkbox !== null) checkbox.checked = value;
+        else wrapper.setAttribute("aria-checked", String(value));
+        commitControl(context, item.key, value);
+      });
+    });
     return undefined;
   }
   setting.addDropdown((dropdown) => {
+    dropdown.selectEl.setAttribute("aria-label", item.name);
+    if (item.description) dropdown.selectEl.setAttribute("aria-description", item.description);
     for (const option of item.options) dropdown.addOption(option.value, option.label);
     const value = String(getSettingValue(context.settings, item.key));
     // Obsidian measures the selected label in setValue. A hidden or detached

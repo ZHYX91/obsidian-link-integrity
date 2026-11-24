@@ -15,10 +15,19 @@ const controls = vi.hoisted(() => [] as Array<{
 vi.mock("obsidian", () => {
   class Control {
     readonly selectEl = document.createElement("select");
+    readonly toggleEl = document.createElement("label");
+    readonly checkbox = document.createElement("input");
     disabled = false;
     value: unknown;
     change: (value: never) => void = () => undefined;
-    constructor(readonly kind: "toggle" | "dropdown") { controls.push(this); }
+    constructor(readonly kind: "toggle" | "dropdown", container: HTMLElement) {
+      this.checkbox.type = "checkbox";
+      this.toggleEl.tabIndex = 0;
+      this.checkbox.tabIndex = -1;
+      this.toggleEl.append(this.checkbox);
+      container.append(kind === "toggle" ? this.toggleEl : this.selectEl);
+      controls.push(this);
+    }
     setValue(value: unknown): this { this.value = value; return this; }
     setDisabled(value: boolean): this { this.disabled = value; return this; }
     addOption(): this { return this; }
@@ -36,10 +45,10 @@ vi.mock("obsidian", () => {
       setDesc(): this { return this; }
       setDisabled(): this { return this; }
       addToggle(callback: (control: Control) => void): this {
-        callback(new Control("toggle")); return this;
+        callback(new Control("toggle", this.settingEl)); return this;
       }
       addDropdown(callback: (control: Control) => void): this {
-        callback(new Control("dropdown")); return this;
+        callback(new Control("dropdown", this.settingEl)); return this;
       }
     },
   };
@@ -97,6 +106,18 @@ describe("imperative settings controls", () => {
     }), "query-only");
   });
 
+  it("gives the single focusable native checkbox its localized name and committed state", () => {
+    const { container } = render();
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.getAttribute("aria-label")).toBeTruthy();
+    expect(checkbox.parentElement?.tabIndex).toBe(-1);
+    expect(checkbox.tabIndex).toBe(0);
+    expect(checkbox.checked).toBe(false);
+    change("toggle", true);
+    expect(checkbox.checked).toBe(true);
+    expect(container.querySelector("select")?.getAttribute("aria-label")).toBeTruthy();
+  });
+
   it("commits toggle and locale selections without mutating the supplied settings", () => {
     const { context } = render();
     change("toggle", true);
@@ -130,6 +151,7 @@ describe("imperative settings controls", () => {
     const { context, container } = render({ writeProtected: true });
     expect(container.querySelector('[role="alert"]')?.textContent)
       .toContain("Settings were created by a newer plugin version");
+    expect(container.querySelector<HTMLInputElement>("input")!.disabled).toBe(true);
     expect(controls.length).toBeGreaterThan(0);
     expect(controls.every((control) => control.disabled)).toBe(true);
     expect(context.onSettingsChange).not.toHaveBeenCalled();

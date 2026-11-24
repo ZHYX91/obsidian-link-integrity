@@ -18,6 +18,8 @@ Link Integrity is a read-only diagnostic tool. The interface helps a user unders
 
 Desktop and mobile use the same product semantics. A narrow layout may rearrange controls, but it must not hide critical state or change the meaning of a count.
 
+Keyboard and screen readers use the setting name shown in each row. Switches have one tab stop and expose their current state.
+
 ## 2. Sidebar information architecture
 
 The sidebar starts with the two business tabs. It does not repeat the plugin title or keep a permanent refresh/settings action row. Plugin settings are entered through Obsidian's plugin settings page. The tabs are:

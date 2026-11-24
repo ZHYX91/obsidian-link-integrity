@@ -1290,3 +1290,14 @@
 @container link-integrity-tab-frame (max-width: 600px) {
   .link-integrity-settings-tabs > button.link-integrity-settings-tab { padding-inline: 8px !important; }
 }
+
+/* Keep Obsidian's intrinsic-width probe out of the panel's scroll area. */
+.link-integrity-settings select.dropdown.is-measuring {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+}
+
+.link-integrity-settings .checkbox-container:has(input:focus-visible) {
+  outline: var(--toggle-border-width, 2px) solid var(--background-modifier-border-focus);
+}
