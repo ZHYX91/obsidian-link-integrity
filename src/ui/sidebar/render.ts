@@ -192,6 +192,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
       toggleButton(
         container.ownerDocument,
         t("sidebar.broken.view.list"),
+        "broken-list",
         options.state.brokenView === "list",
         () => options.onStateChange({
           ...options.state,
@@ -223,6 +224,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
       toggleButton(
         container.ownerDocument,
         t("sidebar.isolated.view.list"),
+        "isolated-list",
         options.state.isolatedView === "list",
         () => options.onStateChange({
           ...options.state,
@@ -233,6 +235,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
       toggleButton(
         container.ownerDocument,
         t("sidebar.isolated.view.tree"),
+        "isolated-tree",
         options.state.isolatedView === "tree",
         () => options.onStateChange({
           ...options.state,
@@ -253,7 +256,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
             isolatedResultOffset: 0,
           });
         }
-      }, t("settings.isolated.advancedMode")));
+      }, t("settings.isolated.advancedMode"), "isolated-mode"));
     }
     if (options.state.isolatedView === "list") {
       toolbar.append(compactSelect(container.ownerDocument, t("common.sort"), [

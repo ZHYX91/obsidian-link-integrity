@@ -6,10 +6,12 @@ export function createSelect(
   options: readonly (readonly [string, string])[],
   selected: string,
   onChange: (value: string) => void,
-  ariaLabel?: string,
+  ariaLabel: string,
+  focusKey: string,
 ): HTMLSelectElement {
   const select = document.createElement("select");
-  if (ariaLabel !== undefined) select.setAttribute("aria-label", ariaLabel);
+  select.setAttribute("aria-label", ariaLabel);
+  select.dataset.focusKey = focusKey;
   for (const [value, label] of options) {
     const option = document.createElement("option");
     option.value = value;
@@ -56,6 +58,7 @@ export function groupingControl(options: SidebarRenderOptions): HTMLElement {
       brokenResultOffset: 0,
     }),
   );
+  main.dataset.focusKey = "broken-group";
   main.className = options.state.brokenView === "group" ? "is-active" : "";
   main.setAttribute("aria-pressed", String(options.state.brokenView === "group"));
   main.setAttribute("aria-label", t("sidebar.broken.group.current", {
@@ -65,6 +68,7 @@ export function groupingControl(options: SidebarRenderOptions): HTMLElement {
   choice.className = "link-integrity-grouping-choice";
   choice.append(createText(document, "span", "▾"));
   const select = document.createElement("select");
+  select.dataset.focusKey = "broken-grouping";
   select.setAttribute("aria-label", t("sidebar.broken.group.choose"));
   for (const grouping of ["target", "source", "source-folder"] as const) {
     const item = document.createElement("option");
@@ -116,6 +120,7 @@ export function compactSelect(
     select.append(option);
   }
   select.addEventListener("change", () => onChange(select.value));
+  select.dataset.focusKey = "sort";
   label.append(select);
   return label;
 }
@@ -141,10 +146,12 @@ export function brokenSortOptions(options: SidebarRenderOptions): readonly Compa
 export function toggleButton(
   document: Document,
   label: string,
+  focusKey: string,
   pressed: boolean,
   onClick: () => void,
 ): HTMLButtonElement {
   const button = createActionButton(document, label, onClick);
+  button.dataset.focusKey = focusKey;
   button.className = pressed ? "is-active" : "";
   button.setAttribute("aria-pressed", String(pressed));
   return button;

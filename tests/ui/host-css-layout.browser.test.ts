@@ -26,6 +26,7 @@ interface SidebarFocusMeasurements {
   readonly ownerRealmElement: boolean;
   readonly replaced: boolean;
   readonly updatedLocation: boolean;
+  readonly toolbarFocus: readonly boolean[];
 }
 
 interface LayoutMeasurements {
@@ -209,6 +210,12 @@ describe("Obsidian host CSS layout contract", () => {
     );
   });
 
+  it("keeps focus on sidebar view, grouping, sort and mode controls in each window", () => {
+    for (const result of Object.values(measurements.sidebarFocus)) {
+      expect(result.toolbarFocus).toEqual([true, true, true, true, true, true, true]);
+    }
+  });
+
   it("restores result focus after a location update in another window realm", () => {
     expect(measurements.sidebarFocus.main.mainRealmElement).toBe(true);
     expect(measurements.sidebarFocus.secondary.mainRealmElement).toBe(false);
@@ -314,6 +321,7 @@ const translator = createTranslator("en", "en");
 function measureFocus(document) {
   const container = document.createElement("div");
   document.body.append(container);
+  let currentState = state;
   const options = (line) => {
     const snapshot = {
       status: { state: "ready", current: 1, total: 1, errorMessage: null },
@@ -326,10 +334,10 @@ function measureFocus(document) {
       }],
     };
     return {
-      model: createSidebarViewModel(snapshot, state), state, translator,
+      model: createSidebarViewModel(snapshot, currentState), state: currentState, translator,
       navigation: { openBrokenLink() {}, openFile() {}, rebuildIndex() {} },
       fileTypeCategories: [], defaultFormatFamilyIds: new Set(["markdown"]),
-      allowNoIncomingFilter: false, onStateChange() {},
+      allowNoIncomingFilter: true, onStateChange(next) { currentState = next; mount.update(options(line)); },
     };
   };
   const mount = mountSidebar(container, options(0));
@@ -343,9 +351,28 @@ function measureFocus(document) {
   const result = {
     focusedBefore, mainRealmElement, ownerRealmElement,
     focusedAfter: document.activeElement === newButton,
+    toolbarFocus: [],
     replaced: newButton !== oldButton,
     updatedLocation: container.textContent.includes("L43"),
   };
+  function interact(selector, value) {
+    const control = container.querySelector(selector);
+    control.focus();
+    if (value === undefined) control.click();
+    else {
+      control.value = value;
+      control.dispatchEvent(new document.defaultView.Event("change", { bubbles: true }));
+    }
+    result.toolbarFocus.push(document.activeElement === container.querySelector(selector));
+  }
+  interact(".link-integrity-grouping-control > button");
+  interact(".link-integrity-grouping-choice select", "source");
+  interact(".link-integrity-toolbar-compact-select select", "path");
+  interact(".link-integrity-toolbar-view-toggle > button:last-child");
+  container.querySelector('[data-sidebar-tab="isolated-files"]').click();
+  interact(".link-integrity-toolbar-view-toggle > button:last-child");
+  interact(".link-integrity-toolbar > select", "no-incoming");
+  interact(".link-integrity-toolbar-view-toggle > button:first-child");
   mount.dispose();
   container.remove();
   return result;
