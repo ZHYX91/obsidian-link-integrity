@@ -144,6 +144,7 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
       ),
     );
     button.addEventListener("click", () => {
+      if ((options.navigationTabId?.() ?? options.model.activeTab) === id) return;
       selectSidebarTab(options, id);
     });
     button.addEventListener("keydown", (event) => {
@@ -156,6 +157,7 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
       const nextId = definitions[nextIndex]?.[0];
       if (nextId === undefined) return;
       event.preventDefault();
+      if (nextIndex === currentIndex && (requestedTab ?? options.model.activeTab) === nextId) return;
       selectSidebarTab(options, nextId);
     });
     tabList.append(button);
@@ -176,7 +178,6 @@ export function renderTabs(container: HTMLElement, options: SidebarRenderOptions
 }
 
 function selectSidebarTab(options: SidebarRenderOptions, tabId: SidebarTabId): void {
-  if ((options.navigationTabId?.() ?? options.model.activeTab) === tabId) return;
   options.requestTabFocus?.(tabId);
   options.onStateChange({ ...options.state, activeTab: tabId });
   options.commitTabFocus?.();
