@@ -623,18 +623,21 @@ function openExpectedRuleDialog(
       draft.fileExtensions.join(", "),
     );
     if (draft.unrecognizedFileTypes !== undefined) {
-      button(advanced, t("settings.expected.removeUnsupportedTypes"), () => {
+      const repair = button(advanced, t("settings.expected.removeUnsupportedTypes"), () => {
         if (draft === null) return;
         const repaired = { ...draft };
         delete repaired.unrecognizedFileTypes;
         draft = repaired;
-        renderEditor(true);
+        repair.remove();
+        updateDraftState();
+        extensions.input.focus();
       });
     }
     const patternHeading = textElement(advanced, "h4", t("settings.expected.namingPatterns"));
     advanced.append(patternHeading);
-    for (const pattern of draft.namingPatterns) {
-      advanced.append(renderExpectedPatternEditor(document, pattern, context, (nextPattern) => {
+    const validationId = `link-integrity-rule-validation-${expectedRuleDialogCounter.toString()}`;
+    const appendPattern = (pattern: ExpectedNamingPattern): HTMLInputElement => {
+      const { row, input } = renderExpectedPatternEditor(document, pattern, context, (nextPattern) => {
         if (draft === null) return;
         draft = {
           ...draft,
@@ -648,22 +651,32 @@ function openExpectedRuleDialog(
           ...draft,
           namingPatterns: draft.namingPatterns.filter(({ id }) => id !== pattern.id),
         };
-        renderEditor(true);
-      }));
-    }
-    button(advanced, t("settings.expected.addPattern"), () => {
+        const adjacent = [row.nextElementSibling, row.previousElementSibling]
+          .find((element) => element?.classList.contains("link-integrity-rule-pattern"));
+        row.remove();
+        updateDraftState();
+        (adjacent?.querySelector<HTMLInputElement>("input") ?? addPattern).focus();
+      });
+      for (const control of row.querySelectorAll("input, select")) {
+        control.setAttribute("aria-describedby", validationId);
+      }
+      addPattern.before(row);
+      return input;
+    };
+    const addPattern = button(advanced, t("settings.expected.addPattern"), () => {
       if (draft === null) return;
-      draft = {
-        ...draft,
-        namingPatterns: [...draft.namingPatterns, createExpectedPattern(context)],
-      };
-      renderEditor(true);
+      const pattern = createExpectedPattern(context);
+      draft = { ...draft, namingPatterns: [...draft.namingPatterns, pattern] };
+      const input = appendPattern(pattern);
+      updateDraftState();
+      input.focus();
     });
+    for (const pattern of draft.namingPatterns) appendPattern(pattern);
     content.append(advanced);
 
     const validation = document.createElement("div");
     validation.className = "link-integrity-rule-validation";
-    validation.id = `link-integrity-rule-validation-${expectedRuleDialogCounter.toString()}`;
+    validation.id = validationId;
     validation.setAttribute("role", "alert");
     validation.setAttribute("aria-live", "polite");
     const preview = document.createElement("div");
@@ -776,7 +789,7 @@ function renderExpectedPatternEditor(
   context: SettingsUiContext,
   onChange: (pattern: ExpectedNamingPattern) => void,
   onRemove: () => void,
-): HTMLElement {
+): { row: HTMLElement; input: HTMLInputElement } {
   const { t } = context.translator;
   const row = document.createElement("div");
   row.className = "link-integrity-rule-pattern";
@@ -823,7 +836,7 @@ function renderExpectedPatternEditor(
   const remove = button(row, t("common.delete"), onRemove);
   remove.className = "mod-warning";
   row.append(kind, target, input, flags, remove);
-  return row;
+  return { row, input };
 }
 
 function renderExpectedPreview(

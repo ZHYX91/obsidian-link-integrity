@@ -131,6 +131,39 @@ describe("custom settings sections", () => {
     cleanup();
   });
 
+  it("keeps focus with the naming pattern being added or removed", async () => {
+    const settings = withExpectedRule(createDefaultSettings(), expectedRule());
+    const host = document.body.appendChild(document.createElement("div"));
+    const ctx = context(settings);
+    const dispose = renderCustomSetting(host, "expected-isolation-rules", ctx);
+    const buttonLabel = (root: ParentNode, label: string): HTMLButtonElement =>
+      Array.from(root.querySelectorAll("button")).find((button) => button.textContent === label)!;
+    try {
+      buttonLabel(host, ctx.translator.t("common.edit")).click();
+      await Promise.resolve();
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+      const rows = () => dialog.querySelectorAll<HTMLElement>(".link-integrity-rule-pattern");
+      const add = () => buttonLabel(dialog, ctx.translator.t("settings.expected.addPattern"));
+      add().focus();
+      add().click();
+      expect(rows()).toHaveLength(2);
+      expect(rows()[1]!.contains(document.activeElement)).toBe(true);
+      const remove = () => buttonLabel(rows()[rows().length - 1]!, ctx.translator.t("common.delete"));
+      remove().focus();
+      remove().click();
+      expect(rows()).toHaveLength(1);
+      expect(rows()[0]!.contains(document.activeElement)).toBe(true);
+      remove().focus();
+      remove().click();
+      expect(rows()).toHaveLength(0);
+      expect(document.activeElement).toBe(add());
+      expect(ctx.onSettingsChange).not.toHaveBeenCalled();
+    } finally {
+      dispose();
+      host.remove();
+    }
+  });
+
   it("requires explicit file-type repair and retains case-sensitive glob edits after reload", () => {
     const rule: ExpectedIsolationRule = {
       ...expectedRule(), enabled: false, unrecognizedFileTypes: { fileTypeFamilyIds: ["markdown", "unknown"] },
