@@ -161,6 +161,8 @@ describe("sidebar renderer", () => {
     expect(container.querySelector(".link-integrity-sidebar-header")).toBeNull();
     expect(tabs[0]?.textContent).toContain("Broken links");
     expect(tabs[1]?.textContent).toContain("Isolated files");
+    (tabs[0] as HTMLButtonElement).click();
+    expect(onStateChange).not.toHaveBeenCalled();
     (tabs[1] as HTMLButtonElement).click();
     expect(onStateChange).toHaveBeenCalledWith(expect.objectContaining({
       activeTab: "isolated-files",
@@ -365,6 +367,10 @@ describe("sidebar renderer", () => {
       onStateChange,
     });
     const firstTab = container.querySelector<HTMLButtonElement>('[role="tab"]');
+    const home = new KeyboardEvent("keydown", { key: "Home", bubbles: true, cancelable: true });
+    firstTab?.dispatchEvent(home);
+    expect(home.defaultPrevented).toBe(true);
+    expect(onStateChange).not.toHaveBeenCalled();
     firstTab?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     // With two tabs, both visual directions reach the other tab; dir is still surfaced to CSS/AT.
     expect(container.dir).toBe("rtl");

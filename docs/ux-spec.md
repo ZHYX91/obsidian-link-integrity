@@ -145,7 +145,7 @@ Scan errors and settings-save errors are separate states and are presented indep
 ## 7. Accessibility and mobile
 
 - Tabs use `tablist`, `tab`, and `tabpanel` semantics with roving tabindex; the active tab combines an accent underline with a semibold label, and stable space separates the tab row from the content panel.
-- Arrow keys, Home, and End move focus to the selected tab in the final render after asynchronous queries; repeated input follows the latest request. Moving focus away, window blur, hiding, or closing the view cancels that request without reclaiming focus or using a fixed delay.
+- Arrow keys, Home, and End move focus to the selected tab in the final render after asynchronous queries; repeated input follows the latest request. At either endpoint, repeating Home or End keeps the current panel and its vertical scroll position in both settings and the sidebar. Moving focus away, window blur, hiding, or closing the view cancels that request without reclaiming focus or using a fixed delay.
 - Tabs may scroll horizontally on narrow screens; RTL keeps ordering and icon meaning correct.
 - Coarse-pointer targets are at least 44 CSS pixels.
 - State never relies on color alone; badges and text communicate together.

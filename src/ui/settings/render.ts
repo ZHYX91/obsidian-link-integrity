@@ -63,10 +63,11 @@ export function renderImperativeSettings(
         pages.length,
         context.translator.direction,
       );
-      if (next === null || next === index) return;
+      if (next === null) return;
+      event.preventDefault();
+      if (next === index) return;
       const target = pages[next];
       if (target === undefined) return;
-      event.preventDefault();
       options.onSelectTab(target.id, true);
     });
     tabList.append(button);

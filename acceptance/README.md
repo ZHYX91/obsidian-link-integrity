@@ -90,6 +90,8 @@ The observer writes only `.obsidian/plugins/link-integrity-acceptance-provider/d
 
 `Parent/Source.md` starts with `[[Subdir/Suffix Target]]` and no matching target. In this temporary subtree, create `Parent/Subdir/Suffix Target.md`, add an `Archive/Subdir/Suffix Target.md` competitor, then delete or rename candidates and move the source between these contexts. Record the actual host resolver choice at every transition rather than assuming a best-match algorithm. Compare Broken links, incoming edges and isolation with Rebuild; retain filenames and source bytes in the receipt. Do not change the fixed destination inputs during these namespace checks.
 
+With either a long settings page or sidebar result set, focus the selected first or last tab and scroll its host partway down without moving focus. Press Home on the first tab and End on the last. Confirm that the scroll position, focused tab and displayed panel all survive the repeated boundary key in English and Arabic.
+
 With a physical keyboard on desktop or emulator hardware-key input, focus a business tab and press one direction key or Home/End while queries are asynchronous. The selected tab, focused button and visible panel must agree after settling. Repeat rapid End/Home and move focus to search or another window, hide the view, or close it before completion: late results must not reclaim focus. The provider prepares inputs only; it does not verify host behavior or auxiliary technology.
 
 ## Arabic and mixed-language paths

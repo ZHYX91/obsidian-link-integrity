@@ -92,6 +92,23 @@ describe("imperative settings tab reveal", () => {
     }
   });
 
+  it.each([["general", "Home"], ["isolated-files", "End"]] as const)(
+    "consumes %s endpoint navigation without replacing the selected panel",
+    (activeTab, key) => {
+      const container = document.createElement("div");
+      const onSelectTab = vi.fn();
+      const cleanup = renderImperativeSettings(container, context("ar", "en"), { activeTab, onSelectTab });
+      const panel = container.querySelector('[role="tabpanel"]');
+      const tab = container.querySelector<HTMLButtonElement>('[aria-selected="true"]')!;
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      tab.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(onSelectTab).not.toHaveBeenCalled();
+      expect(container.querySelector('[role="tabpanel"]')).toBe(panel);
+      cleanup();
+    },
+  );
+
   it("cancels a queued resize measurement when settings closes", () => {
     let notify = (): void => { throw new Error("Resize observer was not created"); };
     const disconnect = vi.fn();
