@@ -29,6 +29,7 @@ export function mountSidebar(
   container: HTMLElement,
   initialOptions: SidebarRenderOptions,
 ): SidebarMount {
+  const hostDirection = container.getAttribute("dir");
   let current = initialOptions;
   let disposed = false;
   let composing = false;
@@ -108,6 +109,7 @@ export function mountSidebar(
   const update = (next: SidebarRenderOptions): void => {
     if (disposed) return;
     current = next;
+    root.lang = options.translator.locale;
     container.dir = options.translator.direction;
     updateTabs(root, panel, options);
     // SidebarView publishes only its latest completed render generation. Keep
@@ -170,7 +172,8 @@ export function mountSidebar(
       rows.clear();
       root.remove();
       container.classList.remove("link-integrity-sidebar");
-      container.removeAttribute("dir");
+      if (hostDirection === null) container.removeAttribute("dir");
+      else container.dir = hostDirection;
     },
   };
 }

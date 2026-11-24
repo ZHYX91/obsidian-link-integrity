@@ -82,6 +82,7 @@ describe("sidebar renderer", () => {
       onStateChange: vi.fn(),
     });
     expect(container.dir).toBe("rtl");
+    expect(container.querySelector<HTMLElement>(".link-integrity-sidebar-root")!.lang).toBe("ar");
     expect(container.querySelector('[role="tab"]')?.textContent).toContain("الروابط المعطّلة");
     dispose();
     expect(container.hasAttribute("dir")).toBe(false);

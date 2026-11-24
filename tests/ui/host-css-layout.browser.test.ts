@@ -242,8 +242,10 @@ async function renderLayoutMeasurements(): Promise<LayoutMeasurements> {
   const profilePath = path.join(tempDirectory, "profile");
   try {
     await writeFile(htmlPath, createLayoutDocument(pluginCss, sidebarFocusProbe), "utf8");
-    const { stdout } = await execFileAsync(chromePath, [
+    const { stdout, stderr } = await execFileAsync(chromePath, [
       "--headless=new",
+      "--disable-background-networking",
+      "--disable-component-update",
       "--disable-dev-shm-usage",
       "--disable-extensions",
       "--disable-gpu",
@@ -255,7 +257,7 @@ async function renderLayoutMeasurements(): Promise<LayoutMeasurements> {
     ], { maxBuffer: 4 * 1024 * 1024, timeout: 20_000 });
     const match = LAYOUT_RESULT_PATTERN.exec(stdout);
     if (match?.[1] === undefined) {
-      throw new Error(`Chromium did not emit layout measurements:\n${stdout.slice(0, 1_000)}`);
+      throw new Error(`Chromium did not emit layout measurements:\n${stdout.slice(0, 1_000)}\n${stderr.slice(-2_000)}`);
     }
     return JSON.parse(match[1]) as LayoutMeasurements;
   } finally {

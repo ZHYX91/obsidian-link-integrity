@@ -26,6 +26,9 @@ export function renderImperativeSettings(
 ): () => void {
   container.replaceChildren();
   container.classList.add("link-integrity-settings");
+  const hostDirection = container.getAttribute("dir");
+  const hostLanguage = container.getAttribute("lang");
+  container.lang = context.translator.locale;
   container.dir = context.translator.direction;
   const cleanups: Array<() => void> = [];
   const pages = getSettingsPageDefinitions(context);
@@ -125,7 +128,10 @@ export function renderImperativeSettings(
   return () => {
     for (const cleanup of cleanups.reverse()) cleanup();
     container.classList.remove("link-integrity-settings");
-    container.removeAttribute("dir");
+    if (hostDirection === null) container.removeAttribute("dir");
+    else container.dir = hostDirection;
+    if (hostLanguage === null) container.removeAttribute("lang");
+    else container.lang = hostLanguage;
     container.replaceChildren();
   };
 }
