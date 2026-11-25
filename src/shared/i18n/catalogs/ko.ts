@@ -154,7 +154,7 @@ export const KO_MESSAGES = localizedCatalog({
   "settings.expected.regex": "정규식(고급)",
   "settings.expected.preview": "{count}개 파일 일치. 예: {samples}",
   "settings.expected.periodicPreset": "주기 노트 프리셋",
-  "settings.expected.periodicPreset.description": "일간, 주간, 월간, 분기, 연간 노트를 각각 설정하며 Chrono Notes를 읽지 않습니다.",
+  "settings.expected.periodicPreset.description": "일간, 주간, 월간, 분기, 연간 노트 규칙을 각각 설정하세요. Chrono Notes의 설정은 가져오지 않습니다.",
   "settings.expected.period.daily": "일간 노트",
   "settings.expected.period.weekly": "주간 노트",
   "settings.expected.period.monthly": "월간 노트",

@@ -57,7 +57,7 @@ Turn on **Show broken links in note text** in **Broken links** settings to show 
 **Isolation uses valid connections between existing Vault files:**
 
 - **Isolated:** `A.md` has no valid link to another existing file and no other file links to it. Self-links and external URLs do not count as connections.
-- **No incoming links, but not isolated:** `B.md` exists and `A.md` links to it using `[[B]]`. Nothing links back to `A.md`, yet its outgoing link still connects it to `B.md`. The optional **No incoming links** filter will show cases like this; the regular Isolated files view will not.
+- **No incoming links, but not isolated:** `B.md` exists and `A.md` links to it using `[[B]]`. Nothing links back to `A.md`, yet its outgoing link still connects it to `B.md`. The optional **Files with no incoming links** filter will show cases like this; the regular Isolated files view will not.
 - **Isolated with broken links:** `A.md` only contains `[[Missing]]`, the target does not exist, and no other file links to `A.md`. It has no *valid* connection, so it is still isolated, but the broken-link warning is a reason to **review the file instead of assuming it can be deleted**.
 - **Expected isolated:** a standalone template or archive can be marked **Expected isolated**; it stays a real file, moves out of the main isolated count, and is never deleted or repaired by the plugin.
 

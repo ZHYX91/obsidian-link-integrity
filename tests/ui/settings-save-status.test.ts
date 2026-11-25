@@ -96,7 +96,7 @@ describe("settings persistence status", () => {
       rebuildIndex: rebuild,
     });
 
-    expect(container.textContent).toContain("Ready · 12,438 files · 86,201 references");
+    expect(container.textContent).toContain("Ready · Files: 12,438 · References: 86,201");
     const details = container.querySelector("details");
     expect(details?.open).toBe(false);
     expect(details?.textContent).toContain("Analyzed sources10,904");

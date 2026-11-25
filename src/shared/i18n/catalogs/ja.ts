@@ -154,7 +154,7 @@ export const JA_MESSAGES = localizedCatalog({
   "settings.expected.regex": "正規表現（詳細）",
   "settings.expected.preview": "{count} ファイルに一致。例: {samples}",
   "settings.expected.periodicPreset": "定期ノートのプリセット",
-  "settings.expected.periodicPreset.description": "日・週・月・四半期・年のノートを個別に設定します。Chrono Notes は読み取りません。",
+  "settings.expected.periodicPreset.description": "日・週・月・四半期・年のノートを個別に設定します。Chrono Notes の設定は取り込みません。",
   "settings.expected.period.daily": "デイリーノート",
   "settings.expected.period.weekly": "ウィークリーノート",
   "settings.expected.period.monthly": "マンスリーノート",
