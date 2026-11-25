@@ -21,6 +21,10 @@ A green build is not real-host acceptance. A production Vault is not used for de
 
 Select representative acceptance on the exact candidate by change impact. Desktop interaction, settings or lifecycle changes require relevant real-host scenarios; mobile interaction or shared runtime behavior affecting mobile requires relevant Android emulator scenarios. Documentation-only or host-independent logic changes may omit hosts with a recorded reason. Confirmed serious product defects affecting a release block that release. Missing host/tool evidence stays unverified and is assessed by risk; it does not automatically block publication or add a separate approval step. Claim acceptance only for observed passing scope. The full host matrix is not required for every release, and CI does not automatically enforce host coverage. Record actual desktop and emulator coverage separately. Android physical devices and iOS are outside the shared acceptance scope.
 
+Run `npm test -- --project node` for core logic, feature controllers and repository scripts. Use `npm test -- --project host` for tests using the Obsidian adapter fixtures, and `npm test -- --project chromium` for the layout checks that launch Chrome or Chromium. To run everything, use `npm test`. The regular coverage gate runs all three projects together.
+
+The benchmark commands run their files one at a time so timing measurements do not compete with other benchmark workers. Each scanner case runs a single worker with its own five-second watchdog. The test runner allows additional time to start and stop the worker.
+
 ## Core semantic tests
 
 Pure fixtures should cover:
