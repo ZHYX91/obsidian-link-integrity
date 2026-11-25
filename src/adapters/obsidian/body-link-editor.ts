@@ -1,3 +1,4 @@
+import { isMarkdownExtension } from "../../core/file-types";
 import { StateEffect, type Extension } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { editorInfoField } from "obsidian";
@@ -48,7 +49,7 @@ export function createBodyLinkEditorExtension(options: BodyEditorOptions): Exten
     }
     private async refresh(): Promise<void> {
       const file = this.view.state.field(editorInfoField, false)?.file;
-      if (this.disposed || this.view.composing || !options.enabled() || file?.extension !== "md") return;
+      if (this.disposed || this.view.composing || !options.enabled() || !isMarkdownExtension(file?.extension)) return;
       const text = this.view.state.doc.toString(); const path = file.path;
       const abort = new AbortController(); this.abort = abort;
       try {

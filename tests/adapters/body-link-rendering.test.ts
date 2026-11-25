@@ -121,7 +121,7 @@ describe("native body annotation ownership", () => {
     expect(tooltip.style.top).toBe("8px"); dispose(); expect(link.getAttribute("aria-describedby")).toBe("native-description");
   });
   it("clears editor marks immediately on text edits and Off while retaining native event behavior", async () => {
-    const test = bodySetup(); let enabled = true; let notify!: () => void;
+    const test = bodySetup("[[Missing|Label]]", "Source.mD"); let enabled = true; let notify!: () => void;
     const extension = createBodyLinkEditorExtension({ enabled: () => enabled, source: (path, text, signal) => test.service.source(path, text, signal),
       subscribe: (listener) => { notify = listener; return () => {}; }, reason: () => "Missing file" });
     const info = editorInfoField.init(() => ({ file: test.files.get(test.path)! } as MarkdownFileInfo));

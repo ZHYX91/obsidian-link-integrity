@@ -1,3 +1,4 @@
+import { isMarkdownExtension } from "../../core/file-types";
 import { parseLinktext, resolveSubpath, type App } from "obsidian";
 import type { SourcePosition, SourceSnapshot } from "../../core/model";
 import type { BodyLinkPort, ProvenBodyLink } from "../../features/body-links/body-link-service";
@@ -55,7 +56,7 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
   public async proveSource(path: string, text: string, snapshot: SourceSnapshot, signal: AbortSignal): Promise<readonly ProvenBodyLink[] | null> {
     const file = this.app.vault.getFileByPath(path);
     const cache = file === null ? null : this.app.metadataCache.getFileCache(file);
-    if (signal.aborted || file?.extension !== "md" || cache === null || !this.metadataReady(path)) return null;
+    if (signal.aborted || !isMarkdownExtension(file?.extension) || cache === null || !this.metadataReady(path)) return null;
     const raw = await this.app.vault.cachedRead(file);
     if (signal.aborted || normalizedBodyText(raw) !== normalizedBodyText(text) || this.app.metadataCache.getFileCache(file) !== cache) return null;
     const scheduler = new WorkScheduler({ yieldControl: async () => {
@@ -113,7 +114,7 @@ export class ObsidianBodyLinkPort implements BodyLinkPort {
       return target === null && (unresolved?.[bodyUnresolvedKey(occurrence.linkpath)] ?? 0) > 0;
     }
     if (occurrence.fileStatus !== "resolved" || target === null || !this.metadataReady(target.path) || target.path !== occurrence.targetPath ||
-      target.extension !== "md" || occurrence.subpath === null) return false;
+      !isMarkdownExtension(target.extension) || occurrence.subpath === null) return false;
     const cache = this.app.metadataCache.getFileCache(target);
     return cache !== null && resolveSubpath(cache, occurrence.subpath) === null &&
       (occurrence.subpathStatus === "missing-heading" || occurrence.subpathStatus === "missing-block");

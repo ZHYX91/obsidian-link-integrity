@@ -1,3 +1,4 @@
+import { isMarkdownExtension } from "../../core/file-types";
 import {
   parseLinktext,
   resolveSubpath,
@@ -99,7 +100,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
   }
 
   private toFileRecord(file: TFile): ReturnType<typeof createFileRecord> {
-    const cache = file.extension.toLocaleLowerCase("en-US") === "md"
+    const cache = isMarkdownExtension(file.extension)
       ? this.metadataCache.getFileCache(file) : undefined;
     return createFileRecord(file.path, {
       extension: file.extension,
@@ -331,7 +332,7 @@ export class ObsidianLinkIndexPort implements LinkIndexPort {
     subpath: string | null,
   ): LinkOccurrence["subpathStatus"] {
     if (subpath === null) return "none";
-    if (target.extension.toLocaleLowerCase("en-US") !== "md") return "unsupported";
+    if (!isMarkdownExtension(target.extension)) return "unsupported";
     const targetCache = this.metadataCache.getFileCache(target);
     if (targetCache === null) return "pending";
     if (resolveSubpath(targetCache, subpath) !== null) return "ok";
