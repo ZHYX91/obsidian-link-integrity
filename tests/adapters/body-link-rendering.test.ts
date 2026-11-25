@@ -68,17 +68,69 @@ describe("native body annotation ownership", () => {
     element.append(anchor()); await vi.waitFor(() => expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(false));
     expect(link.title).toBe("Native title"); dispose(); children[0]!.onunload(); expect(listeners.size).toBe(0); expect(link.getAttribute("href")).toBe("Missing");
   });
+  it("keeps the current reading hint when a superseded source read rejects", async () => {
+    vi.useFakeTimers();
+    const test = bodySetup();
+    const proof = await test.service.source(test.path, test.text);
+    const element = document.createElement("p");
+    const link = anchor();
+    element.append(link);
+    const { context } = section(test.text, element);
+    let rejectOlder!: (reason: Error) => void;
+    const older = new Promise<typeof proof>((_resolve, reject) => { rejectOlder = reject; });
+    const read = vi.fn(() => Promise.resolve(proof)).mockReturnValueOnce(older);
+    let refresh!: () => void;
+    const dispose = decorateBodyLinkReading(element, context, {
+      enabled: () => true, source: read, reason: () => "Missing file",
+      subscribe: (callback) => { refresh = callback; return () => {}; },
+    })!;
+    try {
+      await vi.advanceTimersByTimeAsync(80);
+      expect(read).toHaveBeenCalledTimes(1);
+      refresh();
+      await vi.advanceTimersByTimeAsync(80);
+      expect(link.title).toBe("Missing file");
+      rejectOlder(new Error("Superseded source read failed"));
+      await Promise.resolve();
+      expect(link.title).toBe("Missing file");
+    } finally { dispose(); }
+  });
+
+  it("discards a proof when another note occupies the same reading section", async () => {
+    vi.useFakeTimers();
+    const test = bodySetup();
+    const proof = await test.service.source(test.path, test.text);
+    const element = document.createElement("p");
+    const link = anchor();
+    element.append(link);
+    const { context } = section(test.text, element);
+    let finish!: (result: typeof proof) => void;
+    const read = vi.fn(() => new Promise<typeof proof>((resolve) => { finish = resolve; }));
+    const dispose = decorateBodyLinkReading(element, context, {
+      enabled: () => true, source: read, reason: () => "Missing file", subscribe: () => () => {},
+    })!;
+    try {
+      await vi.advanceTimersByTimeAsync(80);
+      expect(read).toHaveBeenCalledOnce();
+      context.sourcePath = "Other.md";
+      finish(proof);
+      await Promise.resolve();
+      expect(link.title).toBe("");
+    } finally { dispose(); }
+  });
   it("keeps Off dormant and ignores a proof resolving after child teardown", async () => {
+    vi.useFakeTimers();
     const test = bodySetup(); const source = vi.fn(() => test.service.source(test.path, test.text)); const element = document.createElement("p"); element.append(anchor());
     const { context } = section(test.text, element); const dispose = decorateBodyLinkReading(element, context,
       { enabled: () => false, source, subscribe: () => () => {}, reason: () => "Missing" })!;
-    await new Promise((resolve) => window.setTimeout(resolve, 90)); expect(source).not.toHaveBeenCalled(); dispose();
+    await vi.advanceTimersByTimeAsync(90); expect(source).not.toHaveBeenCalled(); dispose();
     let release!: (value: Awaited<ReturnType<typeof source>>) => void;
     const delayed = decorateBodyLinkReading(element, context, { enabled: () => true, source: () => new Promise((resolve) => { release = resolve; }), subscribe: () => () => {}, reason: () => "Missing" })!;
-    await vi.waitFor(() => expect(release).toBeDefined()); delayed(); release(await test.service.source(test.path, test.text)); await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(80); expect(release).toBeDefined(); delayed(); release(await test.service.source(test.path, test.text)); await Promise.resolve();
     expect(element.querySelector(".link-integrity-broken-body-hint")).toBeNull();
   });
   it("installs section observation/interaction only while On and ignores its own annotation mutations", async () => {
+    vi.useFakeTimers();
     const test = bodySetup(); const element = document.createElement("p"); const link = anchor(); element.append(link);
     const { context } = section(test.text, element); let enabled = false; let notify!: () => void;
     const source = vi.fn(() => test.service.source(test.path, test.text)); const add = vi.spyOn(element, "addEventListener");
@@ -86,11 +138,11 @@ describe("native body annotation ownership", () => {
     const dispose = decorateBodyLinkReading(element, context, { enabled: () => enabled, source,
       subscribe: (listener) => { notify = listener; return () => {}; }, reason: () => "Missing" })!;
     expect(observe).not.toHaveBeenCalled(); expect(add).not.toHaveBeenCalled();
-    enabled = true; notify(); await vi.waitFor(() => expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(true));
-    await new Promise((resolve) => window.setTimeout(resolve, 100)); expect(source).toHaveBeenCalledOnce(); expect(observe).toHaveBeenCalledOnce(); expect(add).toHaveBeenCalledTimes(5);
+    enabled = true; notify(); await vi.advanceTimersByTimeAsync(80); expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(true);
+    await vi.advanceTimersByTimeAsync(100); expect(source).toHaveBeenCalledOnce(); expect(observe).toHaveBeenCalledOnce(); expect(add).toHaveBeenCalledTimes(5);
     enabled = false; notify(); expect(disconnect).toHaveBeenCalledOnce(); expect(link.classList.contains("link-integrity-broken-body-hint")).toBe(false);
-    element.append(anchor()); await new Promise((resolve) => window.setTimeout(resolve, 100)); expect(source).toHaveBeenCalledOnce();
-    enabled = true; notify(); await vi.waitFor(() => expect(source).toHaveBeenCalledTimes(2)); expect(observe).toHaveBeenCalledTimes(2); dispose();
+    element.append(anchor()); await vi.advanceTimersByTimeAsync(100); expect(source).toHaveBeenCalledOnce();
+    enabled = true; notify(); await vi.advanceTimersByTimeAsync(80); expect(source).toHaveBeenCalledTimes(2); expect(observe).toHaveBeenCalledTimes(2); dispose();
   });
   it.each(["data-href", "href", "class"])("clears and reproves in-place %s changes without affecting native attributes", async (attribute) => {
     const test = bodySetup(); const element = document.createElement("p"); const link = anchor(); link.title = "Native"; element.append(link);

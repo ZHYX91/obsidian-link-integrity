@@ -182,13 +182,15 @@ export function decorateBodyLinkReading(element: HTMLElement, context: MarkdownP
       if (this.alive && options.enabled()) this.timer = this.window.setTimeout(() => { this.timer = null; void this.refresh(); }, 80);
     }
     private async refresh(): Promise<void> {
+      const path = context.sourcePath;
       const section = context.getSectionInfo(element);
       if (!this.alive || !options.enabled() || section === null) return;
       const abort = new AbortController(); this.abort = abort;
       try {
-        const source = await options.source(context.sourcePath, section.text, abort.signal);
+        const source = await options.source(path, section.text, abort.signal);
         const current = context.getSectionInfo(element);
-        if (!this.alive || abort.signal.aborted || !options.enabled() || current?.text !== section.text ||
+        if (!this.alive || abort.signal.aborted || !options.enabled() || context.sourcePath !== path ||
+          source.sourcePath !== path || current?.text !== section.text ||
           current.lineStart !== section.lineStart || current.lineEnd !== section.lineEnd) return;
         for (const [anchor, hint] of mapBodyReadingHints(element, source, section.lineStart, section.lineEnd)) {
           if (!element.contains(anchor)) continue;
@@ -198,7 +200,7 @@ export function decorateBodyLinkReading(element: HTMLElement, context: MarkdownP
           this.owned.set(anchor, annotation); annotationOwners.set(anchor, annotation);
           anchor.classList.add("link-integrity-broken-body-hint"); anchor.setAttribute("title", reason); anchor.setAttribute("aria-description", reason);
         }
-      } catch { this.clear(); }
+      } catch { if (!abort.signal.aborted) this.clear(); }
     }
     public override onunload(): void {
       if (this.disposed) return;
