@@ -59,10 +59,21 @@
 .link-integrity-status-row {
   display: flex;
   min-inline-size: 0;
+  flex-wrap: wrap;
   gap: var(--size-2-2);
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: var(--size-2-2) var(--size-4-2) 0;
+}
+
+.link-integrity-status-message {
+  flex: 1 1 14rem;
+}
+
+.link-integrity-sidebar .link-integrity-status-row > button {
+  block-size: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .link-integrity-status-message,

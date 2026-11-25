@@ -47,6 +47,7 @@ interface LayoutMeasurements {
     readonly hiddenRetryHeight: number;
   };
   readonly expectedToggle: { readonly labelWidth: number; readonly badgeOnNextLine: boolean };
+  readonly scanRecovery: readonly { readonly messageWidth: number; readonly wrapped: boolean; readonly fits: boolean }[];
   readonly folderAction: {
     readonly height: number;
     readonly width: number;
@@ -105,6 +106,15 @@ describe("Obsidian host CSS layout contract", () => {
   beforeAll(async () => {
     measurements = await renderLayoutMeasurements();
   }, 30_000);
+
+  it("keeps scan errors and retry readable at large text sizes in both writing directions", () => {
+    expect(measurements.scanRecovery).toHaveLength(3);
+    for (const result of measurements.scanRecovery.slice(0, 2)) {
+      expect(result).toMatchObject({ wrapped: true, fits: true });
+      expect(result.messageWidth).toBeGreaterThan(170);
+    }
+    expect(measurements.scanRecovery[2]).toMatchObject({ wrapped: false, fits: true });
+  });
 
   it("keeps warning waves above native unresolved and hover rules without styling unmarked links", () => {
     expect(measurements.bodyHints.marked).toHaveLength(4);
@@ -521,9 +531,12 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
     <button class="link-integrity-tab" id="inactive-tab" type="button">Неработающие ссылки</button>
   </div>
   <div class="link-integrity-panel">
-    <div class="link-integrity-status-row is-stale">
-      <div class="link-integrity-status">Результаты могут быть устаревшими</div>
-      <button type="button">Повторить перестроение</button>
+    <div class="link-integrity-status-row is-stale" id="scan-recovery" style="--font-ui-smaller: 20px">
+      <div class="link-integrity-status-message">
+        <div class="link-integrity-status" role="status">Результаты могут быть устаревшими</div>
+        <details open><summary>Последняя ошибка</summary><div>Cannot read Projects/SyntheticFolderWithoutSpaces/Research-notes.md</div></details>
+      </div>
+      <button type="button" style="font-size: 20px">Проверить ещё раз</button>
     </div>
     <div class="link-integrity-toolbar">
       <div class="link-integrity-toolbar-view-toggle">
@@ -637,6 +650,21 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   dialogContent.scrollTop = dialogContent.scrollHeight;
   const dialogPanel = document.getElementById("dialog-panel").getBoundingClientRect();
   const dialogActions = document.getElementById("dialog-actions").getBoundingClientRect();
+  const recovery = document.getElementById("scan-recovery").cloneNode(true);
+  document.querySelector("#narrow-fixture .link-integrity-panel").append(recovery);
+  const scanRecovery = [[260, "ltr"], [260, "rtl"], [600, "ltr"]].map(([width, dir]) => {
+    recovery.style.width = width + "px";
+    recovery.style.boxSizing = "border-box";
+    recovery.dir = dir;
+    const message = recovery.querySelector(".link-integrity-status-message").getBoundingClientRect();
+    const retry = recovery.querySelector("button");
+    return {
+      messageWidth: message.width,
+      wrapped: retry.getBoundingClientRect().top >= message.bottom,
+      fits: recovery.scrollWidth <= recovery.clientWidth + 1 && retry.scrollWidth <= retry.clientWidth + 1,
+    };
+  });
+  recovery.remove();
   const measurements = {
     dropdownLayout: window.dropdownLayout,
     bodyHints: {
@@ -664,6 +692,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
       badgeOnNextLine: document.getElementById("expected-count").getBoundingClientRect().top >=
         document.getElementById("expected-label").getBoundingClientRect().bottom,
     },
+    scanRecovery,
     folderAction: {
       height: folderAction.height,
       width: folderAction.width,

@@ -27,6 +27,8 @@ The sidebar starts with the two business tabs. It does not repeat the plugin tit
 
 The ready state consumes no permanent status row. Progress appears only while scanning; stale or failed state appears contextually in the current panel with a Scan again action and expandable error details. With no usable index, opening the sidebar starts the first complete build automatically while retaining a discoverable Build index action. A full-rebuild failure must never replace the most recent trustworthy result with an empty list.
 
+In narrow sidebars or with large interface text, Scan again can wrap below the summary and error details so the message stays readable.
+
 Result DOM is bounded to 100 problem rows or files per page. Previous/next controls preserve access to the complete filtered and sorted result set; badges show full-result counts and the range label identifies the current page. After an index change, an inactive tab whose results have not refreshed shows a pending marker instead of presenting an old count as current. Changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
 The search input keeps its DOM identity, focus, and caret during typing, selection replacement, and index notifications. IME composition retains unfinished text and publishes the query after composition ends. Unchanged toolbar controls survive index notifications. Expansion choices for isolated folders, target/source groups, and file-type filters belong to the sidebar session: they survive refreshes and temporary filtering and are released when the sidebar closes. Broken-link source-folder expansion paths are stored separately as interface preferences.
