@@ -5,6 +5,18 @@ the repository manifest, annotated Git tags, and commit history. A tag identifie
 revision; it does not by itself prove that a GitHub Release was published, that the plugin was
 accepted into the Obsidian community directory, or that any Vault was updated.
 
+## [0.5.9] - 2026-11-25
+
+- Sort complete source-folder groups by broken-link count before splitting results into pages.
+- Keep both open sidebars current when they show different results, and compute the isolation lists together.
+- Refresh results after folder moves, deletions and imports. Preserve large batches of file changes when a conflicting edit requires a retry.
+- Recognize mixed-case Markdown extensions in body diagnostics and keep reading-view hints tied to their current note.
+- Show a translated scan failure summary with expandable error details and a readable retry button on narrow sidebars.
+- Keep focus and expanded file-type groups when switching sidebar views or filters. Keep the remaining draft and editing position when adding or removing naming patterns.
+- Keep the selected settings tab visible after opening or resizing the pane. Improve touch targets, selected-tab contrast and keyboard navigation.
+- Expose native settings names and switch states to screen readers. Keep keyboard focus after editing settings and distinguish repeated broken links by their location.
+- Wrap long translated fields in narrow panes, clarify index counts and Arabic number forms, and explain where periodic-note rules are configured.
+
 ## [0.5.8] - 2026-11-22
 
 - Keep the cursor in place when the active definition of a reference-style Markdown link has changed since the diagnostic was indexed.
@@ -290,6 +302,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
   benchmarks.
 
 [Unreleased]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.8...HEAD
+[0.5.9]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.8...0.5.9
 [0.5.8]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.7...0.5.8
 [0.5.7]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.6...0.5.7
 [0.5.6]: https://github.com/ZHYX91/obsidian-link-integrity/compare/0.5.5...0.5.6

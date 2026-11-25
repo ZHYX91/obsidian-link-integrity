@@ -204,12 +204,14 @@
       "steps": [
         "Wait for the startup scan and inspect both business tabs",
         "Toggle expected isolated files and navigate every reported source",
-        "Modify one link and confirm the incremental projection equals a clean rebuild"
+        "Modify one link and confirm the incremental projection equals a clean rebuild",
+        "On desktop open two Link Integrity panes, one on each tab. Rename and restore the Connected fixture folder, compare source paths and counts after each refresh, and compare the final incremental results with Rebuild index."
       ],
       "expected": [
         "The deterministic fixture reports five broken diagnostics and four default isolated files",
         "Expected periodic isolation is separated from the default count",
-        "Markdown, embeds, frontmatter, Canvas, and explicit Bases links contribute the documented edges"
+        "Markdown, embeds, frontmatter, Canvas, and explicit Bases links contribute the documented edges",
+        "Both desktop panes refresh without stale paths and agree with the rebuilt index"
       ]
     },
     {
@@ -358,12 +360,16 @@
       "steps": [
         "Select Simplified Chinese and inspect both sidebar tabs and General help links; names agree with the localized user guide.",
         "Inspect the note-text hint setting and enable it on an existing broken-link fixture, then verify the hint appears without changing note bytes.",
-        "Switch to English and a representative light/dark appearance, and inspect narrow settings navigation and wrapped help links."
+        "Switch to English and a representative light/dark appearance, and inspect narrow settings navigation and wrapped help links.",
+        "Use Arabic and a long translated locale at narrow width and large text. Inspect the selected tab, labels and a naming-pattern add/remove transaction in the rule editor, then cancel the draft.",
+        "On desktop use the keyboard to change Scan on startup and the interface language. Check focus and scrolling after each change. On Android use the corresponding touch controls and reopen the settings."
       ],
       "expected": [
         "Sidebar names, note-text hints and help labels are consistently localized.",
         "Hints affect presentation only and preserve note bytes.",
-        "Settings navigation and help links stay readable at narrow width and across representative appearance modes."
+        "Settings navigation and help links stay readable at narrow width and across representative appearance modes.",
+        "The rule editor retains other draft fields and focuses an adjacent pattern or the Add button after removal.",
+        "Desktop focus remains on the changed control, including after a language redraw. Touch settings report the saved choices after reopening."
       ]
     }
   ]
