@@ -203,6 +203,23 @@ function missing(sourcePath: string, linkpath: string, id: string): LinkOccurren
 }
 
 
+it.each(["broken-links", "isolated-files"] as const)("shares a finished synchronous snapshot with a pending %s request", async tab => {
+  const index = new LinkIndex([createFileRecord("Note.md")]);
+  index.replaceSourceSnapshot("Note.md", { sourcePath: "Note.md", occurrences: [missing("Note.md", "Missing", "one")] });
+  const query = new SidebarQueryService(() => index, createDefaultSettings);
+  let resume!: () => void;
+  const blocked = new Promise<void>(resolve => { resume = resolve; });
+  const checkpoint = vi.spyOn(WorkScheduler.prototype, "checkpoint").mockReturnValueOnce(blocked);
+  try {
+    const pending = query.prepareSnapshot(tab);
+    const completed = query.getSnapshot(tab);
+    resume();
+    expect(await pending).toBe(true);
+    expect(query.getSnapshot(tab).brokenLinks).toBe(completed.brokenLinks);
+    expect(query.getSnapshot(tab).isolatedFiles).toBe(completed.isolatedFiles);
+  } finally { resume(); checkpoint.mockRestore(); }
+});
+
 it("yields during incremental merge and never publishes a superseded partial result", async () => {
   const index = new LinkIndex(Array.from({ length: 500 }, (_, i) => createFileRecord(`Note-${i}.md`)));
   const query = new SidebarQueryService(() => index, createDefaultSettings);

@@ -23,22 +23,51 @@ async function fixture() {
   query.setStatus({ state: "ready", current: 0, total: 0, errorMessage: null });
   const open = vi.fn();
   const errors = vi.fn();
-  const view = new LinkIntegritySidebarView({} as never, {
-    query, getSettings: () => settings, ensureIndex: () => undefined,
-    navigation: { openBrokenLink: open, openFile: () => undefined, rebuildIndex: () => undefined },
-    onViewStateChange: () => undefined, onActionError: errors,
-  });
-  views.push(view);
-  document.body.append(view.contentEl);
-  await view.onOpen();
+  const openView = async () => {
+    const view = new LinkIntegritySidebarView({} as never, {
+      query, getSettings: () => settings, ensureIndex: () => undefined,
+      navigation: { openBrokenLink: open, openFile: () => undefined, rebuildIndex: () => undefined },
+      onViewStateChange: () => undefined, onActionError: errors,
+    });
+    views.push(view);
+    document.body.append(view.contentEl);
+    await view.onOpen();
+    return view;
+  };
+  const view = await openView();
   await vi.waitFor(() => expect(view.contentEl.querySelectorAll(".link-integrity-result-row")).toHaveLength(2));
   return {
-    query, view, open, errors, get index() { return index; },
+    query, view, openView, open, errors, get index() { return index; },
     publish(next: LinkIndex) { index = next; query.recordChanges(next.changes); query.notifyResults(); },
   };
 }
 
 describe("scheduled sidebar rendering", () => {
+  it("refreshes two open sidebars on different tabs after the same Vault change", async () => {
+    const f = await fixture();
+    const second = await f.openView();
+    const tabs = () => second.contentEl.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    await vi.waitFor(() => expect(tabs()).toHaveLength(2));
+    tabs()[1]!.click();
+    await vi.waitFor(() => {
+      expect(tabs()[1]!.getAttribute("aria-selected")).toBe("true");
+      expect(second.contentEl.querySelectorAll(".link-integrity-result-row")).toHaveLength(2);
+    });
+
+    const next = f.index.fork();
+    next.replaceSourceSnapshot("A.md", snapshot("A.md", [
+      occurrence("connected", "A.md", { targetPath: "B.md" }),
+    ]));
+    f.publish(next);
+
+    await vi.waitFor(() => {
+      const remaining = f.view.contentEl.querySelectorAll(".link-integrity-result-row");
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]?.textContent).toContain("B.md");
+      expect(second.contentEl.querySelectorAll(".link-integrity-result-row")).toHaveLength(0);
+    });
+  });
+
   it("moves keyboard focus with the selected tab after the production asynchronous query", async () => {
     const f = await fixture();
     const tabs = f.view.contentEl.querySelectorAll<HTMLButtonElement>('[role="tab"]');

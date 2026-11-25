@@ -2,16 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import { SidebarQueryService } from "../../src/app/sidebar-query-service";
 import { createFileRecord, LinkIndex } from "../../src/core";
 import { createDefaultSettings } from "../../src/shared/settings";
+import { WorkScheduler } from "../../src/scheduling/work-scheduler";
 import { createInitialSidebarState } from "../../src/app/sidebar-view";
 import { createScheduledViewModelSelector, createSidebarViewModel, createSidebarViewModelSelector } from "../../src/ui/sidebar/view-model";
 import { occurrence, snapshot } from "../core/test-helpers";
 
-function fixture(count = 100) {
+function fixture(count = 100, settings = createDefaultSettings()) {
   let index = new LinkIndex(Array.from({ length: count }, (_, i) => createFileRecord(`Note-${i}.md`)));
   for (const file of index.files) index.replaceSourceSnapshot(file.path, snapshot(file.path, [
     occurrence(file.path, file.path, { fileStatus: "missing" }),
   ]));
-  const settings = createDefaultSettings();
   const query = new SidebarQueryService(() => index, () => settings);
   return {
     query, settings, get index() { return index; },
@@ -20,6 +20,48 @@ function fixture(count = 100) {
 }
 
 describe("incremental sidebar projections", () => {
+  it("can stop partway through looking up a folder of deleted isolation candidates", async () => {
+    const f = fixture(256);
+    const before = f.query.getSnapshot("isolated-files").isolatedFiles;
+    const next = f.index.fork();
+    for (const file of f.index.iterateFiles()) next.replaceFileRecord(file.path, null);
+    f.publish(next);
+
+    const lookup = vi.spyOn(next, "getFile");
+    let resume!: () => void;
+    const blocked = new Promise<void>(resolve => { resume = resolve; });
+    const checkpoint = vi.spyOn(WorkScheduler.prototype, "checkpoint").mockReturnValueOnce(blocked);
+    try {
+      const preparation = f.query.prepareSnapshot("isolated-files");
+      const readsBeforePause = lookup.mock.calls.length;
+      f.query.notify();
+      resume();
+
+      expect(await preparation).toBe(false);
+      expect(readsBeforePause).toBeLessThan(before.length);
+      expect(lookup).toHaveBeenCalledTimes(readsBeforePause);
+      expect(f.query.getSnapshot().isolatedFiles).toBe(before);
+    } finally { resume(); checkpoint.mockRestore(); lookup.mockRestore(); }
+  });
+
+  it.each(["sync", "scheduled"] as const)("reads each candidate's graph counts once for both isolation lists (%s)", async mode => {
+    const defaults = createDefaultSettings();
+    const f = fixture(96, {
+      ...defaults, isolatedFiles: { ...defaults.isolatedFiles, allowNoIncomingFilter: true, expectedFilePaths: ["Note-2.md"] },
+    });
+    f.index.replaceSourceSnapshot("Note-0.md", snapshot("Note-0.md", [
+      occurrence("connected", "Note-0.md", { targetPath: "Note-1.md" }),
+    ]));
+    const neighbors = vi.spyOn(f.index, "getIncomingNeighborCount");
+    if (mode === "scheduled") await f.query.prepareSnapshot("isolated-files");
+    const result = f.query.getSnapshot("isolated-files");
+    expect(result.isolatedFiles).toHaveLength(94);
+    expect(result.noIncomingFiles).toHaveLength(95);
+    expect(result.noIncomingFiles.find(item => item.path === "Note-0.md")?.outgoingCount).toBe(1);
+    expect(result.isolatedFiles.find(item => item.path === "Note-2.md")?.expectation.kind).toBe("expected");
+    expect(neighbors).toHaveBeenCalledTimes(96);
+  });
+
   it("marks inactive counts unknown until their changed projection is prepared", async () => {
     const f = fixture(3);
     await f.query.prepareSnapshot("broken-links");

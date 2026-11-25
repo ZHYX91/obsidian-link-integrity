@@ -1,8 +1,8 @@
 import { isBrokenDiagnosticVisible } from "./broken-link-visibility";
 import { classifyFileExtension, createPeriodicExpectedIsolationRules, type LinkIndex, type IndexChanges } from "../core";
 import {
-  createIsolatedFileProjection,
-  queryBrokenLinks,
+  createIsolatedFileProjector,
+  filesAtPaths,
   diagnoseOccurrence,
   type BrokenLinkDiagnostic,
   type IsolatedFileResult as CoreIsolatedFileResult,
@@ -20,6 +20,8 @@ import type {
   SidebarTabId,
 } from "../ui/sidebar";
 
+type QueryExecution = "sync" | "scheduled";
+
 export class SidebarQueryService implements SidebarQueryPort {
   private readonly listeners = new Set<() => void>();
   private brokenLinks: readonly BrokenLinkResult[] = [];
@@ -32,10 +34,9 @@ export class SidebarQueryService implements SidebarQueryPort {
   private brokenPaths: Set<string> | null = null;
   private isolatedPaths: Set<string> | null = null;
   private resultsRevision = 0;
-  private preparationGeneration = 0;
-  private pendingPreparation: {
-    tab: SidebarTabId; revision: number; promise: Promise<boolean>;
-  } | null = null;
+  private readonly pendingPreparations = new Map<SidebarTabId, {
+    revision: number; promise: Promise<boolean>;
+  }>();
   private status: IndexStatus = {
     state: "idle",
     current: 0,
@@ -56,28 +57,9 @@ export class SidebarQueryService implements SidebarQueryPort {
   public readonly getSnapshot = (
     activeTab: SidebarTabId | null = null,
   ): SidebarQuerySnapshot => {
-    if (activeTab === "broken-links" && this.brokenLinksDirty) {
-      const items = this.computeBrokenLinks(this.brokenPaths);
-      this.brokenLinks = this.brokenPaths === null ? items : mergeResults(
-        this.brokenLinks, items, this.brokenPaths, (item) => item.sourcePath, compareBrokenResults,
-      );
-      this.brokenLinksKnown = true;
-      this.brokenLinksDirty = false;
-      this.brokenPaths = new Set();
-    }
-    if (activeTab === "isolated-files" && this.isolatedFilesDirty) {
-      const projection = this.computeIsolatedFiles(this.isolatedPaths);
-      this.isolatedFiles = this.isolatedPaths === null ? projection.isolatedFiles : mergeResults(
-        this.isolatedFiles, projection.isolatedFiles, this.isolatedPaths,
-        (item) => item.path, compareIsolatedResults,
-      );
-      this.noIncomingFiles = this.isolatedPaths === null ? projection.noIncomingFiles : mergeResults(
-        this.noIncomingFiles, projection.noIncomingFiles, this.isolatedPaths,
-        (item) => item.path, compareIsolatedResults,
-      );
-      this.isolatedFilesKnown = true;
-      this.isolatedFilesDirty = false;
-      this.isolatedPaths = new Set();
+    if (activeTab !== null && this.isDirty(activeTab)) {
+      const steps = this.prepareTab(activeTab, "sync");
+      while (!steps.next().done) { /* Synchronous callers use the same projection as the mounted sidebar. */ }
     }
     return {
       status: this.status,
@@ -91,81 +73,14 @@ export class SidebarQueryService implements SidebarQueryPort {
 
   /** The host uses this scheduled path; synchronous queries remain useful to pure callers. */
   public readonly prepareSnapshot = (tab: SidebarTabId): Promise<boolean> => {
+    if (!this.isDirty(tab)) return Promise.resolve(true);
     const revision = this.resultsRevision;
-    const pending = this.pendingPreparation;
-    if (pending?.tab === tab && pending.revision === revision) return pending.promise;
-    const generation = ++this.preparationGeneration;
-    const isCurrent = (): boolean => revision === this.resultsRevision && generation === this.preparationGeneration;
-    const scheduler = new WorkScheduler();
-    const promise = (async (): Promise<boolean> => {
-      const pendingPaths = tab === "broken-links" ? this.brokenPaths : this.isolatedPaths;
-      const paths = pendingPaths === null ? null : new Set(pendingPaths);
-      const dirty = tab === "broken-links" ? this.brokenLinksDirty : this.isolatedFilesDirty;
-      if (!dirty) return true;
-      const work = paths ?? filePaths(this.getIndex());
-      const broken: BrokenLinkResult[] = [];
-      const isolated: IsolatedFileResult[] = [];
-      const noIncoming: IsolatedFileResult[] = [];
-      const settings = this.getSettings();
-      const ignore = new IgnoreService(settings.ignoreRules);
-      const index = this.getIndex();
-      for (const batch of pathBatches(work)) {
-        if (tab === "broken-links") {
-          for (const path of batch) {
-            for (const occurrence of index.getSourceSnapshot(path)?.occurrences ?? []) {
-              const diagnostic = diagnoseOccurrence(occurrence);
-              if (diagnostic !== null && isBrokenDiagnosticVisible(diagnostic, index, settings, ignore)) {
-                broken.push(toBrokenResult(diagnostic));
-              }
-              const pause = scheduler.checkpoint();
-              if (pause !== null) await pause;
-              if (!isCurrent()) return false;
-            }
-          }
-        } else {
-          const result = this.computeIsolatedFiles(batch);
-          isolated.push(...result.isolatedFiles);
-          noIncoming.push(...result.noIncomingFiles);
-        }
-        const pause = scheduler.checkpoint();
-        if (pause !== null) await pause;
-        if (!isCurrent()) return false;
-      }
-      const sortedBroken = await scheduledSteps(sortSteps(broken, compareBrokenResults), scheduler, isCurrent);
-      if (sortedBroken === null) return false;
-      const sortedIsolated = await scheduledSteps(sortSteps(isolated, compareIsolatedResults), scheduler, isCurrent);
-      if (sortedIsolated === null) return false;
-      const sortedNoIncoming = await scheduledSteps(sortSteps(noIncoming, compareIsolatedResults), scheduler, isCurrent);
-      if (sortedNoIncoming === null) return false;
-      if (tab === "broken-links") {
-        const result = paths === null ? sortedBroken : await scheduledSteps(mergeResultSteps(
-          this.brokenLinks, sortedBroken, paths, (item) => item.sourcePath, compareBrokenResults,
-        ), scheduler, isCurrent);
-        if (result === null || !isCurrent()) return false;
-        this.brokenLinks = result;
-        this.brokenPaths = new Set();
-        this.brokenLinksDirty = false;
-        this.brokenLinksKnown = true;
-      } else {
-        const result = paths === null ? sortedIsolated : await scheduledSteps(mergeResultSteps(
-          this.isolatedFiles, sortedIsolated, paths, (item) => item.path, compareIsolatedResults,
-        ), scheduler, isCurrent);
-        if (result === null) return false;
-        const incomingResult = paths === null ? sortedNoIncoming : await scheduledSteps(mergeResultSteps(
-          this.noIncomingFiles, sortedNoIncoming, paths, (item) => item.path, compareIsolatedResults,
-        ), scheduler, isCurrent);
-        if (incomingResult === null || !isCurrent()) return false;
-        this.isolatedFiles = result;
-        this.noIncomingFiles = incomingResult;
-        this.isolatedPaths = new Set();
-        this.isolatedFilesDirty = false;
-        this.isolatedFilesKnown = true;
-      }
-      return true;
-    })();
-    this.pendingPreparation = { tab, revision, promise };
+    const pending = this.pendingPreparations.get(tab);
+    if (pending?.revision === revision) return pending.promise;
+    const promise = this.runPreparation(tab, revision);
+    this.pendingPreparations.set(tab, { revision, promise });
     void promise.finally(() => {
-      if (this.pendingPreparation?.promise === promise) this.pendingPreparation = null;
+      if (this.pendingPreparations.get(tab)?.promise === promise) this.pendingPreparations.delete(tab);
     }).catch(() => undefined);
     return promise;
   };
@@ -174,67 +89,101 @@ export class SidebarQueryService implements SidebarQueryPort {
     return this.status;
   }
 
-  private computeBrokenLinks(paths: ReadonlySet<string> | null = null): readonly BrokenLinkResult[] {
-    const index = this.getIndex();
-    const settings = this.getSettings();
-    const ignoreService = new IgnoreService(settings.ignoreRules);
-    return queryBrokenLinks(index, paths === null ? {} : { sourcePaths: paths })
-      .filter((diagnostic) => isBrokenDiagnosticVisible(diagnostic, index, settings, ignoreService))
-      .map(toBrokenResult);
+  private async runPreparation(tab: SidebarTabId, revision: number): Promise<boolean> {
+    const scheduler = new WorkScheduler();
+    const steps = this.prepareTab(tab, "scheduled");
+    let step = steps.next();
+    while (!step.done) {
+      const pause = scheduler.checkpoint();
+      if (pause !== null) {
+        await pause;
+        if (revision !== this.resultsRevision) return false;
+        // A synchronous reader can finish this revision while the scheduled reader yields.
+        if (!this.isDirty(tab)) return true;
+      }
+      step = steps.next();
+    }
+    return true;
   }
 
-  private computeIsolatedFiles(paths: ReadonlySet<string> | null = null): {
-    readonly isolatedFiles: readonly IsolatedFileResult[];
-    readonly noIncomingFiles: readonly IsolatedFileResult[];
-  } {
+  private isDirty(tab: SidebarTabId): boolean {
+    return tab === "broken-links" ? this.brokenLinksDirty : this.isolatedFilesDirty;
+  }
+
+  private prepareTab(tab: SidebarTabId, execution: QueryExecution): Generator<void> {
+    return tab === "broken-links" ? this.prepareBrokenLinks(execution) : this.prepareIsolatedFiles(execution);
+  }
+
+  private *prepareBrokenLinks(execution: QueryExecution): Generator<void> {
+    const paths = this.brokenPaths === null ? null : new Set(this.brokenPaths);
     const index = this.getIndex();
     const settings = this.getSettings();
-    const expectedRules = [
-      ...settings.isolatedFiles.expectedRules,
-      ...createPeriodicExpectedIsolationRules(settings.isolatedFiles.periodicNotesPreset),
-    ];
-    const expectedFilePaths = new Set(settings.isolatedFiles.expectedFilePaths);
-    const ignoreService = new IgnoreService(settings.ignoreRules);
-    const excludedCandidatePaths = settings.isolatedFiles.showIgnored || settings.ignoreRules.length === 0
-      ? new Set<string>()
-      : new Set((paths === null ? index.files : Array.from(paths)
-        .flatMap((path) => index.getFile(path) ?? []))
-        .filter((file) => {
-          const classification = classifyFileExtension(file.extension);
-          return ignoreService.shouldExcludeIsolatedCandidate({
-            candidatePath: file.path,
-            formatFamilyIds: classification.familyIds,
-            extension: file.extension,
-          });
-        })
-        .map(({ path }) => path));
-    const candidateScope = {
-      familyIds: new Set(settings.isolatedFiles.candidateFormatFamilyIds),
-      customExtensions: new Set(settings.isolatedFiles.customExtensions),
-      excludedPaths: excludedCandidatePaths,
-    };
-    const isolated = createIsolatedFileProjection(index, {
-      ...(paths === null ? {} : { paths }),
-      candidateScope,
-      expectedRules,
-      expectedFilePaths,
-      includeExpected: true,
-      mode: "isolated",
+    const ignore = new IgnoreService(settings.ignoreRules);
+    const broken: BrokenLinkResult[] = [];
+    const occurrences = paths === null ? index.iterateOccurrences() : changedOccurrences(index, paths);
+    for (const occurrence of occurrences) {
+      const diagnostic = occurrence && diagnoseOccurrence(occurrence);
+      if (diagnostic && isBrokenDiagnosticVisible(diagnostic, index, settings, ignore)) {
+        broken.push(toBrokenResult(diagnostic));
+      }
+      yield;
+    }
+    const sorted = yield* sortResults(broken, compareBrokenResults, execution);
+    this.brokenLinks = paths === null ? sorted : yield* mergeResultSteps(
+      this.brokenLinks, sorted, paths, (item) => item.sourcePath, compareBrokenResults,
+    );
+    this.brokenPaths = new Set();
+    this.brokenLinksDirty = false;
+    this.brokenLinksKnown = true;
+  }
+
+  private *prepareIsolatedFiles(execution: QueryExecution): Generator<void> {
+    const index = this.getIndex();
+    const settings = this.getSettings();
+    const options = settings.isolatedFiles;
+    const paths = this.isolatedPaths === null ? null : new Set(this.isolatedPaths);
+    const ignore = !options.showIgnored && settings.ignoreRules.length > 0 ? new IgnoreService(settings.ignoreRules) : null;
+    const project = createIsolatedFileProjector(index, {
+      mode: options.allowNoIncomingFilter ? "no-incoming" : "isolated",
+      candidateScope: {
+        familyIds: new Set(options.candidateFormatFamilyIds), customExtensions: new Set(options.customExtensions),
+      },
+      expectedRules: [...options.expectedRules, ...createPeriodicExpectedIsolationRules(options.periodicNotesPreset)],
+      expectedFilePaths: new Set(options.expectedFilePaths),
     });
-    const noIncoming = settings.isolatedFiles.allowNoIncomingFilter
-      ? createIsolatedFileProjection(index, {
-        ...(paths === null ? {} : { paths }),
-        candidateScope,
-        expectedRules,
-        expectedFilePaths,
-        includeExpected: true,
-        mode: "no-incoming",
-      })
-      : null;
-    return {
-      isolatedFiles: isolated.items.map(toIsolatedResult),
-      noIncomingFiles: noIncoming?.items.map(toIsolatedResult) ?? [],
-    };
+    const items: IsolatedFileResult[] = [];
+    const files = paths === null ? index.iterateFiles() : filesAtPaths(index, paths);
+    for (const file of files) {
+      if (file !== null && !ignore?.shouldExcludeIsolatedCandidate({
+        candidatePath: file.path, extension: file.extension, formatFamilyIds: classifyFileExtension(file.extension).familyIds,
+      })) {
+        const item = project(file);
+        if (item !== null) items.push(toIsolatedResult(item));
+      }
+      yield;
+    }
+    const sorted = yield* sortResults(items, compareIsolatedResults, execution);
+    let isolated = sorted;
+    if (options.allowNoIncomingFilter) {
+      isolated = [];
+      for (const item of sorted) {
+        if (item.outgoingCount === 0) isolated.push(item);
+        yield;
+      }
+    }
+    const noIncoming = options.allowNoIncomingFilter ? sorted : [];
+    const isolatedFiles = paths === null ? isolated : yield* mergeResultSteps(
+      this.isolatedFiles, isolated, paths, (item) => item.path, compareIsolatedResults,
+    );
+    const noIncomingFiles = paths === null ? noIncoming : yield* mergeResultSteps(
+      this.noIncomingFiles, noIncoming, paths, (item) => item.path, compareIsolatedResults,
+    );
+    // Publish both lists together after the final scheduling checkpoint.
+    this.isolatedFiles = isolatedFiles;
+    this.noIncomingFiles = noIncomingFiles;
+    this.isolatedPaths = new Set();
+    this.isolatedFilesDirty = false;
+    this.isolatedFilesKnown = true;
   }
 
   public setStatus(status: IndexStatus, invalidateResults = false): void {
@@ -298,14 +247,11 @@ function compareIsolatedResults(left: IsolatedFileResult, right: IsolatedFileRes
   return left.path.localeCompare(right.path);
 }
 
-function mergeResults<T>(
-  previous: readonly T[], updates: readonly T[], paths: ReadonlySet<string>,
-  pathOf: (item: T) => string, compare: (left: T, right: T) => number,
-): readonly T[] {
-  const steps = mergeResultSteps(previous, updates, paths, pathOf, compare);
-  let step = steps.next();
-  while (!step.done) step = steps.next();
-  return step.value;
+function* sortResults<T>(
+  items: T[], compare: (left: T, right: T) => number, execution: QueryExecution,
+): Generator<void, T[]> {
+  if (execution === "sync") return items.sort(compare);
+  return yield* sortSteps(items, compare);
 }
 
 function* mergeResultSteps<T>(
@@ -346,30 +292,13 @@ function* mergeResultSteps<T>(
   return result;
 }
 
-function* filePaths(index: LinkIndex): Iterable<string> {
-  for (const file of index.iterateFiles()) yield file.path;
-}
-
-function* pathBatches(paths: Iterable<string>): Iterable<Set<string>> {
-  let batch = new Set<string>();
+/** Empty or deleted sources still yield a checkpoint during a large incremental update. */
+function* changedOccurrences(index: LinkIndex, paths: Iterable<string>) {
   for (const path of paths) {
-    batch.add(path);
-    if (batch.size === 32) { yield batch; batch = new Set(); }
+    const occurrences = index.getSourceSnapshot(path)?.occurrences;
+    if (occurrences?.length) yield* occurrences;
+    else yield null;
   }
-  if (batch.size > 0) yield batch;
-}
-
-async function scheduledSteps<T>(
-  steps: Generator<void, T>, scheduler: WorkScheduler, isCurrent: () => boolean,
-): Promise<T | null> {
-  let step = steps.next();
-  while (!step.done) {
-    const pause = scheduler.checkpoint();
-    if (pause !== null) await pause;
-    if (!isCurrent()) return null;
-    step = steps.next();
-  }
-  return isCurrent() ? step.value : null;
 }
 
 function toBrokenResult(diagnostic: BrokenLinkDiagnostic): BrokenLinkResult {
