@@ -96,11 +96,13 @@ When a baseline is requested by startup scanning, the sidebar, or a manual rebui
 
 The incremental controller accepts create, modify, delete, rename, and synthetic metadata-resolved events at its host-independent port. The Obsidian runtime feeds it Vault events plus Metadata Cache change/delete events. Repeated runtime events enter a 100 ms trailing quiet window with a 500 ms maximum wait, are then coalesced before snapshot work begins, and use bounded snapshot concurrency.
 
+A move or deletion reported for a whole folder schedules the same file-registry reconciliation as file events. Importing a folder that already contains children does so as well. Child events can arrive in the same batch.
+
 Consistency protection includes:
 
 - lifecycle epoch: results from an old lifecycle cannot publish after stop or restart;
 - operation generation and cancellation signal: an old rebuild cannot clean up a new controller, claim more sources, or publish completion diagnostics;
-- path revision: every affected source has a monotonic revision, so an older asynchronous snapshot cannot overwrite a newer revision;
+- batch ownership: one drain owns the current staging index. Before publication it checks queued events against the affected sources, targets and lookup keys, then retries conflicting work without retaining old paths;
 - bounded quiet-window coalescing: duplicate Vault and Metadata Cache callbacks for one path trigger one build without allowing a continuous stream to postpone updates indefinitely;
 - lookup and target reverse indexes: namespace or target-metadata changes revalidate the direct source, sources currently resolved to the target, and sources that may retarget through a lookup key.
 

@@ -25,7 +25,6 @@ interface FileRecordUpdate {
 
 interface SnapshotBuild {
   readonly sourcePath: string;
-  readonly revision: number;
   readonly snapshot: SourceSnapshot | null;
 }
 
@@ -48,14 +47,12 @@ export interface IncrementalBatchDiagnostics {
 export class IncrementalIndexController {
   private active = false;
   private lifecycleEpoch = 0;
-  private readonly revisions = new Map<string, number>();
   private queuedEvents: SourceEvent[] = [];
   private drainPromise: Promise<void> | null = null;
   private readonly concurrency: number;
   private readonly now: () => number;
   private readonly options: IncrementalIndexOptions;
   private activeEventCount = 0;
-  private eventRevision = 0;
 
   public constructor(
     private readonly port: LinkIndexPort,
@@ -94,11 +91,7 @@ export class IncrementalIndexController {
     if (!this.active) throw new Error("Incremental index controller is not active.");
     const event = normalizeEvent(eventInput);
     this.queuedEvents.push(event);
-    this.eventRevision += 1;
     this.notifyPendingEventCount();
-    // Revisioning direct paths is cheap even when a note has many incoming links.
-    if (event.type === "rename") this.bumpRevision(event.oldPath);
-    if (event.path !== null) this.bumpRevision(event.path);
     this.scheduleDrain();
   }
 
@@ -130,7 +123,7 @@ export class IncrementalIndexController {
       try {
         const affectedSourceCount = await this.applyBatch(coalesceEvents(events));
         if (affectedSourceCount === null && this.active && this.options.signal?.aborted !== true) {
-          this.queuedEvents.unshift(...events);
+          this.queuedEvents = events.concat(this.queuedEvents);
         }
         if (affectedSourceCount !== null && this.active) {
           const completedAt = this.now();
@@ -152,7 +145,6 @@ export class IncrementalIndexController {
     const epoch = this.lifecycleEpoch;
     const index = this.store.current;
     const indexVersion = index.version;
-    const eventRevision = this.eventRevision;
     const scheduler = new WorkScheduler(this.options);
     const affectedPaths = new Set(events.directPaths);
     let nextFiles: readonly FileRecord[] | null = null;
@@ -217,7 +209,6 @@ export class IncrementalIndexController {
       for (const file of nextFiles ?? index.files) affectedPaths.add(file.path);
     }
 
-    for (const sourcePath of affectedPaths) this.ensureBatchRevision(sourcePath);
     const nextPaths = nextFiles === null ? null : new Set<string>();
     if (nextPaths !== null) {
       for (const file of nextFiles ?? []) {
@@ -239,8 +230,6 @@ export class IncrementalIndexController {
       scheduler,
     );
     if (!this.isCurrentEpoch(epoch)) return null;
-    const currentBuilds = builds.filter((build) =>
-      this.getRevision(build.sourcePath) === build.revision);
     const dependencyPaths = new Set(affectedPaths);
     const dependencyKeys = new Set<string>();
     for (const build of builds) {
@@ -270,20 +259,21 @@ export class IncrementalIndexController {
       if (pause !== null) await pause;
       if (!this.isCurrentEpoch(epoch)) return null;
     }
-    for (const build of currentBuilds) {
+    for (const build of builds) {
       await consumeSteps(staging.replaceSourceSnapshotSteps(build.sourcePath, build.snapshot), scheduler, () => this.isCurrentEpoch(epoch));
       if (!this.isCurrentEpoch(epoch)) return null;
     }
     // A yield can admit new events, a settings policy change, or a lifecycle change.
     // Never expose an obsolete or partially reduced staging index.
-    const conflictingEvent = this.eventRevision !== eventRevision && this.queuedEvents.some((event) =>
+    // The drain is serial. Every queued event arrived after this batch was taken.
+    const conflictingEvent = this.queuedEvents.some((event) =>
       event.type !== "modify" || dependencyPaths.has(event.path) ||
       makeFileLookupKeys(event.path).some((key) => dependencyKeys.has(key)));
     if (!this.isCurrentEpoch(epoch) || conflictingEvent ||
       this.store.current !== index || index.version !== indexVersion) return null;
     this.store.publish(staging);
     this.safelyNotify(() => this.options.onChanges?.(staging.changes));
-    return currentBuilds.length;
+    return builds.length;
   }
 
   private notifyPendingEventCount(): void {
@@ -312,7 +302,6 @@ export class IncrementalIndexController {
         nextIndex += 1;
         const sourcePath = sourcePaths[pathIndex];
         if (sourcePath === undefined) continue;
-        const revision = this.getRevision(sourcePath);
         const built = availableSourcePaths.has(sourcePath)
           ? await raceWithAbort(
             this.port.buildSourceSnapshot(sourcePath, scheduler),
@@ -320,7 +309,7 @@ export class IncrementalIndexController {
           )
           : null;
         if (!this.isCurrentEpoch(epoch)) return;
-        builds[pathIndex] = { sourcePath, revision, snapshot: built };
+        builds[pathIndex] = { sourcePath, snapshot: built };
         const pause = scheduler.checkpoint();
         if (pause !== null) await pause;
       }
@@ -330,18 +319,6 @@ export class IncrementalIndexController {
       worker,
     ));
     return builds;
-  }
-
-  private ensureBatchRevision(path: string): void {
-    if (!this.revisions.has(path)) this.bumpRevision(path);
-  }
-
-  private bumpRevision(path: string): void {
-    this.revisions.set(path, this.getRevision(path) + 1);
-  }
-
-  private getRevision(path: string): number {
-    return this.revisions.get(path) ?? 0;
   }
 
   private isCurrentEpoch(epoch: number): boolean {

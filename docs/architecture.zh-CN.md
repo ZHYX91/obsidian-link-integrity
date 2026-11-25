@@ -95,11 +95,13 @@ core 的规范化 lookup key 只用于命名空间变化后的保守重验证。
 
 与宿主无关的增量控制器接受 create、modify、delete、rename 和合成 metadata-resolved 事件；Obsidian 运行时向其提供 Vault 事件及 Metadata Cache change/delete 事件。重复运行时事件先进入 100 ms 尾随安静窗，并由 500 ms 最大等待兜底，再于快照工作前合并；快照构建使用有限并发。
 
+整个文件夹的移动、删除，或导入已有子项的文件夹，都会触发文件索引核对。同一批事件也可以包含各子文件的通知。
+
 一致性保护包括：
 
 - lifecycle epoch：停止或重启后，旧生命周期结果不能发布；
 - operation generation 与取消信号：旧重建不能清理新控制器、领取更多来源或发布完成诊断；
-- path revision：每个受影响来源具有单调 revision，旧异步快照不能覆盖新 revision；
+- 批次归属：同一时间只有一个批次维护暂存索引。发布前检查新到事件是否涉及本批的来源、目标或查找键，有冲突就重算，无需长期保留旧路径；
 - 有界安静窗 coalescing：同一路径重复出现的 Vault 与 Metadata Cache 回调只触发一次构建，同时连续事件流也不能无限推迟更新；
 - lookup 和 target 反向索引：命名空间或目标元数据变化时，同时重验证直接来源、解析到该目标的来源以及可能按 lookup key 重新定向的来源。
 

@@ -396,13 +396,16 @@ export default class LinkIntegrityPlugin extends Plugin {
 
   private registerVaultEvents(): void {
     this.registerEvent(this.app.vault.on("create", (file) => {
-      if (file instanceof TFile) { this.bodyLinks.sourceChanged(file.path, false); this.enqueue({ type: "create", path: file.path }); }
+      if (file instanceof TFile) this.bodyLinks.sourceChanged(file.path, false);
+      else if (!(file instanceof TFolder) || file.children.length === 0) return;
+      this.enqueue({ type: "create", path: file.path });
     }));
     this.registerEvent(this.app.vault.on("modify", (file) => {
       if (file instanceof TFile) { this.bodyLinks.sourceChanged(file.path, false); this.enqueue({ type: "modify", path: file.path }); }
     }));
     this.registerEvent(this.app.vault.on("delete", (file) => {
-      if (file instanceof TFile) { this.bodyLinks.sourceChanged(file.path, false); this.enqueue({ type: "delete", path: file.path }); }
+      if (file instanceof TFile) this.bodyLinks.sourceChanged(file.path, false);
+      this.enqueue({ type: "delete", path: file.path });
     }));
   }
 
@@ -417,6 +420,7 @@ export default class LinkIntegrityPlugin extends Plugin {
         this.enqueue({ type: "rename", oldPath, path: file.path });
       } else if (file instanceof TFolder) {
         this.renameExpectedFolderPath(oldPath, file.path);
+        this.enqueue({ type: "rename", oldPath, path: file.path });
       }
     }));
   }
