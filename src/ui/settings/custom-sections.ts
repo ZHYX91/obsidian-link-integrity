@@ -464,6 +464,7 @@ function openExpectedRuleDialog(
   const { t } = context.translator;
   const overlay = document.createElement("div");
   overlay.className = "link-integrity-rule-modal";
+  overlay.lang = context.translator.locale;
   overlay.dir = context.translator.direction;
   const panel = document.createElement("section");
   panel.className = "link-integrity-rule-modal-panel";

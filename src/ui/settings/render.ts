@@ -26,6 +26,9 @@ export function renderImperativeSettings(
 ): () => void {
   container.replaceChildren();
   container.classList.add("link-integrity-settings");
+  const hostDirection = container.getAttribute("dir");
+  const hostLanguage = container.getAttribute("lang");
+  container.lang = context.translator.locale;
   container.dir = context.translator.direction;
   const cleanups: Array<() => void> = [];
   const pages = getSettingsPageDefinitions(context);
@@ -119,7 +122,10 @@ export function renderImperativeSettings(
   return () => {
     for (const cleanup of cleanups.reverse()) cleanup();
     container.classList.remove("link-integrity-settings");
-    container.removeAttribute("dir");
+    if (hostDirection === null) container.removeAttribute("dir");
+    else container.dir = hostDirection;
+    if (hostLanguage === null) container.removeAttribute("lang");
+    else container.lang = hostLanguage;
     container.replaceChildren();
   };
 }
@@ -136,13 +142,37 @@ function renderItem(
     return renderCustomSetting(setting.settingEl, item.id, context);
   }
   if (item.kind === "toggle") {
-    setting.addToggle((toggle) => toggle
-      .setValue(Boolean(getSettingValue(context.settings, item.key)))
-      .setDisabled(context.writeProtected)
-      .onChange((value) => commitControl(context, item.key, value)));
+    setting.addToggle((toggle) => {
+      const checked = Boolean(getSettingValue(context.settings, item.key));
+      const wrapper = toggle.toggleEl;
+      const checkbox = wrapper.matches("input") ? wrapper
+        : wrapper.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      const control = checkbox ?? wrapper;
+      control.dataset.linkIntegritySettingKey = item.key;
+      control.setAttribute("aria-label", item.name);
+      if (item.description) control.setAttribute("aria-description", item.description);
+      if (checkbox !== null) {
+        if (checkbox !== wrapper) wrapper.tabIndex = -1;
+        checkbox.tabIndex = 0;
+        checkbox.checked = checked;
+        checkbox.disabled = context.writeProtected;
+      } else {
+        wrapper.setAttribute("role", "switch");
+        wrapper.setAttribute("aria-checked", String(checked));
+        wrapper.setAttribute("aria-disabled", String(context.writeProtected));
+      }
+      toggle.setValue(checked).setDisabled(context.writeProtected).onChange((value) => {
+        if (checkbox !== null) checkbox.checked = value;
+        else wrapper.setAttribute("aria-checked", String(value));
+        commitControl(context, item.key, value);
+      });
+    });
     return undefined;
   }
   setting.addDropdown((dropdown) => {
+    dropdown.selectEl.dataset.linkIntegritySettingKey = item.key;
+    dropdown.selectEl.setAttribute("aria-label", item.name);
+    if (item.description) dropdown.selectEl.setAttribute("aria-description", item.description);
     for (const option of item.options) dropdown.addOption(option.value, option.label);
     const value = String(getSettingValue(context.settings, item.key));
     // Obsidian measures the selected label in setValue. A hidden or detached
@@ -163,7 +193,9 @@ function commitControl(
 ): void {
   try {
     const result = applySettingValue(context.getSettings?.() ?? context.settings, key, value);
-    const operation = context.onSettingsChange(result.settings, result.impact);
+    const operation = key === "general.locale"
+      ? context.onSettingsChange(result.settings, result.impact)
+      : context.onSettingsChange(result.settings, result.impact, "keep-controls");
     if (operation instanceof Promise) void operation.catch((error: unknown) => context.onError?.(error));
   } catch (error) {
     context.onError?.(error);

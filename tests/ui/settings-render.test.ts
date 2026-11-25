@@ -155,6 +155,22 @@ describe("imperative settings tab reveal", () => {
     cleanup();
   });
 
+  it("restores the host language and direction when the translated settings page closes", () => {
+    const container = document.createElement("div");
+    container.lang = "en";
+    container.dir = "auto";
+    const cleanup = renderImperativeSettings(container, context("ar", "en"), {
+      activeTab: "general",
+      onSelectTab: vi.fn(),
+    });
+
+    expect(container.lang).toBe("ar");
+    expect(container.dir).toBe("rtl");
+    cleanup();
+    expect(container.lang).toBe("en");
+    expect(container.dir).toBe("auto");
+  });
+
   it("does not render an empty duplicate heading for an unlabelled section", () => {
     const container = document.createElement("div");
     const cleanup = renderImperativeSettings(

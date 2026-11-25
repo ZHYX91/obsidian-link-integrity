@@ -98,8 +98,14 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
   }
 
   private renderImperative(focusActiveTab: boolean): void {
+    const { containerEl } = this;
+    const active = containerEl.ownerDocument.activeElement;
+    const focusKey = !focusActiveTab && active !== null && containerEl.contains(active)
+      ? active.getAttribute("data-link-integrity-setting-key")
+      : null;
+    const scrollTop = containerEl.scrollTop;
     this.cleanup?.();
-    this.cleanup = renderImperativeSettings(this.containerEl, this.createContext(), {
+    this.cleanup = renderImperativeSettings(containerEl, this.createContext(), {
       activeTab: this.activeTab,
       focusActiveTab,
       onSelectTab: (tabId, focus) => {
@@ -107,6 +113,13 @@ export class LinkIntegritySettingTab extends PluginSettingTab {
         this.renderImperative(focus);
       },
     });
+    if (focusActiveTab) return;
+    containerEl.scrollTop = scrollTop;
+    if (focusKey !== null) {
+      const controls = containerEl.querySelectorAll<HTMLElement>("[data-link-integrity-setting-key]");
+      const replacement = Array.from(controls).find((control) => control.dataset.linkIntegritySettingKey === focusKey);
+      replacement?.focus({ preventScroll: true });
+    }
   }
 
   private refreshSurface(): void {

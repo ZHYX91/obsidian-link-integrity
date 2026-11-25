@@ -20,6 +20,8 @@ Link Integrity is a read-only diagnostic tool. The interface helps a user unders
 
 Desktop and mobile use the same product semantics. A narrow layout may rearrange controls, but it must not hide critical state or change the meaning of a count.
 
+Keyboard and screen readers use the setting name shown in each row. Switches have one tab stop and expose their current state. Ordinary setting changes keep the existing control in place. A language redraw preserves scroll position and returns focus to the same setting. Broken-link buttons announce the source, reference, location and reason. Row menus identify their reference or file.
+
 ## 2. Sidebar information architecture
 
 The sidebar starts with the two business tabs. It does not repeat the plugin title or keep a permanent refresh/settings action row. Plugin settings are entered through Obsidian's plugin settings page. The tabs are:
@@ -94,7 +96,7 @@ When settings tabs extend past the visible row, accent-colored arrows show which
 - Default sidebar tab and optional scan on startup. Startup scanning is off by default; before the sidebar is first opened, indexing and listeners remain dormant.
 - Link-index status and a manual rebuild action for recovery or complete verification, not routine refresh. The status summary stays compact, while a collapsed-by-default Index details disclosure shows Vault files, analyzed sources, link references, pending updates, and completion time plus duration for the latest full rebuild and incremental batch. A failure may expose its latest error inside the details, but never a Vault name, file path, or note content. Disclosure state is not persisted.
 
-A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings labels, keyboard navigation, and status text use the selected locale. All 12 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
+A language change updates plugin UI immediately. Follow Obsidian retains the stable internal value `auto`, while user-visible wording states the host relationship. Settings, sidebar results and plugin dialogs identify the selected language and reading direction for assistive technology. Settings labels, keyboard navigation, and status text use the selected locale. All 12 bundled catalogs cover every stable message key at compile time without being completed by an English spread, and an internal key is never exposed.
 
 Language choices and README navigation use the same native-name order: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português (Brasil), Русский, Tiếng Việt, العربية. Localized guides use their actual sidebar labels rather than requiring the English names. Ordinary controls respect the host cursor preference.
 

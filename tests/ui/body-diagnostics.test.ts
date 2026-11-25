@@ -13,6 +13,7 @@ describe("read-only body diagnostics", () => {
     const navigate = vi.fn(); const closed = vi.fn();
     const close = openBodyLinkDiagnostics(document, createTranslator("ar", "en"), source, navigate, closed);
     expect(document.querySelector("dialog")!.dir).toBe("rtl");
+    expect(document.querySelector("dialog")!.lang).toBe("ar");
     expect(document.body.dir).toBe("ltr");
     const row = document.querySelector<HTMLButtonElement>(".link-integrity-body-diagnostic")!;
     expect(row.textContent).toContain("مجلد/Target-中文-123#Missing heading");

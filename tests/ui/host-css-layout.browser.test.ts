@@ -90,6 +90,8 @@ interface LayoutMeasurements {
     readonly secondary: SidebarFocusMeasurements;
   };
   readonly summaryDisplay: string;
+  readonly measuredSelectOverflow: number;
+  readonly largeTextOverflow: number[];
   readonly dropdownLayout: Record<"first" | "redrawn" | "migrated",
     readonly { value: string; width: number; labelWidth: number }[]>;
   readonly surfaces: {
@@ -145,6 +147,14 @@ describe("Obsidian host CSS layout contract", () => {
     expect(measurements.result.badgeWidth).toBeLessThanOrEqual(
       measurements.result.mainWidth,
     );
+  });
+
+  it("keeps the host's hidden dropdown measurement out of a narrow panel's scroll area", () => {
+    expect(measurements.measuredSelectOverflow).toBeLessThanOrEqual(1);
+  });
+
+  it("wraps large localized setting names, format labels and rule fields inside a narrow pane", () => {
+    for (const excess of measurements.largeTextOverflow) expect(excess).toBeLessThanOrEqual(1);
   });
 
   it("preserves square host checkboxes and disclosure markers", () => {
@@ -264,8 +274,10 @@ async function renderLayoutMeasurements(): Promise<LayoutMeasurements> {
   const profilePath = path.join(tempDirectory, "profile");
   try {
     await writeFile(htmlPath, createLayoutDocument(pluginCss, sidebarFocusProbe), "utf8");
-    const { stdout } = await execFileAsync(chromePath, [
+    const { stdout, stderr } = await execFileAsync(chromePath, [
       "--headless=new",
+      "--disable-background-networking",
+      "--disable-component-update",
       "--disable-dev-shm-usage",
       "--disable-extensions",
       "--disable-gpu",
@@ -277,7 +289,7 @@ async function renderLayoutMeasurements(): Promise<LayoutMeasurements> {
     ], { maxBuffer: 4 * 1024 * 1024, timeout: 20_000 });
     const match = LAYOUT_RESULT_PATTERN.exec(stdout);
     if (match?.[1] === undefined) {
-      throw new Error(`Chromium did not emit layout measurements:\n${stdout.slice(0, 1_000)}`);
+      throw new Error(`Chromium did not emit layout measurements:\n${stdout.slice(0, 1_000)}\n${stderr.slice(-2_000)}`);
     }
     return JSON.parse(match[1]) as LayoutMeasurements;
   } finally {
@@ -441,7 +453,7 @@ ruleHost.remove();
 const dropdownCss = \`
   .setting-item-control select.dropdown { appearance:none; box-sizing:border-box;
     padding-inline:10px 32px; width:var(--dropdown-fitted-width, auto); }
-  .setting-item-control select.is-measuring { position:absolute; visibility:hidden; width:max-content; }
+  .setting-item-control select.is-measuring { position:absolute; visibility:hidden; width:max-content!important; max-width:none!important; }
 \`;
 for (const doc of [document, iframe.contentDocument]) {
   const style = doc.createElement("style"); style.textContent = dropdownCss; doc.head.append(style);
@@ -463,6 +475,16 @@ function widths() {
 }
 let close = render();
 window.dropdownLayout = { first: widths() };
+surface.style.width = "260px";
+const measuring = surface.querySelector("select.is-measuring");
+measuring.style.fontSize = "27px";
+measuring.replaceChildren(new Option("Связи, сгруппированные по целевому файлу"));
+measuring.closest(".setting-item").style.cssText = "position:relative; padding:16px";
+const controls = measuring.parentElement;
+controls.style.cssText = "width:100%;display:flex;justify-content:flex-start";
+const narrowPanel = surface.querySelector('[role="tabpanel"]');
+window.measuredSelectOverflow = narrowPanel.scrollWidth - narrowPanel.clientWidth;
+surface.style.removeProperty("width");
 close();
 render("broken-links")();
 close = render();
@@ -580,6 +602,17 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
 </style>
 </head>
 <body>
+<section class="link-integrity-settings" style="width:196px;font:20px sans-serif">
+  <div class="link-integrity-settings-panel" id="large-settings">
+    <div class="setting-item" style="flex-direction:column;align-items:flex-start">
+      <div class="setting-item-info"><div class="setting-item-name" style="overflow:hidden">Standardgruppierung</div></div>
+    </div>
+    <div class="link-integrity-settings-custom-body" style="width:148px">
+      <label class="link-integrity-rule-field"><span>Пользовательские расширения</span><textarea></textarea></label>
+      <label class="link-integrity-file-format"><input type="checkbox"><span>Изображения</span></label>
+    </div>
+  </div>
+</section>
 <section class="markdown-rendered" id="body-hint-fixture">
   <a href="#" class="internal-link is-unresolved link-integrity-broken-body-hint">Missing file</a>
   <a href="#" class="internal-link link-integrity-broken-body-hint">Missing heading</a>
@@ -735,6 +768,10 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   recovery.remove();
   const measurements = {
     dropdownLayout: window.dropdownLayout,
+    measuredSelectOverflow: window.measuredSelectOverflow,
+    largeTextOverflow: Array.from(document.querySelectorAll(
+      "#large-settings, #large-settings .setting-item, #large-settings .setting-item-name, #large-settings .link-integrity-rule-field, #large-settings .link-integrity-file-format"
+    ), element => element.scrollWidth - element.clientWidth),
     bodyHints: {
       marked: Array.from(document.querySelectorAll("#body-hint-fixture .link-integrity-broken-body-hint"), decoration),
       native: controlDecoration("unmarked-native"), virtual: controlDecoration("unmarked-virtual"),
