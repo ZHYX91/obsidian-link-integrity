@@ -42,7 +42,8 @@ export function addSettingsTabArrows(
     let target: HTMLElement | undefined;
     for (const tab of labels) {
       const distance = distanceToEdge(tab, viewport, right);
-      if (distance <= 0.5 || distance >= nearest) continue;
+      // Scroll extents are rounded to CSS pixels; label bounds can be fractional.
+      if (distance <= 1 || distance >= nearest) continue;
       nearest = distance;
       target = tab;
     }
@@ -83,23 +84,52 @@ export function addSettingsTabArrows(
     }
   }
 
+  let followSelectedTab = true;
+  function onScroll(): void {
+    update();
+    const viewport = tabs.getBoundingClientRect();
+    const selected = labels.find(tab => tab.getAttribute("aria-selected") === "true")?.getBoundingClientRect();
+    if (!selected || !viewport.width) return;
+    // Keep following a visible selection on resize. Preserve a different page
+    // when the user has scrolled the selection out of view.
+    const visible = Math.min(selected.right, viewport.right) - Math.max(selected.left, viewport.left);
+    followSelectedTab = visible >= Math.min(selected.width, viewport.width) - 1;
+  }
+
+  function measure(): void {
+    update();
+    if (!tabs.clientWidth) return;
+    if (!frame.classList.contains("has-overflow")) {
+      followSelectedTab = true;
+      return;
+    }
+    if (!followSelectedTab) return;
+    const active = labels.find(tab => tab.getAttribute("aria-selected") === "true");
+    if (!active) return;
+    const viewport = tabs.getBoundingClientRect();
+    const selected = active.getBoundingClientRect();
+    if (selected.left < viewport.left && selected.right < viewport.right) tabs.scrollLeft += selected.left - viewport.left;
+    else if (selected.right > viewport.right && selected.left > viewport.left) tabs.scrollLeft += selected.right - viewport.right;
+    update();
+  }
+
   const view = doc.defaultView;
   let pendingFrame: number | undefined;
   const observer = view?.ResizeObserver ? new view.ResizeObserver(() => {
     if (pendingFrame !== undefined) return;
     pendingFrame = view.requestAnimationFrame(() => {
       pendingFrame = undefined;
-      update();
+      measure();
     });
   }) : undefined;
   observer?.observe(frame);
   for (const tab of labels) observer?.observe(tab);
-  tabs.addEventListener("scroll", update, { passive: true });
-  view?.addEventListener("resize", update);
-  update();
+  tabs.addEventListener("scroll", onScroll, { passive: true });
+  view?.addEventListener("resize", measure);
+  measure();
   return () => {
-    tabs.removeEventListener("scroll", update);
-    view?.removeEventListener("resize", update);
+    tabs.removeEventListener("scroll", onScroll);
+    view?.removeEventListener("resize", measure);
     observer?.disconnect();
     if (pendingFrame !== undefined) view?.cancelAnimationFrame(pendingFrame);
   };

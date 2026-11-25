@@ -74,6 +74,7 @@ interface LayoutMeasurements {
     readonly scrollWidth: number;
   };
   readonly settingsTabs: {
+    readonly visibleUnderline: number;
     readonly background: string;
     readonly borderRadius: string;
     readonly clientWidth: number;
@@ -180,6 +181,10 @@ describe("Obsidian host CSS layout contract", () => {
     expect(measurements.settingsTabs.background).toBe("rgba(0, 0, 0, 0)");
     expect(measurements.settingsTabs.shadow).toBe("none");
     expect(measurements.settingsTabs.borderRadius).toBe("0px");
+  });
+
+  it("keeps both selected underline pixels inside the tab scrollport", () => {
+    expect(measurements.settingsTabs.visibleUnderline).toBe(2);
   });
 
   it("keeps settings tabs scrollable and comfortably sized", () => {
@@ -666,6 +671,10 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const folderAction = document.querySelector(".link-integrity-isolated-folder-summary > .link-integrity-more-button").getBoundingClientRect();
   const settingsTabs = document.getElementById("settings-tabs");
   const settingsTabStyle = getComputedStyle(document.getElementById("settings-tab"));
+  const selectedTab = settingsTabs.querySelector(".is-active");
+  const selectedBottom = selectedTab.getBoundingClientRect().bottom;
+  const scrollportBottom = settingsTabs.getBoundingClientRect().top + settingsTabs.clientTop + settingsTabs.clientHeight;
+  const underlineWidth = parseFloat(getComputedStyle(selectedTab).borderBlockEndWidth);
   const dialogContent = document.getElementById("dialog-content");
   dialogContent.scrollTop = dialogContent.scrollHeight;
   const dialogPanel = document.getElementById("dialog-panel").getBoundingClientRect();
@@ -735,6 +744,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
     settingsTabs: {
       background: settingsTabStyle.backgroundColor,
       borderRadius: settingsTabStyle.borderRadius,
+      visibleUnderline: Math.min(selectedBottom, scrollportBottom) - (selectedBottom - underlineWidth),
       clientWidth: settingsTabs.clientWidth,
       minHeight: document.getElementById("settings-tab").getBoundingClientRect().height,
       scrollWidth: settingsTabs.scrollWidth,

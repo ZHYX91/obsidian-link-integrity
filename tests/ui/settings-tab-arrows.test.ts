@@ -48,6 +48,7 @@ describe("settings tab overflow", () => {
     const widths = [60, 130, 65];
     let viewportWidth = 100;
     let position = 0;
+    let trailingSubpixel = 0;
     const total = widths.reduce((sum, width) => sum + width, 0);
     const rect = (left: number, width: number): DOMRect => new DOMRect(left, 0, width, 34);
     vi.spyOn(tabs, "getBoundingClientRect").mockImplementation(() => rect(0, viewportWidth));
@@ -61,7 +62,8 @@ describe("settings tab overflow", () => {
       const start = widths.slice(0, index).reduce((sum, value) => sum + value, 0);
       vi.spyOn(label, "getBoundingClientRect").mockImplementation(() => {
         const left = direction === "ltr" ? start - position : viewportWidth - start - width + position;
-        return rect(left, width);
+        const rounding = index === widths.length - 1 ? trailingSubpixel : 0;
+        return rect(direction === "ltr" ? left + rounding : left - rounding, width);
       });
       tabs.append(label);
       return label;
@@ -85,7 +87,12 @@ describe("settings tab overflow", () => {
     next.focus();
     next.click();
     expect(position).toBe(155);
+    // A rounded maximum scroll offset can leave a label less than a CSS pixel
+    // beyond its physical edge despite the scroller having reached the end.
+    trailingSubpixel = 0.75;
+    tabs.dispatchEvent(new Event("scroll"));
     expect(next.disabled).toBe(true);
+    trailingSubpixel = 0;
     expect(document.activeElement).toBe(previous);
     previous.click();
     expect(position).toBe(60);

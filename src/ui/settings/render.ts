@@ -63,10 +63,11 @@ export function renderImperativeSettings(
         pages.length,
         context.translator.direction,
       );
-      if (next === null || next === index) return;
+      if (next === null) return;
+      event.preventDefault();
+      if (next === index) return;
       const target = pages[next];
       if (target === undefined) return;
-      event.preventDefault();
       options.onSelectTab(target.id, true);
     });
     tabList.append(button);
@@ -113,14 +114,7 @@ export function renderImperativeSettings(
     }
   }
 
-  const activeButton = buttons[activeIndex];
-  const ownerWindow = container.ownerDocument.defaultView;
-  const reveal = (): void => {
-    if (activeButton === undefined) return;
-    revealHorizontalTab(activeButton, options.focusActiveTab === true);
-  };
-  const frame = ownerWindow?.requestAnimationFrame(reveal);
-  if (frame !== undefined) cleanups.push(() => ownerWindow?.cancelAnimationFrame(frame));
+  if (options.focusActiveTab) buttons[activeIndex]?.focus({ preventScroll: true });
 
   return () => {
     for (const cleanup of cleanups.reverse()) cleanup();
