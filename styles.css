@@ -822,6 +822,7 @@
 }
 
 .link-integrity-rule-modal-content {
+  container: link-integrity-settings / inline-size;
   display: grid;
   min-block-size: 0;
   min-inline-size: 0;
@@ -1227,9 +1228,7 @@
     max-block-size: calc(100vh - var(--size-4-4));
   }
 
-  .link-integrity-rule-template-picker,
-  .link-integrity-rule-condition,
-  .link-integrity-rule-pattern {
+  .link-integrity-rule-template-picker {
     grid-template-columns: minmax(0, 1fr);
   }
 

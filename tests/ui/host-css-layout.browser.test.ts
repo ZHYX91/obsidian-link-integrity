@@ -198,10 +198,11 @@ describe("Obsidian host CSS layout contract", () => {
     },
   );
 
-  it("contains narrow sidebar and rule editor content", () => {
+  it("contains narrow sidebar and body-mounted rule editor content", () => {
     expect(measurements.narrow.scrollWidth).toBeLessThanOrEqual(
       measurements.narrow.clientWidth,
     );
+    expect(measurements.rule.clientWidth).toBeGreaterThan(0);
     expect(measurements.rule.scrollWidth).toBeLessThanOrEqual(
       measurements.rule.clientWidth,
     );
@@ -314,6 +315,7 @@ import { createSidebarViewModel } from "./src/ui/sidebar/view-model";
 import { createTranslator } from "./src/shared/i18n";
 import { createDefaultSettings } from "./src/shared/settings";
 import { renderImperativeSettings } from "./src/ui/settings/render";
+import { renderCustomSetting } from "./src/ui/settings/custom-sections";
 const state = {
   activeTab: "broken-links", search: "", brokenView: "list", brokenGrouping: "target",
   brokenSort: "count", isolatedView: "list", isolatedSort: "path", isolatedMode: "isolated",
@@ -364,6 +366,34 @@ const main = measureFocus(document);
 const iframe = document.createElement("iframe");
 document.body.append(iframe);
 const secondary = measureFocus(iframe.contentDocument);
+// Use a real viewport just above the mobile media query and the actual portal,
+// which is mounted in the document body outside the settings container.
+iframe.style.border = "0";
+iframe.width = "601";
+iframe.height = "600";
+const frameDoc = iframe.contentDocument;
+frameDoc.documentElement.style.fontSize = "18px";
+for (const style of document.querySelectorAll("head > style")) frameDoc.head.append(style.cloneNode(true));
+const ruleHost = frameDoc.body.appendChild(frameDoc.createElement("div"));
+const ruleTranslator = createTranslator("ru", "en");
+let nextRuleId = 0;
+const closeRules = renderCustomSetting(ruleHost, "expected-isolation-rules", {
+  settings: createDefaultSettings(), translator: ruleTranslator, writeProtected: false,
+  createId: () => String(++nextRuleId), onSettingsChange() {},
+});
+function clickRuleButton(root, key) {
+  Array.from(root.querySelectorAll("button")).find(button => button.textContent === ruleTranslator.t(key)).click();
+}
+clickRuleButton(ruleHost, "settings.expected.addRule");
+const rulePanel = frameDoc.querySelector('[role="dialog"]');
+clickRuleButton(rulePanel, "settings.expected.namingPatterns");
+const pattern = rulePanel.querySelector(".link-integrity-rule-pattern");
+const kind = pattern.querySelector("select");
+kind.value = "regex";
+kind.dispatchEvent(new iframe.contentWindow.Event("change", { bubbles: true }));
+window.ruleLayout = { clientWidth: pattern.clientWidth, scrollWidth: pattern.scrollWidth };
+closeRules();
+ruleHost.remove();
 const dropdownCss = \`
   .setting-item-control select.dropdown { appearance:none; box-sizing:border-box;
     padding-inline:10px 32px; width:var(--dropdown-fitted-width, auto); }
@@ -571,15 +601,6 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   </div>
   </div>
 </section>
-<section class="link-integrity-settings-custom-body" id="rule-fixture" style="width: 450px">
-  <div class="link-integrity-rule-pattern">
-    <select><option>Регулярное выражение</option></select>
-    <select><option>Полный путь</option></select>
-    <input type="text" value="^(a-very-long-pattern)$">
-    <input class="link-integrity-regex-flags" type="text" value="iu">
-    <button type="button">Удалить</button>
-  </div>
-</section>
 <section class="link-integrity-settings-custom-row" id="custom-setting-row" style="display:flex;flex-direction:column;block-size:600px;inline-size:600px">
   <div class="link-integrity-settings-custom-body" id="custom-setting-body">
     <div class="link-integrity-index-status">Results updated</div>
@@ -636,7 +657,6 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   const checkbox = document.getElementById("square-checkbox").getBoundingClientRect();
   const checkboxTarget = document.getElementById("category-checkbox-target").getBoundingClientRect();
   const narrow = document.getElementById("narrow-fixture");
-  const rule = document.getElementById("rule-fixture");
   const rtlStyle = getComputedStyle(document.getElementById("rtl-format-list"));
   const resultStyle = getComputedStyle(resultMain);
   const tabStyle = getComputedStyle(document.getElementById("inactive-tab"));
@@ -711,7 +731,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
       paddingInlineEnd: Number.parseFloat(rtlStyle.paddingInlineEnd),
       paddingInlineStart: Number.parseFloat(rtlStyle.paddingInlineStart),
     },
-    rule: { clientWidth: rule.clientWidth, scrollWidth: rule.scrollWidth },
+    rule: window.ruleLayout,
     settingsTabs: {
       background: settingsTabStyle.backgroundColor,
       borderRadius: settingsTabStyle.borderRadius,
