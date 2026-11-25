@@ -117,6 +117,34 @@ describe("sidebar view model", () => {
     expect(sourceModel.broken.sourceFileCount).toBe(2);
   });
 
+  it("pages the globally sorted folder tree, including files in one folder", async () => {
+    const base = snapshot();
+    const paths = [
+      ...Array.from({ length: 60 }, (_, i) => `Busy/A/${i}.md`),
+      ...Array.from({ length: 60 }, (_, i) => `Busy/B/${i}.md`),
+      ...Array.from({ length: 100 }, () => "Smaller/One.md"),
+    ];
+    const make = (paths: string[]) => ({ ...base, brokenLinks: paths.map((sourcePath, i) => ({
+      ...base.brokenLinks[0]!, id: String(i), sourcePath,
+    })) });
+    const sortState = { ...state(), brokenGrouping: "source-folder" as const, brokenSort: "count" as const };
+    for (const select of [createSidebarViewModel, createScheduledViewModelSelector()]) {
+      const data = make(paths);
+      const first = (await select(data, sortState))!.broken;
+      expect(first.folderTree.folders.map(({ path }) => path)).toEqual(["Busy"]);
+      const viewed = [...first.items];
+      for (const offset of [100, 200]) {
+        const next = (await select(data, { ...sortState, brokenResultOffset: offset }))!.broken;
+        viewed.push(...next.items);
+      }
+      expect(viewed).toHaveLength(paths.length);
+      expect(new Set(viewed.map(({ id }) => id)).size).toBe(paths.length);
+      const direct = make(["Only/A.md", ...Array<string>(100).fill("Only/Z.md")]);
+      expect((await select(direct, sortState))!.broken.folderTree.folders[0]!.files.map(({ name }) => name))
+        .toEqual(["Z.md"]);
+    }
+  });
+
   it("reads each source path a bounded number of times when sorting distinct folders", () => {
     const base = snapshot();
     const size = 257;

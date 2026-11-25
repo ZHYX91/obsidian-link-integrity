@@ -99,7 +99,7 @@ export function createScheduledViewModelSelector(): (
       const grouping = state.brokenView === "list" ? "source" : state.brokenGrouping;
       const counts = await prepareCounts(broken, snapshot, state, scheduler, () => operation === revision);
       if (counts === null) return null;
-      const sortedBroken = await sortVisible(broken, brokenComparator(broken, sort, grouping, counts.groups),
+      const sortedBroken = await sortVisible(broken, brokenComparator(broken, sort, grouping, counts.groups, counts),
         key === nextKey && sort !== "count" ? prepared.broken : null,
         (item) => item.id, scheduler, () => operation === revision);
       if (sortedBroken === null) return null;
@@ -148,15 +148,11 @@ async function prepareCounts(
     const group = state.brokenGrouping === "target" ? targetGroupKey(item)
       : state.brokenGrouping === "source" ? item.sourcePath : folder;
     groups.set(group, (groups.get(group) ?? 0) + 1);
-    files.set(item.sourcePath, (files.get(item.sourcePath) ?? 0) + 1);
-    directFolders.add(folder);
     if (state.brokenGrouping === "source-folder") {
-      folders.set("", (folders.get("") ?? 0) + 1);
-      let path = "";
-      for (const segment of folder.split("/").filter(Boolean)) {
-        path = path.length === 0 ? segment : `${path}/${segment}`;
-        folders.set(path, (folders.get(path) ?? 0) + 1);
-      }
+      countFolderIssue(item, folders, files);
+      directFolders.add(folder);
+    } else if (state.brokenGrouping === "source") {
+      files.set(item.sourcePath, (files.get(item.sourcePath) ?? 0) + 1);
     }
     const pause = scheduler.checkpoint();
     if (pause !== null) await pause;
@@ -326,13 +322,13 @@ export function createSidebarViewModel(
   prepared?: PreparedItems,
 ): SidebarViewModel {
   const normalizedSearch = state.search.trim().toLocaleLowerCase();
-  const visibleBrokenItems = prepared?.broken ?? (state.activeTab === "broken-links"
-    ? sortBrokenLinks(
-      snapshot.brokenLinks.filter((result) => brokenMatches(result, normalizedSearch)),
-      state.brokenView === "list" ? "path" : state.brokenSort,
-      state.brokenView === "list" ? "source" : state.brokenGrouping,
-    )
-    : []);
+  const filtered = prepared !== undefined || state.activeTab !== "broken-links"
+    ? [] : snapshot.brokenLinks.filter((result) => brokenMatches(result, normalizedSearch));
+  const grouping = state.brokenView === "list" ? "source" : state.brokenGrouping;
+  const folderCounts = prepared?.counts ?? (grouping === "source-folder" ? countFolders(filtered) : undefined);
+  const visibleBrokenItems = prepared?.broken ?? filtered.sort(brokenComparator(
+    filtered, state.brokenView === "list" ? "path" : state.brokenSort, grouping, undefined, folderCounts,
+  ));
   const brokenPageStart = normalizePageStart(
     state.brokenResultOffset,
     visibleBrokenItems.length,
@@ -399,7 +395,7 @@ export function createSidebarViewModel(
         )
         : [],
       folderTree: state.brokenView === "group" && state.brokenGrouping === "source-folder"
-        ? buildBrokenFolderTree(brokenItems, visibleBrokenItems, state.brokenSort, prepared?.counts)
+        ? buildBrokenFolderTree(brokenItems, visibleBrokenItems, state.brokenSort, folderCounts)
         : EMPTY_BROKEN_FOLDER_TREE,
     },
     isolated: {
@@ -486,18 +482,7 @@ export function buildBrokenFolderTree(
   preparedCounts?: Pick<PreparedCounts, "folders" | "files">,
 ): BrokenFolderTreeNode {
   const mutableRoot = createMutableBrokenFolder("", "");
-  const folderCounts = new Map<string, number>();
-  const fileCounts = new Map<string, number>();
-  for (const item of preparedCounts === undefined ? allVisibleItems : []) {
-    fileCounts.set(item.sourcePath, (fileCounts.get(item.sourcePath) ?? 0) + 1);
-    const segments = sourceFolderPath(item).split("/").filter(Boolean);
-    folderCounts.set("", (folderCounts.get("") ?? 0) + 1);
-    let folderPath = "";
-    for (const segment of segments) {
-      folderPath = folderPath.length === 0 ? segment : `${folderPath}/${segment}`;
-      folderCounts.set(folderPath, (folderCounts.get(folderPath) ?? 0) + 1);
-    }
-  }
+  const counts = preparedCounts ?? countFolders(allVisibleItems);
   for (const item of items) {
     const segments = item.sourcePath.split("/").filter(Boolean);
     const name = segments.pop();
@@ -517,7 +502,7 @@ export function buildBrokenFolderTree(
     file.items.push(item);
     current.files.set(item.sourcePath, file);
   }
-  return freezeBrokenFolder(mutableRoot, preparedCounts?.folders ?? folderCounts, preparedCounts?.files ?? fileCounts, sort);
+  return freezeBrokenFolder(mutableRoot, counts.folders, counts.files, sort);
 }
 
 export function buildIsolatedTree(items: readonly IsolatedFileResult[]): IsolatedTreeNode {
@@ -547,10 +532,61 @@ function sortBrokenLinks(
   return result.sort(brokenComparator(items, sort, grouping));
 }
 
+type FolderCounts = Pick<PreparedCounts, "folders" | "files">;
+
+function countFolderIssue(item: BrokenLinkResult, folders: Map<string, number>, files: Map<string, number>): void {
+  const path = item.sourcePath;
+  files.set(path, (files.get(path) ?? 0) + 1);
+  let folder = sourceFolderPath(item);
+  for (;;) {
+    folders.set(folder, (folders.get(folder) ?? 0) + 1);
+    if (!folder) break;
+    folder = folder.slice(0, Math.max(0, folder.lastIndexOf("/")));
+  }
+}
+
+function countFolders(items: readonly BrokenLinkResult[]): FolderCounts {
+  const folders = new Map<string, number>();
+  const files = new Map<string, number>();
+  for (const item of items) countFolderIssue(item, folders, files);
+  return { folders, files };
+}
+
+function compareTreePaths(left: string, right: string, sort: BrokenSort, totals: ReadonlyMap<string, number>): number {
+  return (sort === "count" ? (totals.get(right) ?? 0) - (totals.get(left) ?? 0) : 0) ||
+    left.localeCompare(right) || (left < right ? -1 : left > right ? 1 : 0);
+}
+
+function folderOrder(sort: BrokenSort, counts: FolderCounts) {
+  const ancestors = new Map<string, string[]>();
+  const lineage = (folder: string): string[] => {
+    let path = ancestors.get(folder);
+    if (path !== undefined) return path;
+    path = [];
+    for (let slash = folder.indexOf("/"); slash >= 0; slash = folder.indexOf("/", slash + 1)) {
+      path.push(folder.slice(0, slash));
+    }
+    if (folder) path.push(folder);
+    ancestors.set(folder, path);
+    return path;
+  };
+  return (left: BrokenLinkResult, right: BrokenLinkResult): number => {
+    const a = lineage(sourceFolderPath(left));
+    const b = lineage(sourceFolderPath(right));
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      if (a[i] !== b[i]) return compareTreePaths(a[i]!, b[i]!, sort, counts.folders);
+    }
+    // The tree renders child folders before the parent's own files.
+    return b.length - a.length || compareTreePaths(left.sourcePath, right.sourcePath, sort, counts.files) ||
+      compareLocations(left, right) || left.id.localeCompare(right.id);
+  };
+}
+
 function brokenComparator(
   items: readonly BrokenLinkResult[], sort: BrokenSort, grouping: BrokenGrouping,
-  preparedCounts?: ReadonlyMap<string, number>,
+  preparedCounts?: ReadonlyMap<string, number>, folderCounts?: FolderCounts,
 ): (left: BrokenLinkResult, right: BrokenLinkResult) => number {
+  if (grouping === "source-folder") return folderOrder(sort, folderCounts ?? countFolders(items));
   const groupKey = (item: BrokenLinkResult): string => grouping === "target"
     ? targetGroupKey(item)
     : grouping === "source"
@@ -680,19 +716,15 @@ function freezeBrokenFolder(
 ): BrokenFolderTreeNode {
   const folders = Array.from(node.folders.values())
     .map((folder) => freezeBrokenFolder(folder, folderCounts, fileCounts, sort))
-    .sort((left, right) => sort === "count"
-      ? right.totalCount - left.totalCount || left.path.localeCompare(right.path)
-      : left.path.localeCompare(right.path));
+    .sort((left, right) => compareTreePaths(left.path, right.path, sort, folderCounts));
   const files = Array.from(node.files.values())
     .map((file) => ({
       path: file.path,
       name: file.name,
       totalCount: fileCounts.get(file.path) ?? file.items.length,
-      items: sortBrokenLinks(file.items, "path"),
+      items: sortBrokenLinks(file.items, "path", "source"),
     }))
-    .sort((left, right) => sort === "count"
-      ? right.totalCount - left.totalCount || left.path.localeCompare(right.path)
-      : left.path.localeCompare(right.path));
+    .sort((left, right) => compareTreePaths(left.path, right.path, sort, fileCounts));
   return {
     name: node.name,
     path: node.path,
