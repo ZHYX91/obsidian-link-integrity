@@ -26,8 +26,8 @@ const localizedProductTerms = {
 // These excerpts are exact language-specific meanings, not just generic keywords.
 const connectionWarningByLocale = {
   en: "Exclude matching links from connection analysis (advanced)",
-  "zh-CN": "从连接分析中排除匹配链接（高级）",
-  "zh-TW": "從連結分析排除符合條件的連結（進階）",
+  "zh-CN": "原本有有效连接的文件也可能显示为孤立",
+  "zh-TW": "原本有連結的檔案也可能顯示為孤立",
   ja: "接続分析から一致するリンクを除外",
   ko: "연결 분석에서 일치하는 링크를 제외",
   de: "Ausschließen passender Links aus der Verbindungsanalyse",

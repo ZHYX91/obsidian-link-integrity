@@ -45,6 +45,9 @@ describe("README marketplace link contract", () => {
       const { t } = createTranslator(locale, "en");
       expect(source, relativePath).toContain(t("sidebar.tab.broken"));
       expect(source, relativePath).toContain(t("sidebar.tab.isolated"));
+      if (locale === "en" || locale === "zh-CN" || locale === "zh-TW") {
+        expect(source, relativePath).toContain(t("ignore.scope.excludeGraph"));
+      }
       for (const key of ["index.start", "index.rebuild"] as const) {
         expect(source, relativePath).toContain(`**${t(key)}**`);
       }
@@ -97,7 +100,7 @@ describe("README marketplace link contract", () => {
   });
   it("rejects omission of the advanced rule's connection-count warning", async () => {
     const guide = "docs/i18n/README.zh-TW.md";
-    await replaceInReadme(guide, "從連結分析排除符合條件的連結（進階）", "一般結果顯示規則");
+    await replaceInReadme(guide, "原本有連結的檔案也可能顯示為孤立", "顯示結果");
     expect(checkReadmeI18n(fixtureRoot)).toContain(
       `${guide} lacks the warning that advanced rules can change connection counts`,
     );

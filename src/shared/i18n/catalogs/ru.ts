@@ -5,7 +5,7 @@ export const RU_MESSAGES = localizedCatalog({
   "command.rebuildIndex": "Перестроить индекс ссылок",
   "index.start": "Создать индекс",
   "index.rebuild": "Перестроить индекс",
-  "index.retry": "Повторить перестроение",
+  "index.retry": "Проверить ещё раз",
   "index.rebuilding": "Перестроение…",
   "index.readySummary": "Готово · файлов: {files} · ссылок: {occurrences}",
   "index.details.title": "Сведения об индексе",

@@ -32,6 +32,7 @@ export function mountSidebar(
   let current = initialOptions;
   let disposed = false;
   let composing = false;
+  let statusKey = "";
   let controlsKey = "";
   let resultsKey = "";
   let pendingTabFocus: { readonly tabId: SidebarTabId; readonly anchor: Element | null } | null = null;
@@ -113,9 +114,13 @@ export function mountSidebar(
     // SidebarView publishes only its latest completed render generation. Keep
     // the request until that render selects the requested tab, without timers.
     commitTabFocus();
-    status.replaceChildren();
-    renderContextualStatus(status, options);
-    status.hidden = status.childElementCount === 0;
+    const nextStatusKey = JSON.stringify([options.translator.locale, options.model.status]);
+    if (nextStatusKey !== statusKey) {
+      statusKey = nextStatusKey;
+      status.replaceChildren();
+      renderContextualStatus(status, options);
+      status.hidden = status.childElementCount === 0;
+    }
     search.placeholder = options.translator.t("sidebar.search.placeholder");
     search.setAttribute("aria-label", options.translator.t("common.search"));
     if (!composing && search.value !== options.state.search) search.value = options.state.search;

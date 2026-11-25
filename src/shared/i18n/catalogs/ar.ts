@@ -7,7 +7,7 @@ export const AR_MESSAGES = {
   "command.rebuildIndex": "إعادة فحص روابط الخزنة",
   "index.start": "فحص الروابط",
   "index.rebuild": "إعادة فحص الروابط",
-  "index.retry": "إعادة محاولة الفحص",
+  "index.retry": "إعادة الفحص",
   "index.rebuilding": "جارٍ إعادة الفحص…",
   "index.readySummary": "جاهز · {files} ملف · {occurrences} مرجع",
   "index.details.title": "تفاصيل فحص الروابط",

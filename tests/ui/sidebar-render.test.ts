@@ -419,7 +419,7 @@ describe("sidebar renderer", () => {
     expect(container.textContent).not.toContain("No broken links");
   });
 
-  it("shows a contextual rebuild action only when results need recovery", () => {
+  it("keeps the localized scan failure, its details and the focused retry action on unrelated refreshes", () => {
     const container = document.createElement("div");
     const translator = createTranslator("en", "en");
     const state = viewState();
@@ -433,7 +433,8 @@ describe("sidebar renderer", () => {
         errorMessage: "Index read failed",
       },
     };
-    renderSidebar(container, {
+    document.body.append(container);
+    const options = {
       model: createSidebarViewModel(snapshot, state),
       state,
       translator,
@@ -442,13 +443,22 @@ describe("sidebar renderer", () => {
       defaultFormatFamilyIds: new Set(["markdown"]),
       allowNoIncomingFilter: false,
       onStateChange: vi.fn(),
-    });
-
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Index read failed");
+    };
+    const mounted = mountSidebar(container, options);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Scan failed");
+    const detail = container.querySelector<HTMLDetailsElement>(".link-integrity-status-row details")!;
+    expect(detail.textContent).toContain("Index read failed");
+    detail.open = true;
     const retry = Array.from(container.querySelectorAll("button"))
-      .find(({ textContent }) => textContent === "Retry rebuild");
-    retry?.click();
+      .find(({ textContent }) => textContent === "Scan again");
+    retry!.focus();
+    mounted.update({ ...options, state: { ...state, search: "new" } });
+    expect(document.activeElement).toBe(retry);
+    expect(detail.isConnected && detail.open).toBe(true);
+    retry!.click();
     expect(nav.rebuildIndex).toHaveBeenCalledOnce();
+    mounted.dispose();
+    container.remove();
   });
 
   it("shows contextual sort controls only for views where ordering is meaningful", () => {

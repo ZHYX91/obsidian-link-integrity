@@ -5,7 +5,7 @@ export const KO_MESSAGES = localizedCatalog({
   "command.rebuildIndex": "링크 인덱스 다시 빌드",
   "index.start": "인덱스 빌드",
   "index.rebuild": "인덱스 다시 빌드",
-  "index.retry": "다시 빌드 재시도",
+  "index.retry": "다시 검사",
   "index.rebuilding": "다시 빌드 중…",
   "index.readySummary": "준비됨 · 파일 {files}개 · 참조 {occurrences}개",
   "index.details.title": "인덱스 세부 정보",

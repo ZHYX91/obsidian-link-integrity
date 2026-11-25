@@ -88,8 +88,17 @@ export function renderContextualStatus(
     "link-integrity-status",
   );
   status.setAttribute("role", options.model.status.state === "failed" ? "alert" : "status");
-  status.setAttribute("aria-live", "polite");
-  row.append(status);
+  const message = container.ownerDocument.createElement("div");
+  message.className = "link-integrity-status-message";
+  message.append(status);
+  const { state, errorMessage } = options.model.status;
+  if ((state === "failed" || state === "stale") && errorMessage) {
+    const details = container.ownerDocument.createElement("details");
+    details.append(createText(container.ownerDocument, "summary", options.translator.t("index.details.error")),
+      createText(container.ownerDocument, "div", errorMessage));
+    message.append(details);
+  }
+  row.append(message);
   if (options.model.status.state === "failed" || options.model.status.state === "stale") {
     row.append(createActionButton(
       container.ownerDocument,
@@ -807,7 +816,7 @@ function formatStatus(options: SidebarRenderOptions): string {
     return t("status.scanning", { current: status.current, total: status.total });
   }
   if (status.state === "stale") return t("status.stale");
-  if (status.state === "failed") return status.errorMessage ?? t("status.failed");
+  if (status.state === "failed") return t("status.failed");
   if (status.state === "idle") return t("status.idle");
   return t("status.ready");
 }

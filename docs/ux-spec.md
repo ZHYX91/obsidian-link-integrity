@@ -25,7 +25,9 @@ The sidebar starts with the two business tabs. It does not repeat the plugin tit
 1. **Broken links**, with the number of currently visible problems.
 2. **Isolated files**, with the main result count, excluding expected isolated files by default.
 
-The ready state consumes no permanent status row. Progress appears only while scanning; stale or failed state appears contextually in the current panel with a Retry rebuild action. With no usable index, opening the sidebar starts the first complete build automatically while retaining a discoverable Build index action. A full-rebuild failure must never replace the most recent trustworthy result with an empty list.
+The ready state consumes no permanent status row. Progress appears only while scanning; stale or failed state appears contextually in the current panel with a Scan again action and expandable error details. With no usable index, opening the sidebar starts the first complete build automatically while retaining a discoverable Build index action. A full-rebuild failure must never replace the most recent trustworthy result with an empty list.
+
+In narrow sidebars or with large interface text, Scan again can wrap below the summary and error details so the message stays readable.
 
 Result DOM is bounded to 100 problem rows or files per page. Previous/next controls preserve access to the complete filtered and sorted result set; badges show full-result counts and the range label identifies the current page. After an index change, an inactive tab whose results have not refreshed shows a pending marker instead of presenting an old count as current. Changing search, sort, grouping, view, mode, expected-isolation visibility, or file-type filters returns to the first page.
 
