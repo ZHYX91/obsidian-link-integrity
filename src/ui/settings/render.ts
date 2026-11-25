@@ -154,6 +154,7 @@ function renderItem(
       const checkbox = wrapper.matches("input") ? wrapper
         : wrapper.querySelector<HTMLInputElement>('input[type="checkbox"]');
       const control = checkbox ?? wrapper;
+      control.dataset.linkIntegritySettingKey = item.key;
       control.setAttribute("aria-label", item.name);
       if (item.description) control.setAttribute("aria-description", item.description);
       if (checkbox !== null) {
@@ -175,6 +176,7 @@ function renderItem(
     return undefined;
   }
   setting.addDropdown((dropdown) => {
+    dropdown.selectEl.dataset.linkIntegritySettingKey = item.key;
     dropdown.selectEl.setAttribute("aria-label", item.name);
     if (item.description) dropdown.selectEl.setAttribute("aria-description", item.description);
     for (const option of item.options) dropdown.addOption(option.value, option.label);
@@ -197,7 +199,9 @@ function commitControl(
 ): void {
   try {
     const result = applySettingValue(context.getSettings?.() ?? context.settings, key, value);
-    const operation = context.onSettingsChange(result.settings, result.impact);
+    const operation = key === "general.locale"
+      ? context.onSettingsChange(result.settings, result.impact)
+      : context.onSettingsChange(result.settings, result.impact, "keep-controls");
     if (operation instanceof Promise) void operation.catch((error: unknown) => context.onError?.(error));
   } catch (error) {
     context.onError?.(error);

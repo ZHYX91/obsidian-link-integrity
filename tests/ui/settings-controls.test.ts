@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { LinkIntegritySettingTab } from "../../src/app/settings-tab";
 import { createTranslator } from "../../src/shared/i18n";
 import { createDefaultSettings } from "../../src/shared/settings";
 import { renderImperativeSettings } from "../../src/ui/settings/render";
@@ -34,6 +35,11 @@ vi.mock("obsidian", () => {
     onChange(callback: (value: never) => void): this { this.change = callback; return this; }
   }
   return {
+    getLanguage: () => "en",
+    PluginSettingTab: class {
+      readonly containerEl = document.createElement("div");
+      hide(): void {}
+    },
     setIcon: vi.fn(),
     Setting: class {
       settingEl: HTMLElement;
@@ -103,7 +109,7 @@ describe("imperative settings controls", () => {
     change("toggle", true);
     expect(context.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({
       isolatedFiles: expect.objectContaining({ periodicNotesPreset: latest.isolatedFiles.periodicNotesPreset }),
-    }), "query-only");
+    }), "query-only", "keep-controls");
   });
 
   it("gives the single focusable native checkbox its localized name and committed state", () => {
@@ -123,13 +129,45 @@ describe("imperative settings controls", () => {
     change("toggle", true);
     expect(context.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({
       general: expect.objectContaining({ scanOnStartup: true }),
-    }), "query-only");
+    }), "query-only", "keep-controls");
     change("dropdown", "de");
     expect(context.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({
       general: expect.objectContaining({ locale: "de" }),
     }), "query-only");
     expect(context.settings.general.scanOnStartup).toBe(false);
     expect(context.settings.general.locale).toBe("auto");
+  });
+
+  it("keeps a changed toggle mounted and restores the owning field on a language redraw", () => {
+    let settings = createDefaultSettings();
+    const owner = {
+      getSettings: () => settings,
+      updateSettings: (next: typeof settings) => { settings = next; },
+      isSettingsWriteProtected: () => false,
+    };
+    const tab = new LinkIntegritySettingTab({} as never, owner as never);
+    const panel = tab.containerEl;
+    document.body.append(panel);
+    cleanups.push(() => { tab.hide(); panel.remove(); });
+    tab.display();
+
+    const toggle = panel.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    toggle.focus();
+    change("toggle", true);
+    expect(settings.general.scanOnStartup).toBe(true);
+    expect(toggle.checked).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+
+    const language = panel.querySelector<HTMLSelectElement>("select")!;
+    panel.scrollTop = 123;
+    language.focus();
+    change("dropdown", "ar");
+    const replacement = panel.querySelector<HTMLSelectElement>("select")!;
+    expect(settings.general.locale).toBe("ar");
+    expect(panel.dir).toBe("rtl");
+    expect(language.isConnected).toBe(false);
+    expect(document.activeElement).toBe(replacement);
+    expect(panel.scrollTop).toBe(123);
   });
 
   it.each(["toggle", "dropdown"] as const)("reports synchronous %s commit failures", (kind) => {
