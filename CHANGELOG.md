@@ -13,7 +13,7 @@ accepted into the Obsidian community directory, or that any Vault was updated.
 - Recognize mixed-case Markdown extensions in body diagnostics and keep reading-view hints tied to their current note.
 - Show a translated scan failure summary with expandable error details and a readable retry button on narrow sidebars.
 - Keep focus and expanded file-type groups when switching sidebar views or filters. Keep the remaining draft and editing position when adding or removing naming patterns.
-- Keep the selected settings tab visible after opening or resizing the pane. Improve touch targets, selected-tab contrast and keyboard navigation.
+- Keep the selected settings tab visible when opening, resizing or loading a long settings page. Improve touch targets, selected-tab contrast and keyboard navigation.
 - Expose native settings names and switch states to screen readers. Keep keyboard focus after editing settings and distinguish repeated broken links by their location.
 - Wrap long translated fields in narrow panes, clarify index counts and Arabic number forms, and explain where periodic-note rules are configured.
 

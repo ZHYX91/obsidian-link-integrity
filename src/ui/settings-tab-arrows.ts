@@ -85,8 +85,14 @@ export function addSettingsTabArrows(
   }
 
   let followSelectedTab = true;
+  let automaticScrollPosition: number | null = null;
   function onScroll(): void {
+    const automatic = automaticScrollPosition !== null && Math.abs(tabs.scrollLeft - automaticScrollPosition) <= 1;
+    automaticScrollPosition = null;
     update();
+    // This event can arrive after the host gets a vertical scrollbar. The
+    // queued reveal is still automatic even if the new width clips the label.
+    if (automatic) return;
     const viewport = tabs.getBoundingClientRect();
     const selected = labels.find(tab => tab.getAttribute("aria-selected") === "true")?.getBoundingClientRect();
     if (!selected || !viewport.width) return;
@@ -97,13 +103,18 @@ export function addSettingsTabArrows(
   }
 
   function measure(): void {
+    const positionBeforeMeasure = tabs.scrollLeft;
     update();
     if (!tabs.clientWidth) return;
     if (!frame.classList.contains("has-overflow")) {
       followSelectedTab = true;
-      return;
+    } else if (followSelectedTab) {
+      revealSelection();
     }
-    if (!followSelectedTab) return;
+    if (tabs.scrollLeft !== positionBeforeMeasure) automaticScrollPosition = tabs.scrollLeft;
+  }
+
+  function revealSelection(): void {
     const active = labels.find(tab => tab.getAttribute("aria-selected") === "true");
     if (!active) return;
     const viewport = tabs.getBoundingClientRect();

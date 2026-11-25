@@ -50,6 +50,12 @@ interface LayoutMeasurements {
     readonly hiddenRetryHeight: number;
   };
   readonly expectedToggle: { readonly labelWidth: number; readonly badgeOnNextLine: boolean };
+  readonly restoredTab: readonly {
+    readonly initialClip: number;
+    readonly narrowedClip: number;
+    readonly settledClip: number;
+    readonly manualClip: number;
+  }[];
   readonly scanRecovery: readonly { readonly messageWidth: number; readonly wrapped: boolean; readonly fits: boolean }[];
   readonly folderAction: {
     readonly height: number;
@@ -120,6 +126,16 @@ describe("Obsidian host CSS layout contract", () => {
       expect(result.messageWidth).toBeGreaterThan(170);
     }
     expect(measurements.scanRecovery[2]).toMatchObject({ wrapped: false, fits: true });
+  });
+
+  it("follows the restored settings tab when an automatic scroll arrives after the pane narrows", () => {
+    expect(measurements.restoredTab).toHaveLength(2);
+    for (const tab of measurements.restoredTab) {
+      expect(tab.initialClip).toBeLessThanOrEqual(1);
+      expect(tab.narrowedClip).toBeGreaterThan(1);
+      expect(tab.settledClip).toBeLessThanOrEqual(1);
+      expect(tab.manualClip).toBeGreaterThan(1);
+    }
   });
 
   it("keeps warning waves above native unresolved and hover rules without styling unmarked links", () => {
@@ -344,6 +360,7 @@ import { createTranslator } from "./src/shared/i18n";
 import { createDefaultSettings } from "./src/shared/settings";
 import { renderImperativeSettings } from "./src/ui/settings/render";
 import { renderCustomSetting } from "./src/ui/settings/custom-sections";
+import { addSettingsTabArrows } from "./src/ui/settings-tab-arrows";
 const state = {
   activeTab: "broken-links", search: "", brokenView: "list", brokenGrouping: "target",
   brokenSort: "count", isolatedView: "list", isolatedSort: "path", isolatedMode: "isolated",
@@ -499,6 +516,48 @@ close();
 surface.remove();
 iframe.remove();
 window.sidebarFocus = { main, secondary };
+window.restoredTab = ["ltr", "rtl"].map((direction) => {
+  const pane = document.createElement("section");
+  pane.className = "link-integrity-settings";
+  pane.dir = direction;
+  pane.style.width = "379px";
+  const tabs = document.createElement("div");
+  tabs.className = "link-integrity-settings-tabs";
+  const labels = [72, 197, 218].map((width, index) => {
+    const button = document.createElement("button");
+    button.className = "link-integrity-settings-tab";
+    button.style.inlineSize = width + "px";
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(index === 2));
+    tabs.append(button);
+    return button;
+  });
+  pane.append(tabs);
+  document.body.append(pane);
+  const cleanup = addSettingsTabArrows(tabs, direction, "Earlier", "More");
+  function clip() {
+    const viewport = tabs.getBoundingClientRect();
+    const selected = labels[2].getBoundingClientRect();
+    return Math.max(0, viewport.left - selected.left) + Math.max(0, selected.right - viewport.right);
+  }
+  const initialClip = clip();
+  // Adding the contents drives the native pane's scrollbar and narrows the
+  // strip before the scroll event from the initial reveal is delivered.
+  pane.style.width = "364px";
+  const narrowedClip = clip();
+  tabs.dispatchEvent(new Event("scroll"));
+  window.dispatchEvent(new Event("resize"));
+  const settledClip = clip();
+  tabs.dispatchEvent(new Event("scroll"));
+  tabs.scrollLeft = 0;
+  tabs.dispatchEvent(new Event("scroll"));
+  pane.style.width = "351px";
+  window.dispatchEvent(new Event("resize"));
+  const manualClip = clip();
+  cleanup();
+  pane.remove();
+  return { initialClip, narrowedClip, settledClip, manualClip };
+});
 `,
       resolveDir: PROJECT_ROOT,
       sourcefile: "sidebar-focus-probe.ts",
@@ -768,6 +827,7 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   recovery.remove();
   const measurements = {
     dropdownLayout: window.dropdownLayout,
+    restoredTab: window.restoredTab,
     measuredSelectOverflow: window.measuredSelectOverflow,
     largeTextOverflow: Array.from(document.querySelectorAll(
       "#large-settings, #large-settings .setting-item, #large-settings .setting-item-name, #large-settings .link-integrity-rule-field, #large-settings .link-integrity-file-format"
