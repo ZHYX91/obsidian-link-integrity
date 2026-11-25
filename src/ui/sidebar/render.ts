@@ -44,7 +44,6 @@ export interface SidebarRenderOptions {
   readonly onActionError?: (error: unknown) => void;
   readonly document?: Document;
   readonly mountElement?: HTMLElement;
-  readonly disclosures?: Map<string, boolean>;
   readonly rows?: Map<string, { readonly signature: string; readonly element: HTMLLIElement }>;
   readonly requestTabFocus?: (tabId: SidebarTabId) => void;
   readonly commitTabFocus?: () => void;
@@ -202,6 +201,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
       toggleButton(
         container.ownerDocument,
         t("sidebar.broken.view.list"),
+        "broken-list",
         options.state.brokenView === "list",
         () => options.onStateChange({
           ...options.state,
@@ -233,6 +233,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
       toggleButton(
         container.ownerDocument,
         t("sidebar.isolated.view.list"),
+        "isolated-list",
         options.state.isolatedView === "list",
         () => options.onStateChange({
           ...options.state,
@@ -243,6 +244,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
       toggleButton(
         container.ownerDocument,
         t("sidebar.isolated.view.tree"),
+        "isolated-tree",
         options.state.isolatedView === "tree",
         () => options.onStateChange({
           ...options.state,
@@ -263,7 +265,7 @@ export function renderToolbarControls(toolbar: HTMLElement, options: SidebarRend
             isolatedResultOffset: 0,
           });
         }
-      }, t("settings.isolated.advancedMode")));
+      }, t("settings.isolated.advancedMode"), "isolated-mode"));
     }
     if (options.state.isolatedView === "list") {
       toolbar.append(compactSelect(container.ownerDocument, t("common.sort"), [
@@ -508,6 +510,7 @@ export function renderIsolatedResults(container: HTMLElement, options: SidebarRe
   expectedToggle.className = "link-integrity-advanced-toggle";
   const expectedCheckbox = container.ownerDocument.createElement("input");
   expectedCheckbox.type = "checkbox";
+  expectedCheckbox.dataset.focusKey = "show-expected";
   expectedCheckbox.checked = options.state.showExpectedIsolated;
   expectedCheckbox.addEventListener("change", () => options.onStateChange({
     ...options.state,
@@ -693,7 +696,7 @@ function createDisclosure(
 ): HTMLDetailsElement {
   const details = documentFor(options).createElement("details");
   details.dataset.disclosureKey = key;
-  details.open = options.disclosures?.get(key) ?? defaultOpen;
+  details.open = defaultOpen;
   return details;
 }
 

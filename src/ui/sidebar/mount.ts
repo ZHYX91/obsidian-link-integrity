@@ -66,7 +66,6 @@ export function mountSidebar(
     onActionError: (error) => current.onActionError?.(error),
     document: container.ownerDocument,
     mountElement: container,
-    disclosures,
     rows,
     requestTabFocus: (tabId) => {
       pendingTabFocus = { tabId, anchor: container.ownerDocument.activeElement };
@@ -130,16 +129,14 @@ export function mountSidebar(
       options.state.isolatedView, options.state.isolatedMode, options.state.isolatedSort,
     ]);
     if (controlsKey !== nextControlsKey) {
+      const focusKey = captureFocusKey(toolbar);
       controlsKey = nextControlsKey;
       for (const control of Array.from(toolbar.children).slice(1)) control.remove();
       renderToolbarControls(toolbar, options);
+      restoreFocus(toolbar, focusKey);
     }
     const idle = options.model.status.state === "idle";
     toolbar.hidden = idle;
-    for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
-      const key = details.dataset.disclosureKey;
-      if (key !== undefined) disclosures.set(key, details.open);
-    }
     const nextResultsKey = JSON.stringify([
       options.translator.locale, options.model.activeTab, options.model.search,
       options.model.status.state, options.allowNoIncomingFilter,
@@ -149,7 +146,11 @@ export function mountSidebar(
     ]);
     if (resultsKey === nextResultsKey) return;
     resultsKey = nextResultsKey;
-    const focusKey = resultFocusKey(container.ownerDocument.activeElement, results);
+    for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
+      const key = details.dataset.disclosureKey;
+      if (key !== undefined) disclosures.set(key, details.open);
+    }
+    const focusKey = captureFocusKey(results);
     results.replaceChildren();
     if (idle) {
       renderEmptyState(results, options.translator.t("status.idle"),
@@ -160,7 +161,11 @@ export function mountSidebar(
     } else {
       renderIsolatedResults(results, options);
     }
-    restoreResultFocus(results, focusKey);
+    for (const details of results.querySelectorAll<HTMLDetailsElement>("details[data-disclosure-key]")) {
+      const open = disclosures.get(details.dataset.disclosureKey!);
+      if (open !== undefined) details.open = open;
+    }
+    restoreFocus(results, focusKey);
     for (const [key, row] of rows) if (!results.contains(row.element)) rows.delete(key);
   };
   update(initialOptions);
@@ -180,14 +185,15 @@ export function mountSidebar(
   };
 }
 
-function resultFocusKey(activeElement: Element | null, results: HTMLElement): string | null {
-  if (activeElement === null || !results.contains(activeElement)) return null;
+function captureFocusKey(region: HTMLElement): string | null {
+  const activeElement = region.ownerDocument.activeElement;
+  if (activeElement === null || !region.contains(activeElement)) return null;
   return activeElement.closest<HTMLElement>("[data-focus-key]")?.dataset.focusKey ?? null;
 }
 
-function restoreResultFocus(results: HTMLElement, focusKey: string | null): void {
+function restoreFocus(region: HTMLElement, focusKey: string | null): void {
   if (focusKey === null) return;
-  const controls = Array.from(results.querySelectorAll<HTMLElement>("[data-focus-key]"));
+  const controls = Array.from(region.querySelectorAll<HTMLElement>("[data-focus-key]"));
   const exact = controls.find((element) => element.dataset.focusKey === focusKey);
   (exact ?? controls[0])?.focus();
 }

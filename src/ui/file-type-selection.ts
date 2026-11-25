@@ -135,10 +135,11 @@ export function renderFileTypeSelection(
   const actions = root.ownerDocument.createElement("div");
   actions.className = "link-integrity-file-types-actions";
   actions.append(
-    actionButton(root.ownerDocument, options.selectAllLabel, () => commitSelection(allIds)),
-    actionButton(root.ownerDocument, options.clearLabel, () => commitSelection(new Set())),
+    actionButton(root.ownerDocument, "file-types:all", options.selectAllLabel, () => commitSelection(allIds)),
+    actionButton(root.ownerDocument, "file-types:clear", options.clearLabel, () => commitSelection(new Set())),
     actionButton(
       root.ownerDocument,
+      "file-types:defaults",
       options.restoreDefaultLabel,
       () => commitSelection(model.defaultFormatIds),
     ),
@@ -148,9 +149,12 @@ export function renderFileTypeSelection(
   for (const category of model.categories) {
     const section = root.ownerDocument.createElement("details");
     section.className = "link-integrity-file-type-category";
+    section.dataset.disclosureKey = `file-type-category:${category.id}`;
     const header = root.ownerDocument.createElement("summary");
+    header.dataset.focusKey = section.dataset.disclosureKey;
     const parentCheckbox = root.ownerDocument.createElement("input");
     parentCheckbox.type = "checkbox";
+    parentCheckbox.dataset.focusKey = `file-type-category-select:${category.id}`;
     setCheckboxSelectionState(
       parentCheckbox,
       getCategorySelectionState(category, selectedFormatIds),
@@ -177,6 +181,7 @@ export function renderFileTypeSelection(
       label.className = "link-integrity-file-format";
       const checkbox = root.ownerDocument.createElement("input");
       checkbox.type = "checkbox";
+      checkbox.dataset.focusKey = `file-type-format:${format.id}`;
       checkbox.checked = selectedFormatIds.has(format.id);
       formatCheckboxes.set(format.id, checkbox);
       checkbox.addEventListener("change", () => {
@@ -199,11 +204,13 @@ export function renderFileTypeSelection(
 
 function actionButton(
   document: Document,
+  focusKey: string,
   label: string,
   onClick: () => void,
 ): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
+  button.dataset.focusKey = focusKey;
   button.textContent = label;
   button.addEventListener("click", onClick);
   return button;
