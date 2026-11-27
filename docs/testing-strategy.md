@@ -131,7 +131,7 @@ The active-tab benchmark proves that refreshing Broken links does not compute th
 
 A packaged candidate must come from a deterministic production build and verify that the runtime install assets are exactly `main.js`, `manifest.json`, and `styles.css`. Installation into an isolated Vault replaces those three assets while preserving `data.json`, then records file hashes and the plugin load result.
 
-The real desktop host matrix should cover at least Obsidian 1.12.7 and the current 1.13.x, verifying Metadata Cache boundaries, official resolver results, live events, precise navigation, themes, a narrow sidebar, keyboard operation, and RTL. Mobile acceptance separately covers touch targets, background/resume, rotation, narrow screens, and responsiveness on a larger Vault.
+For real desktop acceptance, include the minimum supported version (Obsidian 1.12.7) and the latest [public stable desktop version](https://obsidian.md/changelog/). Check metadata cache boundaries, native link resolution, live events, precise navigation, themes, a narrow sidebar, keyboard operation, and RTL. Record the exact Obsidian version and results for each run in the separate acceptance record. Mobile acceptance separately covers touch targets, background/resume, rotation, narrow screens, and responsiveness on a larger Vault.
 
 Stable repository documentation records the repeatable matrix and evidence boundaries, not
 machine-specific paths, run IDs, screenshots, hashes, or dated execution logs. Release decisions
