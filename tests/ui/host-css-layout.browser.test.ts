@@ -755,10 +755,12 @@ ${pluginCss.replaceAll("</style", "<\\/style")}
   <div class="setting-item link-integrity-settings-custom-row">
     <div class="link-integrity-settings-custom-body"><button id="hidden-retry" hidden>Retry</button></div>
   </div>
-  <div class="link-integrity-settings-tabs" id="settings-tabs">
-    <button class="link-integrity-settings-tab" id="settings-tab" type="button">General preferences</button>
-    <button class="link-integrity-settings-tab is-active" type="button">Broken links</button>
-    <button class="link-integrity-settings-tab" type="button">Isolated files</button>
+  <div class="link-integrity-tab-frame">
+    <div class="link-integrity-settings-tabs" id="settings-tabs">
+      <button class="link-integrity-settings-tab" id="settings-tab" type="button">General preferences</button>
+      <button class="link-integrity-settings-tab is-active" type="button">Broken links</button>
+      <button class="link-integrity-settings-tab" type="button">Isolated files</button>
+    </div>
   </div>
 </section>
 <section class="link-integrity-rule-modal-panel" style="max-block-size:260px;inline-size:400px" id="dialog-panel">

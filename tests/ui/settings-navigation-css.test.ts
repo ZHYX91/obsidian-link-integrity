@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { styleDeclarations } from "../helpers/stylesheet";
 
-const tabSelector = ".link-integrity-settings-tabs > button.link-integrity-settings-tab";
+const tabSelector = ".link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab";
 
 describe("settings navigation CSS", () => {
   it("uses the same accent for the index details chevron and its expanded logical edge", () => {
@@ -27,13 +27,13 @@ describe("settings navigation CSS", () => {
       ["border-block-end", "2px solid transparent"],
     ] as const) {
       expect(tab.getPropertyValue(property), property).toBe(value);
-      expect(tab.getPropertyPriority(property), property).toBe("important");
+      expect(tab.getPropertyPriority(property), property).toBe("");
     }
     const active = styleDeclarations(`${tabSelector}.is-active`);
     expect(active.getPropertyValue("border-block-end-color")).toBe("var(--interactive-accent)");
     expect(active.getPropertyValue("font-weight")).toBe("var(--font-semibold)");
-    expect(active.getPropertyPriority("border-block-end-color")).toBe("important");
-    expect(active.getPropertyPriority("font-weight")).toBe("important");
+    expect(active.getPropertyPriority("border-block-end-color")).toBe("");
+    expect(active.getPropertyPriority("font-weight")).toBe("");
   });
 
   it("uses the shared spacing and minimum-size contract", () => {
@@ -49,7 +49,7 @@ describe("settings navigation CSS", () => {
     expect(tab.getPropertyValue("block-size")).toBe("auto");
     expect(tab.getPropertyValue("min-block-size")).toBe("34px");
     expect(tab.getPropertyValue("padding")).toBe("7px 12px");
-    expect(tab.getPropertyPriority("padding")).toBe("important");
+    expect(tab.getPropertyPriority("padding")).toBe("");
     expect(tab.getPropertyValue("cursor")).toBe("var(--cursor, default)");
   });
 });
