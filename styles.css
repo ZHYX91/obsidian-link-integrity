@@ -1035,25 +1035,25 @@
   scrollbar-width: thin;
 }
 
-.link-integrity-settings-tabs > button.link-integrity-settings-tab {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-block-end: 2px solid transparent !important;
-  border-radius: 0 !important;
+.link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  border-block-end: 2px solid transparent;
+  border-radius: 0;
   box-sizing: border-box;
-  box-shadow: none !important;
-  color: var(--text-muted) !important;
+  box-shadow: none;
+  color: var(--text-muted);
   cursor: var(--cursor, default);
   flex: 0 0 auto;
-  font-family: inherit !important;
-  font-size: var(--font-ui-small) !important;
+  font-family: inherit;
+  font-size: var(--font-ui-small);
   font-weight: inherit;
   block-size: auto;
   min-block-size: 34px;
-  margin: 0 !important;
-  padding: 7px 12px !important;
+  margin: 0;
+  padding: 7px 12px;
   white-space: nowrap;
 }
 
@@ -1062,25 +1062,25 @@
     --interactive-accent: Highlight;
   }
 
-  .link-integrity-settings-tabs > button.link-integrity-settings-tab[aria-selected="false"] {
-    border-block-end-color: Canvas !important;
+  .link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab[aria-selected="false"] {
+    border-block-end-color: Canvas;
   }
 }
 
-.link-integrity-settings-tabs > button.link-integrity-settings-tab:hover {
-  background: transparent !important;
-  color: var(--text-normal) !important;
+.link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab:hover {
+  background: transparent;
+  color: var(--text-normal);
 }
 
-.link-integrity-settings-tabs > button.link-integrity-settings-tab.is-active,
-.link-integrity-settings-tabs > button.link-integrity-settings-tab.is-active:hover {
-  background: transparent !important;
-  border-block-end-color: var(--interactive-accent) !important;
-  color: var(--text-normal) !important;
-  font-weight: var(--font-semibold) !important;
+.link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab.is-active,
+.link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab.is-active:hover {
+  background: transparent;
+  border-block-end-color: var(--interactive-accent);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
 }
 
-.link-integrity-settings-tabs > button.link-integrity-settings-tab:focus-visible {
+.link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: -2px;
 }
@@ -1231,7 +1231,7 @@
     --link-integrity-target-size: 44px;
   }
 
-  .link-integrity-settings button.link-integrity-settings-tab {
+  .link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab {
     min-inline-size: 44px;
     min-block-size: 44px;
   }
@@ -1320,7 +1320,7 @@
 }
 
 @container link-integrity-tab-frame (max-width: 600px) {
-  .link-integrity-settings-tabs > button.link-integrity-settings-tab { padding-inline: 8px !important; }
+  .link-integrity-settings .link-integrity-tab-frame > .link-integrity-settings-tabs > button.link-integrity-settings-tab { padding-inline: 8px; }
 }
 
 /* Keep Obsidian's intrinsic-width probe out of the panel's scroll area. */
