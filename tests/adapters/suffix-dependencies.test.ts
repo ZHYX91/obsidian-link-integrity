@@ -49,6 +49,28 @@ describe("host suffix-resolution dependencies", () => {
     } finally { incremental.stop(); }
   });
 
+  it("corrects a pending heading when an unrelated create observes ready metadata first", async () => {
+    const vault = suffixFixture({ "From.md": "[[Hub#No such heading]]", "Hub.md": "" });
+    const store = new AtomicLinkIndexStore();
+    await new FullRebuildController(vault.port, store).rebuild();
+    const heading = () => store.current.getSourceSnapshot("From.md")?.occurrences[0]?.subpathStatus;
+    expect(heading()).toBe("pending");
+    const incremental = new IncrementalIndexController(vault.port, store);
+    incremental.start();
+    try {
+      vault.caches.set("Hub.md", { headings: [] });
+      vault.content.set("Unrelated.md", "");
+      incremental.enqueue({ type: "create", path: "Unrelated.md" });
+      await incremental.whenIdle();
+      expect(heading()).toBe("missing-heading");
+      incremental.enqueue({ type: "modify", path: "Hub.md" });
+      await incremental.whenIdle();
+      const clean = (await new FullRebuildController(vault.port, new AtomicLinkIndexStore()).rebuild()).index;
+      expect(store.current.toCanonicalState()).toEqual(clean.toCanonicalState());
+      expect(queryBrokenLinks(store.current).map(({ sourcePath }) => sourcePath)).toEqual(["From.md"]);
+    } finally { incremental.stop(); }
+  });
+
   it("retains multi-extension dependencies across repeated policy rebuilds and target changes", async () => {
     const target = "assets/a.tar.gz.md";
     const vault = suffixFixture({ "S.md": "[[assets/a.tar.gz.md]] and [[assets/a.tar.gz]]" });
@@ -116,6 +138,7 @@ describe("host suffix-resolution dependencies", () => {
 function suffixFixture(initial: Readonly<Record<string, string>>) {
   const content = new Map(Object.entries(initial));
   const unavailable = new Set<string>();
+  const caches = new Map<string, CachedMetadata>();
   const file = (path: string) => ({ path, extension: "md", stat: { mtime: 1 } });
   const vault = {
     getFiles: () => [...content.keys()].map(file),
@@ -123,7 +146,7 @@ function suffixFixture(initial: Readonly<Record<string, string>>) {
     cachedRead: (source: { path: string }) => Promise.resolve(content.get(source.path) ?? ""),
   } as unknown as Vault;
   const metadata = {
-    getFileCache: (): CachedMetadata | null => null,
+    getFileCache: (source: { path: string }): CachedMetadata | null => caches.get(source.path) ?? null,
     // Independent host stand-in: no production lookup-key helper participates
     // in choosing a target. Context and ambiguity can change the best match.
     getFirstLinkpathDest: (link: string, source: string) => {
@@ -136,5 +159,5 @@ function suffixFixture(initial: Readonly<Record<string, string>>) {
       return candidates[0] === undefined ? null : file(candidates[0]);
     },
   } as unknown as MetadataCache;
-  return { content, unavailable, port: new ObsidianLinkIndexPort(vault, metadata) };
+  return { content, unavailable, caches, port: new ObsidianLinkIndexPort(vault, metadata) };
 }

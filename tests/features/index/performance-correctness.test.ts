@@ -66,6 +66,30 @@ describe("scheduled incremental publication", () => {
     expect(f.port.buildSourceSnapshot).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps heading diagnostics current when a namespace refresh sees the target change first", async () => {
+    const f = fixture();
+    const link = occurrence("a", "A.md", { targetPath: "Hub.md", lookupKey: "hub",
+      subpath: "#Section", subpathStatus: "ok" });
+    f.snapshots.set("A.md", snapshot("A.md", [link]));
+    await new FullRebuildController(f.port, f.store).rebuild();
+    const controller = new IncrementalIndexController(f.port, f.store);
+    controller.start();
+    try {
+      f.files.set("Hub.md", createFileRecord("Hub.md", { modifiedAt: 2, targetFingerprint: "no heading" }));
+      f.snapshots.set("A.md", snapshot("A.md", [{ ...link, subpathStatus: "missing-heading" }]));
+      f.files.set("Unrelated.md", createFileRecord("Unrelated.md"));
+      controller.enqueue({ type: "create", path: "Unrelated.md" });
+      await controller.whenIdle();
+      const first = f.store.current;
+      controller.enqueue({ type: "modify", path: "Hub.md" });
+      await controller.whenIdle();
+      const clean = (await new FullRebuildController(f.port, new AtomicLinkIndexStore()).rebuild()).index;
+      expect(f.store.current.getOccurrence("a")?.subpathStatus).toBe("missing-heading");
+      expect(first.toCanonicalState()).toEqual(clean.toCanonicalState());
+      expect(f.store.current.toCanonicalState()).toEqual(clean.toCanonicalState());
+    } finally { controller.stop(); }
+  });
+
   it("keeps every visible container unchanged while reducing a dense source in slices", async () => {
     const f = fixture();
     const before = f.index.toCanonicalState();
