@@ -147,6 +147,7 @@ export class IncrementalIndexController {
     const indexVersion = index.version;
     const scheduler = new WorkScheduler(this.options);
     const affectedPaths = new Set(events.directPaths);
+    const changedTargetPaths = new Set(events.changedTargetPaths);
     let nextFiles: readonly FileRecord[] | null = null;
     let fileRecordUpdates: readonly FileRecordUpdate[] = [];
 
@@ -158,6 +159,13 @@ export class IncrementalIndexController {
       const changedKeys = new Set(changedLookupKeys);
       await addPaths(affectedPaths, index.iterateSourcePathsByLookupKeys(changedLookupKeys), scheduler);
       for (const file of nextFiles) {
+        // A registry scan can see new heading/block metadata before the target's
+        // own modify event. Consume the fingerprint and its invalidation together.
+        const previous = index.getFile(file.path);
+        if (previous !== null && previous.targetFingerprint !== file.targetFingerprint) {
+          changedTargetPaths.add(file.path);
+          affectedPaths.add(file.path);
+        }
         if (file.lookupKeys.some((key) => changedKeys.has(key))) {
           affectedPaths.add(file.path);
         }
@@ -190,7 +198,7 @@ export class IncrementalIndexController {
     }
 
     const updatesByPath = new Map(fileRecordUpdates.map((update) => [update.path, update.file]));
-    for (const targetPath of events.changedTargetPaths) {
+    for (const targetPath of changedTargetPaths) {
       const before = index.getFile(targetPath);
       const after = updatesByPath.get(targetPath);
       const targetUnchanged = !events.namespaceChanged && events.modifiedPaths.has(targetPath) &&
